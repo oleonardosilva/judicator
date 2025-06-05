@@ -1,0 +1,31 @@
+aqui: "&6[AQUI]"
+permission-error: "&cVocê não possui permissão para utilizar tal função."
+only-player: "&cEsse comando funciona apenas para jogadores conectados no servidor."
+write-evidences: "&7Envie as provas por vez no chat, para finalizar digite \"pronto\"."
+invalid-link: "&cEsse é um link inválido. Digite \"pronto\" caso queira finalizar a operação."
+next-link: "&aLink anexado com sucesso, caso queira parar por aqui, digite \"pronto\"."
+operation-cancel: "&aOperação cancelada com sucesso."
+reported: "&aO jogador &7{player}&a foi reportado com sucesso. Caso abuse de comando será punido."
+delay: "&cAguarde para reportar novamente."
+again: "&cVocê não pode reportar esse jogador novamente."
+report:
+  title:
+    - "       &6&lRede OpenMc - Reportes\n"
+    - "\n"
+  line:
+    message: "    &f&l• &f{reason}"
+    hoverMessage: "&7Clique para reportar &f{user} &7por &f{reason}&7."
+    hoverWithoutPermission: "\n\n&cVocê não possui permissão para aplicar essa punição."
+  footer:
+    - "\n&cNão abuse do comando, ou resultará em punição."
+runners:
+  alert:
+    - "&aNovo reporte!\n"
+    - "&aJogador: {player}\n"
+    - "&aMotivo: {reason}\n"
+    - "&eClique {aqui}&e para acessar."
+usages:
+  #[] optional arguments
+  #() binding arguments
+  report: "&cComando incorreto. Utilize: /reportar (jogador) [motivo]."
+  reports: "&cComando incorreto. Utilize: /reportes."

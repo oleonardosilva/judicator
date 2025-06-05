@@ -1,0 +1,28 @@
+announce: true
+commands-locked-when-silenced:
+  - "/g"
+  - "/l"
+  - "/anunciar"
+  - "/tell"
+warns:
+  tree:
+    warns: 3
+    command: "tempban {player} 3:dias Recebeu 3 avisos."
+reasons: #Esses serão os motivos pré-definidos para utilizar no /punir
+  reason1:
+    reason: "Ofensa a jogador"
+    permission: 'punir.ajudante'
+    type: TEMPMUTE
+    ip: false
+    duration: "7:dias,2:meses"
+  reason2:
+    reason: "Uso de hack"
+    permission: 'punir.moderador'
+    type: TEMPBAN
+    ip: false
+    duration: "7:dias,2:meses"
+  reason3:
+    reason: "Divulgação Grave"
+    permission: "punir.moderador"
+    type: BAN
+    ip: false
