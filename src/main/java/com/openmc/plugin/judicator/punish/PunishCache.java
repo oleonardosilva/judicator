@@ -7,24 +7,25 @@ import com.openmc.plugin.judicator.commons.ChatContext;
 import com.velocitypowered.api.scheduler.ScheduledTask;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
-public class PunishProcessor {
+public class PunishCache {
 
     private final Cache<String, ChatContext<PunishmentBuilder>> cache;
-    private final ScheduledTask scheduledTask;
+    private final HashMap<String, Punishment> mutePunishments = new HashMap<>();
+    private final ScheduledTask cleanupTask;
 
-    public PunishProcessor(Judicator judicator) {
+    public PunishCache(Judicator judicator) {
         this.cache = Caffeine.newBuilder()
                 .expireAfterWrite(5, TimeUnit.MINUTES)
                 .maximumSize(100)
                 .build();
-        this.scheduledTask = judicator.getServer().getScheduler().buildTask(judicator, cache::cleanUp)
-                .repeat(10, TimeUnit.MINUTES)
+        this.cleanupTask = judicator.getServer().getScheduler().buildTask(judicator, cache::cleanUp)
+                .repeat(6, TimeUnit.MINUTES)
                 .schedule();
-
     }
 
     public Optional<ChatContext<PunishmentBuilder>> getContext(String key) {
@@ -39,8 +40,20 @@ public class PunishProcessor {
         cache.invalidate(key.toLowerCase());
     }
 
+    public void putMutePunishment(String key, Punishment punishment) {
+        mutePunishments.put(key.toLowerCase(), punishment);
+    }
+
+    public void removeMutePunishment(String key) {
+        mutePunishments.remove(key.toLowerCase());
+    }
+
+    public Optional<Punishment> getPunishment(String key) {
+        return Optional.ofNullable(mutePunishments.get(key.toLowerCase()));
+    }
+
     public void shutdown() {
-        this.scheduledTask.cancel();
+        this.cleanupTask.cancel();
     }
 
 }

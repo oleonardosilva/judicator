@@ -6,7 +6,7 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.openmc.plugin.judicator.Judicator;
 import com.openmc.plugin.judicator.commons.ChatContext;
-import com.openmc.plugin.judicator.punish.PunishProcessor;
+import com.openmc.plugin.judicator.punish.PunishCache;
 import com.openmc.plugin.judicator.punish.PunishmentBuilder;
 import com.openmc.plugin.judicator.punish.handlers.BanHandler;
 import com.openmc.plugin.judicator.punish.types.PunishPermissions;
@@ -25,13 +25,13 @@ public class BanCommand {
 
     private final Judicator judicator;
     private final ProxyServer server;
-    private final PunishProcessor processor;
+    private final PunishCache processor;
     private final ConfigurationNode messages;
 
     public BanCommand(Judicator judicator) {
         this.judicator = judicator;
         this.server = judicator.getServer();
-        this.processor = judicator.getPunishProcessor();
+        this.processor = judicator.getPunishCache();
         this.messages = judicator.getMessagesConfig();
     }
 

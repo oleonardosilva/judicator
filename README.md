@@ -10,6 +10,7 @@ Os comandos abaixo são utilizados para aplicar, remover ou consultar punições
 
 * Argumentos entre `{}` são opcionais.
 * Argumentos entre `()` são obrigatórios.
+* Cada comando exige uma permissão específica para ser executado.
 
 ---
 
@@ -17,31 +18,39 @@ Os comandos abaixo são utilizados para aplicar, remover ou consultar punições
 
 * **`/ban (jogador) (motivo)`**
   Bane permanentemente um jogador do servidor.
+  **Permissão:** `judicator.ban`
 
 * **`/banip (jogador) (motivo)`**
-  Bane permanentemente o IP associado ao jogador, impedindo novas contas do mesmo IP.
+  Bane permanentemente o IP associado ao jogador.
+  **Permissão:** `judicator.ban.ip`
 
 * **`/mute (jogador) (motivo)`**
   Silencia permanentemente o jogador no chat.
+  **Permissão:** `judicator.mute`
 
 * **`/muteip (jogador) (motivo)`**
   Silencia permanentemente todos os jogadores com o mesmo IP.
+  **Permissão:** `judicator.mute.ip`
 
 ---
 
 ### ⏳ Punições temporárias
 
 * **`/tempban (jogador) (tempo) {motivo}`**
-  Bane temporariamente o jogador. Ex: `/tempban Steve 3:dias,2:horas Uso de hack`.
+  Bane temporariamente o jogador.
+  **Permissão:** `judicator.tempban`
 
 * **`/tempbanip (jogador) (tempo) {motivo}`**
   Bane temporariamente o IP do jogador.
+  **Permissão:** `judicator.tempban.ip`
 
 * **`/tempmute (jogador) (tempo) {motivo}`**
   Silencia o jogador por um período determinado.
+  **Permissão:** `judicator.tempmute`
 
 * **`/tempmuteip (jogador) (tempo) {motivo}`**
   Silencia temporariamente todos os jogadores do mesmo IP.
+  **Permissão:** `judicator.tempmute.ip`
 
 ---
 
@@ -49,55 +58,74 @@ Os comandos abaixo são utilizados para aplicar, remover ou consultar punições
 
 * **`/warn (jogador) {motivo}`**
   Emite uma advertência ao jogador.
+  **Permissão:** `judicator.warn`
 
 * **`/tempwarn (jogador) (tempo) {motivo}`**
-  Emite uma advertência que expira após o tempo definido.
+  Emite uma advertência temporária.
+  **Permissão:** `judicator.tempwarn`
 
 * **`/unwarn (jogador/id)`**
-  Remove uma advertência específica ou todas de um jogador.
+  Remove advertências.
+  **Permissão:** `judicator.unwarn`
 
 * **`/warns (jogador)`**
   Exibe todas as advertências do jogador.
+  **Permissão:** `judicator.warns`
 
 * **`/kick (jogador) {motivo}`**
-  Expulsa o jogador do servidor sem aplicar uma punição duradoura.
+  Expulsa o jogador do servidor.
+  **Permissão:** `judicator.kick`
 
 ---
 
 ### 🔍 Consulta e histórico
 
 * **`/phistory (jogador)`**
-  Mostra o histórico completo de punições do jogador.
+  Mostra o histórico de punições do jogador.
+  **Permissão:** `judicator.history`
 
 * **`/pview (id)`**
-  Visualiza os detalhes de uma punição específica com base no ID.
+  Visualiza os detalhes de uma punição específica.
+  **Permissão:** `judicator.view`
 
 ---
 
 ### ✅ Remoção de punições
 
 * **`/unban (jogador)`**
-  Remove um banimento ativo do jogador.
+  Remove um banimento ativo.
+  **Permissão:** `judicator.unban`
 
 * **`/unmute (jogador)`**
-  Remove um silenciamento ativo do jogador.
+  Remove um silenciamento ativo.
+  **Permissão:** `judicator.unmute`
 
 * **`/unpunish (id)`**
   Remove qualquer punição com base no ID.
+  **Permissão:** `judicator.unpunish`
 
 ---
 
 ### 📝 Relatórios
 
 * **`/reportar (jogador) {motivo}`**
-  Envia um relatório de má conduta para a equipe de moderação.
-
+  Envia um relatório à moderação.
+  
 * **`/reportes`**
-  Exibe a lista de relatórios pendentes para análise.
+  Exibe relatórios pendentes.
+  **Permissão:** `judicator.reports`
 
 ---
 
 ### ⚙️ Outros
 
 * **`/punish (jogador) {motivo}`**
-  Interação rápida de punição já registrada, podendo definir o tipo e duração da punição pelo arquivo 'config.yml'.
+  Punição rápida com base na configuração.
+  **Permissão:** `judicator.punish`
+
+---
+
+### 🔐 Permissão especial
+
+* **`judicator.admin`**
+  Acesso completo às funções administrativas do plugin.

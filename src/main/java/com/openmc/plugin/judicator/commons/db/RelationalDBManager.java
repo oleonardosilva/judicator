@@ -19,11 +19,10 @@ public class RelationalDBManager {
         final String database = config.node("database").getString("postgres");
         final String username = config.node("user").getString("postgres");
         final String password = config.node("password").getString("postgres");
-        String jdbcUrl = switch (type.toLowerCase()) {
-            case "postgres" -> "jdbc:postgresql://" + host + ":" + port + "/" + database;
-            default -> "jdbc:mysql://" + host + ":" + port + "/" + database +
-                    "?useSSL=false&characterEncoding=UTF-8";
-        };
+        final String jdbcUrl = type.equalsIgnoreCase("postgres") ?
+                "jdbc:postgresql://" + host + ":" + port + "/" + database :
+                "jdbc:mysql://" + host + ":" + port + "/" + database +
+                "?useSSL=false&characterEncoding=UTF-8";
 
         hikari.setJdbcUrl(jdbcUrl);
         hikari.setUsername(username);

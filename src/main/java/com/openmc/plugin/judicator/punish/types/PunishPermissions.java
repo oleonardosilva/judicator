@@ -5,27 +5,26 @@ import lombok.Getter;
 @Getter
 public enum PunishPermissions {
 
-    ADMIN("punishments.admin"),
-    PUNISH("punishments.punish"),
-    BAN("punishments.ban"),
-    BANIP("punishments.ban.ip"),
-    TEMPBANIP("punishments.tempban.ip"),
-    TEMPBAN("punishments.tempban"),
-    MUTE("punishments.mute"),
-    MUTEIP("punishments.mute.ip"),
-    TEMPMUTEIP("punishments.tempmute.ip"),
-    TEMPMUTE("punishments.tempmute"),
-    UNBAN("punishments.unban"),
-    UNMUTE("punishments.unmute"),
-    UNPUNISH("punishments.unpunish"),
-    PUNISHVIEW("punishments.view"),
-    PUNISHHISTORY("punishments.history"),
-    KICK("punishments.kick"),
-    WARN("punishments.warn"),
-    TEMPWARN("punishments.tempwarn"),
-    UNWARN("punishments.unwarn"),
-    WARNS("punishments.warns"),
-    CHECK("punishments.check");
+    ADMIN("judicator.admin"),
+    PUNISH("judicator.punish"),
+    BAN("judicator.ban"),
+    BANIP("judicator.ban.ip"),
+    TEMPBANIP("judicator.tempban.ip"),
+    TEMPBAN("judicator.tempban"),
+    MUTE("judicator.mute"),
+    MUTEIP("judicator.mute.ip"),
+    TEMPMUTEIP("judicator.tempmute.ip"),
+    TEMPMUTE("judicator.tempmute"),
+    UNBAN("judicator.unban"),
+    UNMUTE("judicator.unmute"),
+    UNPUNISH("judicator.unpunish"),
+    PUNISHVIEW("judicator.view"),
+    PUNISHHISTORY("judicator.history"),
+    KICK("judicator.kick"),
+    WARN("judicator.warn"),
+    TEMPWARN("judicator.tempwarn"),
+    UNWARN("judicator.unwarn"),
+    WARNS("judicator.warns");
 
     private final String permission;
 

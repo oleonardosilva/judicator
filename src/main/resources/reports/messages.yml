@@ -10,7 +10,7 @@ delay: "&cAguarde para reportar novamente."
 again: "&cVocê não pode reportar esse jogador novamente."
 report:
   title:
-    - "       &6&lRede OpenMc - Reportes\n"
+    - "       &6&lRede CodigoAberto - Reportes\n"
     - "\n"
   line:
     message: "    &f&l• &f{reason}"

@@ -1,6 +1,7 @@
 package com.openmc.plugin.judicator.punish.handlers;
 
 import com.openmc.plugin.judicator.Judicator;
+import com.openmc.plugin.judicator.punish.PunishUtils;
 import com.openmc.plugin.judicator.punish.Punishment;
 import com.openmc.plugin.judicator.punish.PunishmentBuilder;
 import com.velocitypowered.api.proxy.ProxyServer;
@@ -9,10 +10,8 @@ import net.kyori.adventure.text.TextComponent;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.serialize.SerializationException;
 
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 public class BanHandler {
 
@@ -42,7 +41,7 @@ public class BanHandler {
                     try {
                         final List<String> list = messagesNode.node("runners", "ban-kick").getList(String.class);
                         if (list != null) {
-                            applyPlaceHolders(list, punishment).forEach(
+                            PunishUtils.applyPlaceHolders(messagesNode, list, punishment).forEach(
                                     s -> text.append(Component.text(s))
                             );
                         }
@@ -71,7 +70,7 @@ public class BanHandler {
             try {
                 final List<String> list = messagesNode.node("announcements", "ban").getList(String.class);
                 if (list != null) {
-                    applyPlaceHolders(list, punishment).forEach(
+                    PunishUtils.applyPlaceHolders(messagesNode, list, punishment).forEach(
                             s -> text.append(Component.text(s))
                     );
                 }
@@ -81,22 +80,6 @@ public class BanHandler {
             final TextComponent announcement = text.build();
             server.sendMessage(announcement);
         }
-    }
-
-    private List<String> applyPlaceHolders(List<String> messages, Punishment punishment) {
-        String dateFormat = messagesNode.node("date-format").getString("dd/MM/yyyy-HH:mm:ss");
-        String permanent = messagesNode.node("permanent").getString("§cPermanente.");
-        final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern(dateFormat);
-        return messages.stream().map(s -> s
-                        .replace("&", "§")
-                        .replace("{finishAt}", punishment.getFinishAt().isEmpty() ? permanent : timeFormatter.format(punishment.getFinishAt().get()))
-                        .replace("{author}", punishment.getPunisher())
-                        .replace("{id}", punishment.getId().toString())
-                        .replace("{evidence}", punishment.getEvidences().stream().findFirst().orElse("None"))
-                        .replace("{nickname}", punishment.getNickname())
-                        .replace("{startedAt}", timeFormatter.format(punishment.getStartedAt()))
-                        .replace("{reason}", punishment.getReason()))
-                .collect(Collectors.toList());
     }
 
 }

@@ -21,12 +21,13 @@ public class Punishment {
     private UUID playerUUID;
     private String reason, punisher, nickname, ipAddress;
     private LocalDateTime startedAt, finishAt;
-    private PunishStatus status;
+    private boolean revoked;
+    private String revokedReason;
     private List<String> evidences;
     private PunishType type;
     private boolean permanent;
 
-    public Punishment(Long id, UUID playerUUID, String reason, String punisher, String nickname, String ipAddress, LocalDateTime startedAt, LocalDateTime finishAt, PunishStatus status, List<String> evidences, PunishType type, boolean permanent) {
+    public Punishment(Long id, UUID playerUUID, String reason, String punisher, String nickname, String ipAddress, LocalDateTime startedAt, LocalDateTime finishAt, boolean revoked, String revokedReason, List<String> evidences, PunishType type, boolean permanent) {
         this.id = id;
         this.playerUUID = playerUUID;
         this.reason = reason;
@@ -35,7 +36,8 @@ public class Punishment {
         this.ipAddress = ipAddress;
         this.startedAt = startedAt;
         this.finishAt = finishAt;
-        this.status = status;
+        this.revoked = revoked;
+        this.revokedReason = revokedReason;
         this.evidences = evidences == null ? new ArrayList<>() : evidences;
         this.type = type;
         this.permanent = permanent;
@@ -53,10 +55,26 @@ public class Punishment {
                 ipAddress,
                 startedAt,
                 finishAt,
-                PunishStatus.ACTIVE,
+                false,
+                "",
                 evidences,
                 type,
                 !type.isTemp());
+    }
+
+    public boolean isBanType() {
+        return this.type == PunishType.BAN || this.type == PunishType.TEMPBAN;
+    }
+
+    public boolean isMuteType() {
+        return this.type == PunishType.MUTE || this.type == PunishType.TEMPMUTE;
+    }
+
+    public PunishStatus getStatus() {
+        final LocalDateTime now = LocalDateTime.now();
+        if (type.isTemp() && finishAt.isBefore(now))
+            return PunishStatus.FINISHED;
+        return revoked ? PunishStatus.REVOKED : PunishStatus.ACTIVE;
     }
 
     public Optional<LocalDateTime> getFinishAt() {

@@ -24,6 +24,11 @@ already-revoked: "&cEssa punição já está revogada."
 immune: "&cEsse jogador não pode ser punido."
 invalid-address: "&cNão foi encontrado nenhum jogador registrado com esse endereço IP."
 date-format: "dd/MM/yyyy 'às' HH:mm"
+yes: "Sim"
+no: "Não"
+finished: "Finalizada"
+active: "Ativa"
+revoked: "Revogada"
 punish:
   title:
     - "       &6&lRede CodigoAberto - Punições\n"

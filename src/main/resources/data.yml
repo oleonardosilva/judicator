@@ -3,5 +3,5 @@ database:
   password: '123'
   host: 'localhost'
   port: '3306'
-  database: 'arcanth_db'
+  database: 'your_db'
   type: postgres # postgres, mysql

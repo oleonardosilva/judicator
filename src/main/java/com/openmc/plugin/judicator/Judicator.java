@@ -4,11 +4,12 @@ import com.google.inject.Inject;
 import com.openmc.plugin.judicator.commons.UUIDManager;
 import com.openmc.plugin.judicator.commons.db.RelationalDBManager;
 import com.openmc.plugin.judicator.punish.Immune;
-import com.openmc.plugin.judicator.punish.PunishProcessor;
+import com.openmc.plugin.judicator.punish.PunishCache;
 import com.openmc.plugin.judicator.punish.commands.BanCommand;
 import com.openmc.plugin.judicator.punish.db.PunishmentRelationalDAO;
 import com.openmc.plugin.judicator.punish.db.PunishmentRepository;
 import com.openmc.plugin.judicator.punish.listeners.ChatListener;
+import com.openmc.plugin.judicator.punish.listeners.PlayerConnectionListener;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
@@ -40,7 +41,7 @@ public class Judicator {
     private final ConfigurationNode dbConfig;
     private final ConfigurationNode config;
     private final Immune immune;
-    private final PunishProcessor punishProcessor;
+    private final PunishCache punishCache;
     private final RelationalDBManager relationalDBManager;
     private final PunishmentRepository punishmentRepository;
 
@@ -54,7 +55,7 @@ public class Judicator {
         this.immuneConfig = loadConfig("punishments" + File.pathSeparator + "immune.yml");
         this.dbConfig = loadConfig("data.yml");
         this.uuidManager = new UUIDManager(this);
-        this.punishProcessor = new PunishProcessor(this);
+        this.punishCache = new PunishCache(this);
         this.relationalDBManager = new RelationalDBManager(dbConfig);
         this.punishmentRepository = new PunishmentRelationalDAO(relationalDBManager, logger);
         punishmentRepository.initialize();
@@ -71,7 +72,7 @@ public class Judicator {
     @Subscribe
     public void onProxyShutdown(ProxyShutdownEvent event) {
         logger.info("Plugin is shutting down...");
-        punishProcessor.shutdown();
+        punishCache.shutdown();
         relationalDBManager.shutdown();
         logger.info("Plugin has been shut down successfully!");
     }
@@ -81,7 +82,8 @@ public class Judicator {
     }
 
     private void registerListeners() {
-        new ChatListener(this, punishProcessor).register();
+        new ChatListener(this).register();
+        new PlayerConnectionListener(this).register();
     }
 
     private ConfigurationNode loadConfig(String fileName) {
