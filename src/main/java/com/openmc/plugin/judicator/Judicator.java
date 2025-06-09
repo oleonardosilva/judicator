@@ -3,11 +3,12 @@ package com.openmc.plugin.judicator;
 import com.google.inject.Inject;
 import com.openmc.plugin.judicator.commons.UUIDManager;
 import com.openmc.plugin.judicator.commons.db.RelationalDBManager;
-import com.openmc.plugin.judicator.punish.Immune;
-import com.openmc.plugin.judicator.punish.PunishCache;
+import com.openmc.plugin.judicator.punish.PunishService;
 import com.openmc.plugin.judicator.punish.commands.BanCommand;
-import com.openmc.plugin.judicator.punish.db.PunishmentRelationalDAO;
-import com.openmc.plugin.judicator.punish.db.PunishmentRepository;
+import com.openmc.plugin.judicator.punish.data.cache.ImmuneCache;
+import com.openmc.plugin.judicator.punish.data.cache.PunishCache;
+import com.openmc.plugin.judicator.punish.data.repository.PunishmentRelationalDAO;
+import com.openmc.plugin.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.plugin.judicator.punish.listeners.ChatListener;
 import com.openmc.plugin.judicator.punish.listeners.PlayerConnectionListener;
 import com.velocitypowered.api.event.Subscribe;
@@ -40,10 +41,11 @@ public class Judicator {
     private final ConfigurationNode immuneConfig;
     private final ConfigurationNode dbConfig;
     private final ConfigurationNode config;
-    private final Immune immune;
+    private final ImmuneCache immuneCache;
     private final PunishCache punishCache;
     private final RelationalDBManager relationalDBManager;
     private final PunishmentRepository punishmentRepository;
+    private final PunishService punishService;
 
     @Inject
     public Judicator(Logger logger, ProxyServer server, @DataDirectory Path dataDirectory) {
@@ -58,8 +60,8 @@ public class Judicator {
         this.punishCache = new PunishCache(this);
         this.relationalDBManager = new RelationalDBManager(dbConfig);
         this.punishmentRepository = new PunishmentRelationalDAO(relationalDBManager, logger);
-        punishmentRepository.initialize();
-        this.immune = new Immune(this);
+        this.punishService = new PunishService(this);
+        this.immuneCache = new ImmuneCache(this);
     }
 
     @Subscribe

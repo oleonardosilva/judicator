@@ -11,7 +11,6 @@ import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.serialize.SerializationException;
 
 import java.util.List;
-import java.util.Optional;
 
 public class BanHandler {
 
@@ -28,7 +27,7 @@ public class BanHandler {
     }
 
     public void handle() {
-        final Punishment punishment = judicator.getPunishmentRepository().save(punishmentBuilder.build());
+        final Punishment punishment = judicator.getPunishService().save(punishmentBuilder.build());
         this.kick(punishment);
         this.announce(punishment);
     }
@@ -50,15 +49,16 @@ public class BanHandler {
                     }
                     final TextComponent kickMessage = text.build();
 
-                    final Optional<String> optIpAddress = punishment.getIpAddress();
-                    if (optIpAddress.isPresent()) {
-                        server.getAllPlayers().stream()
-                                .filter(player -> player.getRemoteAddress().getAddress().getHostAddress().equals(optIpAddress.get()))
-                                .forEach(player -> player.disconnect(kickMessage));
-                    } else {
-                        server.getPlayer(punishment.getNickname())
-                                .ifPresent(player -> player.disconnect(kickMessage));
-                    }
+                    punishment.getIpAddress()
+                            .ifPresentOrElse(
+                                    (s) ->
+                                            server.getAllPlayers()
+                                                    .stream()
+                                                    .filter(player -> player.getRemoteAddress().getAddress().getHostAddress().equals(s))
+                                                    .forEach(player -> player.disconnect(kickMessage)),
+                                    () -> server.getPlayer(punishment.getNickname())
+                                            .ifPresent(player -> player.disconnect(kickMessage)));
+
                 }
         ).schedule();
     }

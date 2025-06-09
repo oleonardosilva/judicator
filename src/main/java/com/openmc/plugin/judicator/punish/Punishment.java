@@ -72,9 +72,10 @@ public class Punishment {
 
     public PunishStatus getStatus() {
         final LocalDateTime now = LocalDateTime.now();
+        if (revoked) return PunishStatus.REVOKED;
         if (type.isTemp() && finishAt.isBefore(now))
             return PunishStatus.FINISHED;
-        return revoked ? PunishStatus.REVOKED : PunishStatus.ACTIVE;
+        return PunishStatus.ACTIVE;
     }
 
     public Optional<LocalDateTime> getFinishAt() {

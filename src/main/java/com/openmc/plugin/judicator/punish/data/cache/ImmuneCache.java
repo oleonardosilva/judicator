@@ -1,4 +1,4 @@
-package com.openmc.plugin.judicator.punish;
+package com.openmc.plugin.judicator.punish.data.cache;
 
 import com.openmc.plugin.judicator.Judicator;
 import com.velocitypowered.api.command.CommandSource;
@@ -10,12 +10,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class Immune {
+public class ImmuneCache {
 
     private final Set<String> usersImmune;
     private final ConfigurationNode messages;
 
-    public Immune(Judicator judicator) {
+    public ImmuneCache(Judicator judicator) {
         this.usersImmune = new HashSet<>();
         this.messages = judicator.getMessagesConfig();
         try {

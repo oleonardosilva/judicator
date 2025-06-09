@@ -2,7 +2,7 @@ package com.openmc.plugin.judicator.punish.listeners;
 
 import com.openmc.plugin.judicator.Judicator;
 import com.openmc.plugin.judicator.commons.ChatContext;
-import com.openmc.plugin.judicator.punish.PunishCache;
+import com.openmc.plugin.judicator.punish.data.cache.PunishCache;
 import com.openmc.plugin.judicator.punish.PunishmentBuilder;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.player.PlayerChatEvent;

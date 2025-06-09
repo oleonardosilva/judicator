@@ -1,4 +1,4 @@
-package com.openmc.plugin.judicator.punish.db;
+package com.openmc.plugin.judicator.punish.data.repository;
 
 import com.openmc.plugin.judicator.commons.db.RelationalDBManager;
 import com.openmc.plugin.judicator.commons.db.SchemaUtil;
@@ -299,6 +299,24 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
             logger.error(e.getMessage(), e);
         }
         return punishment;
+    }
+
+    @Override
+    public boolean revoke(Long id, String reason) {
+        try (Connection connection = manager.getDataSource().getConnection()) {
+            final PreparedStatement st = connection.prepareStatement("""
+                    UPDATE punishments
+                    SET revoked = true, reason = ?
+                    WHERE id = ?
+                    AND revoked = false
+                    """);
+            st.setString(1, reason);
+            st.setLong(2, id);
+            return st.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+        }
+        return false;
     }
 
     @Override

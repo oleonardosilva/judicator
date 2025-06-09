@@ -6,8 +6,8 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.openmc.plugin.judicator.Judicator;
 import com.openmc.plugin.judicator.commons.ChatContext;
-import com.openmc.plugin.judicator.punish.PunishCache;
 import com.openmc.plugin.judicator.punish.PunishmentBuilder;
+import com.openmc.plugin.judicator.punish.data.cache.PunishCache;
 import com.openmc.plugin.judicator.punish.handlers.BanHandler;
 import com.openmc.plugin.judicator.punish.types.PunishPermissions;
 import com.openmc.plugin.judicator.punish.types.PunishType;
@@ -53,9 +53,8 @@ public class BanCommand {
                 })
                 .then(BrigadierCommand.requiredArgumentBuilder("player", StringArgumentType.word())
                         .suggests((ctx, builder) -> {
-                            server.getAllPlayers().forEach(player -> builder.suggest(
-                                    player.getUsername()
-                            ));
+                            final String input = builder.getRemaining().toLowerCase();
+                            server.matchPlayer(input).forEach(player -> builder.suggest(player.getUsername()));
                             return builder.buildFuture();
                         })
                         .then(BrigadierCommand
@@ -82,7 +81,7 @@ public class BanCommand {
     private int ban(CommandContext<CommandSource> context) {
         final CommandSource source = context.getSource();
         final String targetName = context.getArgument("player", String.class);
-        if (!judicator.getImmune().canPunish(source, targetName)) return Command.SINGLE_SUCCESS;
+        if (!judicator.getImmuneCache().canPunish(source, targetName)) return Command.SINGLE_SUCCESS;
         final String reason = context.getArgument("reason", String.class);
 
         final PunishmentBuilder builder = new PunishmentBuilder()

@@ -1,9 +1,11 @@
-package com.openmc.plugin.judicator.punish;
+package com.openmc.plugin.judicator.punish.data.cache;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.openmc.plugin.judicator.Judicator;
 import com.openmc.plugin.judicator.commons.ChatContext;
+import com.openmc.plugin.judicator.punish.Punishment;
+import com.openmc.plugin.judicator.punish.PunishmentBuilder;
 import com.velocitypowered.api.scheduler.ScheduledTask;
 import lombok.extern.slf4j.Slf4j;
 
@@ -15,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 public class PunishCache {
 
     private final Cache<String, ChatContext<PunishmentBuilder>> cache;
-    private final HashMap<String, Punishment> mutePunishments = new HashMap<>();
+    private final HashMap<String, Punishment> activeSilences = new HashMap<>();
     private final ScheduledTask cleanupTask;
 
     public PunishCache(Judicator judicator) {
@@ -41,15 +43,15 @@ public class PunishCache {
     }
 
     public void putMutePunishment(String key, Punishment punishment) {
-        mutePunishments.put(key.toLowerCase(), punishment);
+        activeSilences.put(key.toLowerCase(), punishment);
     }
 
     public void removeMutePunishment(String key) {
-        mutePunishments.remove(key.toLowerCase());
+        activeSilences.remove(key.toLowerCase());
     }
 
     public Optional<Punishment> getPunishment(String key) {
-        return Optional.ofNullable(mutePunishments.get(key.toLowerCase()));
+        return Optional.ofNullable(activeSilences.get(key.toLowerCase()));
     }
 
     public void shutdown() {
