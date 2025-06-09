@@ -97,37 +97,41 @@ public class BanCommand {
             final TextComponent text = Component.text(judicator.getMessagesConfig().node("write-evidences").getString(""));
             player.sendMessage(text);
 
-            final ChatContext<PunishmentBuilder> chatContext = new ChatContext<>();
-            chatContext.setOperator(punisher);
-            chatContext.setValue(builder);
-            chatContext.setCallback((currentBuilder, event) -> {
-                final String message = event.getMessage();
-                final String readyPrompt = messages.node("ready-prompt").getString("");
-                final String cancelPrompt = messages.node("cancel-prompt").getString("");
-                if (message.equalsIgnoreCase(readyPrompt)) {
-                    processor.removeContext(currentBuilder.getPunisher());
-                    new BanHandler(judicator, builder).handle();
-                    return;
-                }
-                if (message.equalsIgnoreCase(cancelPrompt)) {
-                    final TextComponent cancelMessage = Component.text(messages.node("operation-cancel").getString(""));
-                    event.getPlayer().sendMessage(cancelMessage);
-                    processor.removeContext(currentBuilder.getPunisher());
-                    return;
-                }
-
-                currentBuilder.appendEvidences(message);
-                final TextComponent cancelMessage = Component.text(messages.node("next-link").getString(""));
-                event.getPlayer().sendMessage(cancelMessage);
-
-            });
-
+            final ChatContext<PunishmentBuilder> chatContext = createChatContext(punisher, builder);
             processor.putContext(punisher, chatContext);
         } else {
             new BanHandler(judicator, builder).handle();
         }
 
         return Command.SINGLE_SUCCESS;
+    }
+
+    private ChatContext<PunishmentBuilder> createChatContext(String punisher, PunishmentBuilder builder) {
+        final ChatContext<PunishmentBuilder> chatContext = new ChatContext<>();
+        chatContext.setOperator(punisher);
+        chatContext.setValue(builder);
+        chatContext.setCallback((currentBuilder, event) -> {
+            final String message = event.getMessage();
+            final String readyPrompt = messages.node("ready-prompt").getString("");
+            final String cancelPrompt = messages.node("cancel-prompt").getString("");
+            if (message.equalsIgnoreCase(readyPrompt)) {
+                processor.removeContext(currentBuilder.getPunisher());
+                new BanHandler(judicator, currentBuilder).handle();
+                return;
+            }
+            if (message.equalsIgnoreCase(cancelPrompt)) {
+                final TextComponent cancelMessage = Component.text(messages.node("operation-cancel").getString(""));
+                event.getPlayer().sendMessage(cancelMessage);
+                processor.removeContext(currentBuilder.getPunisher());
+                return;
+            }
+
+            currentBuilder.appendEvidences(message);
+            final TextComponent cancelMessage = Component.text(messages.node("next-link").getString(""));
+            event.getPlayer().sendMessage(cancelMessage);
+
+        });
+        return chatContext;
     }
 
 }
