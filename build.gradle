@@ -2,7 +2,8 @@ plugins {
     id 'java'
     id 'eclipse'
     id 'org.jetbrains.gradle.plugin.idea-ext' version '1.1.8'
-    id("xyz.jpenilla.run-velocity") version "2.3.1"
+    id "xyz.jpenilla.run-velocity" version "2.3.1"
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 group = 'com.openmc.plugin'
@@ -10,49 +11,45 @@ version = '0.1-BETA'
 
 repositories {
     mavenCentral()
-    maven {
-        name = "papermc-repo"
-        url = "https://repo.papermc.io/repository/maven-public/"
-    }
-    maven {
-        name = "sonatype"
-        url = "https://oss.sonatype.org/content/groups/public/"
-    }
-    maven {
-        url = uri('https://mvn.exceptionflug.de/repository/exceptionflug-public/')
-    }
+    maven { name = "papermc-repo"; url = "https://repo.papermc.io/repository/maven-public/" }
+    maven { name = "sonatype"; url = "https://oss.sonatype.org/content/groups/public/" }
+    maven { name = "exceptionflug"; url = 'https://mvn.exceptionflug.de/repository/exceptionflug-public/' }
 }
 
 dependencies {
     compileOnly 'com.velocitypowered:velocity-api:3.4.0-SNAPSHOT'
 
-    compileOnly 'de.exceptionflug:protocolize-api:1.7.1-SNAPSHOT'
-    compileOnly 'de.exceptionflug:protocolize-items:1.7.1-SNAPSHOT'
-    compileOnly 'de.exceptionflug:protocolize-inventory:1.7.1-SNAPSHOT'
+    implementation 'com.zaxxer:HikariCP:4.0.3'
+    implementation 'mysql:mysql-connector-java:8.0.33'
+    implementation 'org.postgresql:postgresql:42.6.0'
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
 
-    implementation("com.zaxxer:HikariCP:4.0.3")
-    implementation("mysql:mysql-connector-java:8.0.33")
-    implementation("org.postgresql:postgresql:42.6.0")
-    implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
-
-    compileOnly("org.projectlombok:lombok:1.18.38")
-    annotationProcessor("org.projectlombok:lombok:1.18.38")
-
-    testCompileOnly("org.projectlombok:lombok:1.18.38")
-    testAnnotationProcessor("org.projectlombok:lombok:1.18.38")
+    compileOnly 'org.projectlombok:lombok:1.18.38'
+    annotationProcessor 'org.projectlombok:lombok:1.18.38'
+    testCompileOnly 'org.projectlombok:lombok:1.18.38'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.38'
     annotationProcessor 'com.velocitypowered:velocity-api:3.4.0-SNAPSHOT'
 }
 
 tasks {
     runVelocity {
-        // Configure the Velocity version for our task.
-        // This is the only required configuration besides applying the plugin.
-        // Your plugin's jar (or shadowJar if present) will be used automatically.
         velocityVersion("3.4.0-SNAPSHOT")
+    }
+
+    shadowJar {
+        archiveClassifier.set('')
+        mergeServiceFiles()
+        manifest {
+            attributes 'Main-Class': 'com.openmc.plugin.judicator.Judicator'
+        }
+    }
+
+    build {
+        dependsOn shadowJar
     }
 }
 
-def targetJavaVersion = 21
+def targetJavaVersion = 17
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
 }
@@ -67,13 +64,10 @@ def templateDest = layout.buildDirectory.dir('generated/sources/templates')
 def generateTemplates = tasks.register('generateTemplates', Copy) { task ->
     def props = ['version': project.version]
     task.inputs.properties props
-
     task.from templateSource
     task.into templateDest
     task.expand props
 }
-
 sourceSets.main.java.srcDir(generateTemplates.map { it.outputs })
-
 project.idea.project.settings.taskTriggers.afterSync generateTemplates
 project.eclipse.synchronizationTasks(generateTemplates)
