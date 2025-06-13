@@ -2,8 +2,8 @@ package com.openmc.plugin.judicator.punish.data.cache;
 
 import com.openmc.plugin.judicator.Judicator;
 import com.velocitypowered.api.command.CommandSource;
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.spongepowered.configurate.ConfigurationNode;
 
 import java.util.HashSet;
@@ -29,7 +29,8 @@ public class ImmuneCache {
     public boolean canPunish(CommandSource source, String target) {
         boolean can = usersImmune.stream().noneMatch(s -> s.equalsIgnoreCase(target));
         if (!can) {
-            final TextComponent text = Component.text(messages.node("immune").getString("message"));
+            final TextComponent text = LegacyComponentSerializer.legacyAmpersand().deserialize(messages.node("immune").getString(""));
+
             source.sendMessage(text);
         }
         return can;

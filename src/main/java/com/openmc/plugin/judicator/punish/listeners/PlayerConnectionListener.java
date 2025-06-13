@@ -11,6 +11,7 @@ import com.velocitypowered.api.event.connection.PreLoginEvent;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.serialize.SerializationException;
 
@@ -41,7 +42,7 @@ public class PlayerConnectionListener {
                     try {
                         final List<String> list = messagesNode.node("runners", "ban-kick").getList(String.class);
                         if (list != null)
-                            PunishUtils.applyPlaceHolders(messagesNode, list, punishment).forEach(s -> text.append(Component.text(s)));
+                            PunishUtils.applyPlaceHolders(messagesNode, list, punishment).forEach(s -> text.append(LegacyComponentSerializer.legacyAmpersand().deserialize(s)));
                     } catch (SerializationException e) {
                         throw new RuntimeException(e);
                     }
@@ -71,7 +72,7 @@ public class PlayerConnectionListener {
             try {
                 final List<String> list = messagesNode.node("runners", "ban-kick").getList(String.class);
                 if (list != null)
-                    PunishUtils.applyPlaceHolders(messagesNode, list, punishment).forEach(s -> text.append(Component.text(s)));
+                    PunishUtils.applyPlaceHolders(messagesNode, list, punishment).forEach(s -> text.append(LegacyComponentSerializer.legacyAmpersand().deserialize(s)));
             } catch (SerializationException e) {
                 throw new RuntimeException(e);
             }

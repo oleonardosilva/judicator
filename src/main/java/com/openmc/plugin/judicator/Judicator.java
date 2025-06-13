@@ -23,38 +23,47 @@ import org.spongepowered.configurate.CommentedConfigurationNode;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Objects;
 
-@Plugin(id = "judicator", name = "Judicator", version = BuildConstants.VERSION)
+@Plugin(id = "judicator",
+        authors = "oleonardosilva",
+        url = "https://github.com/oleonardosilva",
+        description = "A moderation plugin for your server",
+        name = "Judicator",
+        version = BuildConstants.VERSION)
 @Getter
 public class Judicator {
 
     private final Logger logger;
     private final ProxyServer server;
-    private final UUIDManager uuidManager;
+    private UUIDManager uuidManager;
     private final Path dataDirectory;
-    private final ConfigurationNode messagesConfig;
-    private final ConfigurationNode immuneConfig;
-    private final ConfigurationNode dbConfig;
-    private final ConfigurationNode config;
-    private final ImmuneCache immuneCache;
-    private final PunishCache punishCache;
-    private final RelationalDBManager relationalDBManager;
-    private final PunishmentRepository punishmentRepository;
-    private final PunishService punishService;
+    private ConfigurationNode messagesConfig;
+    private ConfigurationNode immuneConfig;
+    private ConfigurationNode dbConfig;
+    private ConfigurationNode config;
+    private ImmuneCache immuneCache;
+    private PunishCache punishCache;
+    private RelationalDBManager relationalDBManager;
+    private PunishmentRepository punishmentRepository;
+    private PunishService punishService;
 
     @Inject
     public Judicator(Logger logger, ProxyServer server, @DataDirectory Path dataDirectory) {
         this.logger = logger;
         this.server = server;
         this.dataDirectory = dataDirectory;
-        this.messagesConfig = loadConfig("punishments" + File.pathSeparator + "messages.yml");
-        this.config = loadConfig("punishments" + File.pathSeparator + "config.yml");
-        this.immuneConfig = loadConfig("punishments" + File.pathSeparator + "immune.yml");
+    }
+
+    @Subscribe
+    public void onProxyInitialization(ProxyInitializeEvent event) {
+        this.messagesConfig = loadConfig("punishments", "messages.yml");
+        this.config = loadConfig("punishments", "config.yml");
+        this.immuneConfig = loadConfig("punishments", "immune.yml");
         this.dbConfig = loadConfig("data.yml");
         this.uuidManager = new UUIDManager(this);
         this.punishCache = new PunishCache(this);
@@ -62,10 +71,7 @@ public class Judicator {
         this.punishmentRepository = new PunishmentRelationalDAO(relationalDBManager, logger);
         this.punishService = new PunishService(this);
         this.immuneCache = new ImmuneCache(this);
-    }
 
-    @Subscribe
-    public void onProxyInitialization(ProxyInitializeEvent event) {
         this.registerCommands();
         this.registerListeners();
         logger.info("Plugin has been initialized successfully!");
@@ -88,33 +94,38 @@ public class Judicator {
         new PlayerConnectionListener(this).register();
     }
 
-    private ConfigurationNode loadConfig(String fileName) {
-        final Path pathConfig = dataDirectory.resolve(fileName);
-        final YamlConfigurationLoader loader = YamlConfigurationLoader.builder()
-                .path(pathConfig)
-                .build();
+    private ConfigurationNode loadConfig(String... subpaths) {
+        final Path pathConfig = dataDirectory.resolve(Paths.get("", subpaths));
+        final String resourcePath = "/" + String.join("/", subpaths);
 
         if (!Files.exists(pathConfig)) {
             try {
                 Files.createDirectories(pathConfig.getParent());
-                Files.copy(Objects.requireNonNull(getClass().getResourceAsStream(fileName)), pathConfig);
+                logger.info("Creating config file {} at {} ", resourcePath, pathConfig.toAbsolutePath());
+                Files.copy(
+                        Objects.requireNonNull(getClass().getResourceAsStream(resourcePath),
+                                "Resource not found: " + resourcePath),
+                        pathConfig
+                );
             } catch (IOException e) {
-                logger.error("Failed to create configuration file: {}", e.getMessage());
+                logger.error("Failed to create config file: {}", e.getMessage(), e);
                 System.exit(1);
             }
         }
 
         try {
-            CommentedConfigurationNode node = loader.load();
-            logger.info("Loaded configuration file: {}", fileName);
+            final YamlConfigurationLoader loader = YamlConfigurationLoader.builder()
+                    .path(pathConfig)
+                    .build();
+
+            final CommentedConfigurationNode node = loader.load();
+            logger.info("Loaded config file: {}", pathConfig.getFileName());
             return node;
         } catch (IOException e) {
-            logger.error("Unable to read YAML configuration: {}", e.getMessage());
-            if (e.getCause() != null) {
-                logger.error(e.getMessage(), e);
-            }
+            logger.error("Failed to load YAML config: {}", e.getMessage(), e);
             System.exit(1);
             return null;
         }
     }
+
 }

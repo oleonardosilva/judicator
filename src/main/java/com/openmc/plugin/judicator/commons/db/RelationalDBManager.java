@@ -11,6 +11,12 @@ public class RelationalDBManager {
     private final HikariDataSource dataSource;
 
     public RelationalDBManager(ConfigurationNode config) {
+//        try {
+//            Class.forName("org.postgresql.Driver"); // <- força o registro do driver
+//        } catch (ClassNotFoundException e) {
+//            e.printStackTrace();
+//        }
+
         config = config.node("database");
         final HikariConfig hikari = new HikariConfig();
         final String type = config.node("type").getString("postgres");
@@ -27,6 +33,9 @@ public class RelationalDBManager {
         hikari.setJdbcUrl(jdbcUrl);
         hikari.setUsername(username);
         hikari.setPassword(password);
+        hikari.setDriverClassName(
+                type.equalsIgnoreCase("postgres") ? "org.postgresql.Driver" : "com.mysql.cj.jdbc.Driver"
+        );
         hikari.setMaximumPoolSize(10);
         hikari.setMinimumIdle(2);
         hikari.setPoolName("Judicator");

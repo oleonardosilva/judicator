@@ -17,8 +17,8 @@ import com.velocitypowered.api.command.CommandMeta;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.spongepowered.configurate.ConfigurationNode;
 
 public class BanCommand {
@@ -39,14 +39,14 @@ public class BanCommand {
         final CommandManager commandManager = server.getCommandManager();
         final CommandMeta commandMeta = commandManager.metaBuilder("ban")
                 .aliases("banir")
-                .plugin(this)
+                .plugin(judicator)
                 .build();
 
         final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("ban")
                 .requires(source -> {
-                    final boolean b = source.hasPermission(PunishPermissions.BAN.getPermission());
+                    final boolean b = source.hasPermission(PunishPermissions.BAN.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
                     if (!b) {
-                        final TextComponent text = Component.text(messages.node("permission-error").getString(""));
+                        final TextComponent text = LegacyComponentSerializer.legacyAmpersand().deserialize(messages.node("permission-error").getString(""));
                         source.sendMessage(text);
                     }
                     return b;
@@ -72,7 +72,7 @@ public class BanCommand {
 
     private int wrongUsage(CommandContext<CommandSource> context) {
         final CommandSource source = context.getSource();
-        final TextComponent text = Component.text(judicator.getMessagesConfig().node("usages.ban").getString(""));
+        final TextComponent text = LegacyComponentSerializer.legacyAmpersand().deserialize(judicator.getMessagesConfig().node("usages", "ban").getString(""));
         source.sendMessage(text);
         return Command.SINGLE_SUCCESS;
     }
@@ -94,7 +94,7 @@ public class BanCommand {
         if (source instanceof Player player) {
             final String punisher = player.getUsername();
             builder.punisher(player);
-            final TextComponent text = Component.text(judicator.getMessagesConfig().node("write-evidences").getString(""));
+            final TextComponent text = LegacyComponentSerializer.legacyAmpersand().deserialize(judicator.getMessagesConfig().node("write-evidences").getString(""));
             player.sendMessage(text);
 
             final ChatContext<PunishmentBuilder> chatContext = createChatContext(punisher, builder);
@@ -120,14 +120,14 @@ public class BanCommand {
                 return;
             }
             if (message.equalsIgnoreCase(cancelPrompt)) {
-                final TextComponent cancelMessage = Component.text(messages.node("operation-cancel").getString(""));
+                final TextComponent cancelMessage = LegacyComponentSerializer.legacyAmpersand().deserialize(messages.node("operation-cancel").getString(""));
                 event.getPlayer().sendMessage(cancelMessage);
                 processor.removeContext(currentBuilder.getPunisher());
                 return;
             }
 
             currentBuilder.appendEvidences(message);
-            final TextComponent cancelMessage = Component.text(messages.node("next-link").getString(""));
+            final TextComponent cancelMessage = LegacyComponentSerializer.legacyAmpersand().deserialize(messages.node("next-link").getString(""));
             event.getPlayer().sendMessage(cancelMessage);
 
         });

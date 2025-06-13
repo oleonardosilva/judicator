@@ -7,6 +7,7 @@ import com.openmc.plugin.judicator.punish.PunishmentBuilder;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.serialize.SerializationException;
 
@@ -41,7 +42,7 @@ public class BanHandler {
                         final List<String> list = messagesNode.node("runners", "ban-kick").getList(String.class);
                         if (list != null) {
                             PunishUtils.applyPlaceHolders(messagesNode, list, punishment).forEach(
-                                    s -> text.append(Component.text(s))
+                                    s -> text.append(LegacyComponentSerializer.legacyAmpersand().deserialize(s))
                             );
                         }
                     } catch (SerializationException e) {
@@ -71,7 +72,7 @@ public class BanHandler {
                 final List<String> list = messagesNode.node("announcements", "ban").getList(String.class);
                 if (list != null) {
                     PunishUtils.applyPlaceHolders(messagesNode, list, punishment).forEach(
-                            s -> text.append(Component.text(s))
+                            s -> text.append(LegacyComponentSerializer.legacyAmpersand().deserialize(s))
                     );
                 }
             } catch (SerializationException e) {

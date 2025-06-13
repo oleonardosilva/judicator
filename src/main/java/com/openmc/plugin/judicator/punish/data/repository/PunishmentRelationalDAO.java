@@ -52,7 +52,7 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                         """
                                 CREATE TABLE IF NOT EXISTS punishments (
                                     id BIGSERIAL PRIMARY KEY,
-                                    player_uuid UUID NOT NULL,
+                                    player_uuid VARCHAR(36) NOT NULL,
                                     reason VARCHAR(255) NOT NULL,
                                     punisher VARCHAR(20) NOT NULL,
                                     nickname VARCHAR(20),
@@ -346,7 +346,7 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
         punishment.setRevoked(rs.getBoolean("revoked"));
         punishment.setRevokedReason(rs.getString("revoked_reason"));
         punishment.setStartedAt(rs.getTimestamp("started_at").toLocalDateTime());
-        punishment.setFinishAt(rs.getTimestamp("finish_at").toLocalDateTime());
+        punishment.setFinishAt(Optional.ofNullable(rs.getTimestamp("finish_at")).map(Timestamp::toLocalDateTime).orElse(null));
         punishment.setEvidences(Arrays.stream(rs.getString("evidences").split(",")).toList());
         punishment.setType(PunishType.valueOf(rs.getString("type")));
         return punishment;
