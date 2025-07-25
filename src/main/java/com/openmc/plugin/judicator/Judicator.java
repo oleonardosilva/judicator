@@ -3,14 +3,18 @@ package com.openmc.plugin.judicator;
 import com.google.inject.Inject;
 import com.openmc.plugin.judicator.commons.UUIDManager;
 import com.openmc.plugin.judicator.commons.db.RelationalDBManager;
+import com.openmc.plugin.judicator.punish.AccessAddressService;
 import com.openmc.plugin.judicator.punish.PunishService;
 import com.openmc.plugin.judicator.punish.commands.BanCommand;
+import com.openmc.plugin.judicator.punish.commands.RevokeCommand;
 import com.openmc.plugin.judicator.punish.data.cache.ImmuneCache;
 import com.openmc.plugin.judicator.punish.data.cache.PunishCache;
-import com.openmc.plugin.judicator.punish.data.repository.PunishmentRelationalDAO;
+import com.openmc.plugin.judicator.punish.data.repository.AccessAddressRepository;
 import com.openmc.plugin.judicator.punish.data.repository.PunishmentRepository;
-import com.openmc.plugin.judicator.punish.listeners.ChatListener;
-import com.openmc.plugin.judicator.punish.listeners.PlayerConnectionListener;
+import com.openmc.plugin.judicator.punish.data.repository.dao.AccessAddressRelationalDAO;
+import com.openmc.plugin.judicator.punish.data.repository.dao.PunishmentRelationalDAO;
+import com.openmc.plugin.judicator.punish.listeners.OnBuildingPunishListener;
+import com.openmc.plugin.judicator.punish.listeners.OnPlayerConnectionListener;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
@@ -40,8 +44,8 @@ public class Judicator {
 
     private final Logger logger;
     private final ProxyServer server;
-    private UUIDManager uuidManager;
     private final Path dataDirectory;
+    private UUIDManager uuidManager;
     private ConfigurationNode messagesConfig;
     private ConfigurationNode immuneConfig;
     private ConfigurationNode dbConfig;
@@ -49,8 +53,8 @@ public class Judicator {
     private ImmuneCache immuneCache;
     private PunishCache punishCache;
     private RelationalDBManager relationalDBManager;
-    private PunishmentRepository punishmentRepository;
     private PunishService punishService;
+    private AccessAddressService addressService;
 
     @Inject
     public Judicator(Logger logger, ProxyServer server, @DataDirectory Path dataDirectory) {
@@ -68,8 +72,10 @@ public class Judicator {
         this.uuidManager = new UUIDManager(this);
         this.punishCache = new PunishCache(this);
         this.relationalDBManager = new RelationalDBManager(dbConfig);
-        this.punishmentRepository = new PunishmentRelationalDAO(relationalDBManager, logger);
-        this.punishService = new PunishService(this);
+        final PunishmentRepository punishmentRepository = new PunishmentRelationalDAO(relationalDBManager, logger);
+        this.punishService = new PunishService(this, punishmentRepository);
+        final AccessAddressRepository addressRepository = new AccessAddressRelationalDAO(relationalDBManager, logger);
+        this.addressService = new AccessAddressService(addressRepository);
         this.immuneCache = new ImmuneCache(this);
 
         this.registerCommands();
@@ -87,11 +93,12 @@ public class Judicator {
 
     private void registerCommands() {
         new BanCommand(this).register();
+        new RevokeCommand(this).register();
     }
 
     private void registerListeners() {
-        new ChatListener(this).register();
-        new PlayerConnectionListener(this).register();
+        new OnBuildingPunishListener(this).register();
+        new OnPlayerConnectionListener(this).register();
     }
 
     private ConfigurationNode loadConfig(String... subpaths) {

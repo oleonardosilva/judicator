@@ -1,5 +1,6 @@
 package com.openmc.plugin.judicator.commons;
 
+import com.velocitypowered.api.event.command.CommandExecuteEvent;
 import com.velocitypowered.api.event.player.PlayerChatEvent;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -16,11 +17,18 @@ public class ChatContext<T> {
 
     private String operator;
     private T value;
-    private BiConsumer<T, PlayerChatEvent> callback;
+    private BiConsumer<T, PlayerChatEvent> callbackChat;
+    private BiConsumer<T, CommandExecuteEvent> callbackCommand;
 
     public void accept(PlayerChatEvent event) {
-        if (callback != null) {
-            callback.accept(value, event);
+        if (callbackChat != null) {
+            callbackChat.accept(value, event);
+        }
+    }
+
+    public void accept(CommandExecuteEvent event) {
+        if (callbackCommand != null) {
+            callbackCommand.accept(value, event);
         }
     }
 }

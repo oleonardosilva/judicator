@@ -33,9 +33,9 @@ public class PunishService {
         return f1.map(localDateTime -> f2.get().compareTo(localDateTime)).orElse(0);
     };
 
-    public PunishService(Judicator judicator) {
+    public PunishService(Judicator judicator, PunishmentRepository repository) {
         this.judicator = judicator;
-        this.repository = judicator.getPunishmentRepository();
+        this.repository = repository;
         this.cache = judicator.getPunishCache();
         this.server = judicator.getServer();
         this.repository.initialize();
@@ -85,7 +85,7 @@ public class PunishService {
         });
     }
 
-    public void cleanupMutePunishment(DisconnectEvent event) {
+    public void cleanupMutePunishmentCache(DisconnectEvent event) {
         final String username = event.getPlayer().getUsername();
         final String address = event.getPlayer().getRemoteAddress().getAddress().getHostAddress();
 
@@ -108,7 +108,7 @@ public class PunishService {
                 });
     }
 
-    public void asyncRevoke(Long id, String reason, Runnable onSuccess, Runnable onFailure) {
+    public void revoke(Long id, String reason, Runnable onSuccess, Runnable onFailure) {
         server.getScheduler().buildTask(judicator, () -> {
             if (repository.revoke(id, reason)) onSuccess.run();
             else onFailure.run();

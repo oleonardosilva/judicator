@@ -5,13 +5,8 @@ import com.openmc.plugin.judicator.punish.PunishUtils;
 import com.openmc.plugin.judicator.punish.Punishment;
 import com.openmc.plugin.judicator.punish.PunishmentBuilder;
 import com.velocitypowered.api.proxy.ProxyServer;
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.spongepowered.configurate.ConfigurationNode;
-import org.spongepowered.configurate.serialize.SerializationException;
-
-import java.util.List;
 
 public class BanHandler {
 
@@ -37,18 +32,7 @@ public class BanHandler {
         final ProxyServer server = judicator.getServer();
         server.getScheduler().buildTask(judicator,
                 () -> {
-                    final TextComponent.Builder text = Component.text();
-                    try {
-                        final List<String> list = messagesNode.node("runners", "ban-kick").getList(String.class);
-                        if (list != null) {
-                            PunishUtils.applyPlaceHolders(messagesNode, list, punishment).forEach(
-                                    s -> text.append(LegacyComponentSerializer.legacyAmpersand().deserialize(s))
-                            );
-                        }
-                    } catch (SerializationException e) {
-                        throw new RuntimeException(e);
-                    }
-                    final TextComponent kickMessage = text.build();
+                    final TextComponent kickMessage = PunishUtils.getMessageList(messagesNode, punishment, "runners", "ban-kick");
 
                     punishment.getIpAddress()
                             .ifPresentOrElse(
@@ -67,18 +51,7 @@ public class BanHandler {
     private void announce(Punishment punishment) {
         if (announce) {
             final ProxyServer server = judicator.getServer();
-            final TextComponent.Builder text = Component.text();
-            try {
-                final List<String> list = messagesNode.node("announcements", "ban").getList(String.class);
-                if (list != null) {
-                    PunishUtils.applyPlaceHolders(messagesNode, list, punishment).forEach(
-                            s -> text.append(LegacyComponentSerializer.legacyAmpersand().deserialize(s))
-                    );
-                }
-            } catch (SerializationException e) {
-                throw new RuntimeException(e);
-            }
-            final TextComponent announcement = text.build();
+            final TextComponent announcement = PunishUtils.getMessageList(messagesNode, punishment, "announcements", "ban");
             server.sendMessage(announcement);
         }
     }

@@ -23,6 +23,7 @@ dependencies {
     implementation 'mysql:mysql-connector-java:8.0.33'
     implementation 'org.postgresql:postgresql:42.6.0'
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+    implementation("commons-validator:commons-validator:1.7")
 
     compileOnly 'org.projectlombok:lombok:1.18.38'
     annotationProcessor 'org.projectlombok:lombok:1.18.38'

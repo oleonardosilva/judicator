@@ -6,6 +6,7 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.openmc.plugin.judicator.Judicator;
 import com.openmc.plugin.judicator.commons.ChatContext;
+import com.openmc.plugin.judicator.punish.PunishUtils;
 import com.openmc.plugin.judicator.punish.PunishmentBuilder;
 import com.openmc.plugin.judicator.punish.data.cache.PunishCache;
 import com.openmc.plugin.judicator.punish.handlers.BanHandler;
@@ -18,7 +19,6 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.kyori.adventure.text.TextComponent;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.spongepowered.configurate.ConfigurationNode;
 
 public class BanCommand {
@@ -46,7 +46,7 @@ public class BanCommand {
                 .requires(source -> {
                     final boolean b = source.hasPermission(PunishPermissions.BAN.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
                     if (!b) {
-                        final TextComponent text = LegacyComponentSerializer.legacyAmpersand().deserialize(messages.node("permission-error").getString(""));
+                        final TextComponent text = PunishUtils.getMessage(messages, "permission-error");
                         source.sendMessage(text);
                     }
                     return b;
@@ -72,7 +72,7 @@ public class BanCommand {
 
     private int wrongUsage(CommandContext<CommandSource> context) {
         final CommandSource source = context.getSource();
-        final TextComponent text = LegacyComponentSerializer.legacyAmpersand().deserialize(judicator.getMessagesConfig().node("usages", "ban").getString(""));
+        final TextComponent text = PunishUtils.getMessage(messages, "usages", "ban");
         source.sendMessage(text);
         return Command.SINGLE_SUCCESS;
     }
@@ -94,7 +94,7 @@ public class BanCommand {
         if (source instanceof Player player) {
             final String punisher = player.getUsername();
             builder.punisher(player);
-            final TextComponent text = LegacyComponentSerializer.legacyAmpersand().deserialize(judicator.getMessagesConfig().node("write-evidences").getString(""));
+            final TextComponent text = PunishUtils.getMessage(messages, "write-evidences");
             player.sendMessage(text);
 
             final ChatContext<PunishmentBuilder> chatContext = createChatContext(punisher, builder);
@@ -110,7 +110,7 @@ public class BanCommand {
         final ChatContext<PunishmentBuilder> chatContext = new ChatContext<>();
         chatContext.setOperator(punisher);
         chatContext.setValue(builder);
-        chatContext.setCallback((currentBuilder, event) -> {
+        chatContext.setCallbackChat((currentBuilder, event) -> {
             final String message = event.getMessage();
             final String readyPrompt = messages.node("ready-prompt").getString("");
             final String cancelPrompt = messages.node("cancel-prompt").getString("");
@@ -120,17 +120,23 @@ public class BanCommand {
                 return;
             }
             if (message.equalsIgnoreCase(cancelPrompt)) {
-                final TextComponent cancelMessage = LegacyComponentSerializer.legacyAmpersand().deserialize(messages.node("operation-cancel").getString(""));
+                final TextComponent cancelMessage = PunishUtils.getMessage(messages, "operation-cancel");
                 event.getPlayer().sendMessage(cancelMessage);
                 processor.removeContext(currentBuilder.getPunisher());
                 return;
             }
 
             currentBuilder.appendEvidences(message);
-            final TextComponent cancelMessage = LegacyComponentSerializer.legacyAmpersand().deserialize(messages.node("next-link").getString(""));
+            final TextComponent cancelMessage = PunishUtils.getMessage(messages, "next-link");
             event.getPlayer().sendMessage(cancelMessage);
-
         });
+
+        chatContext.setCallbackCommand((currentBuilder, event) -> {
+            final TextComponent cancelMessage = PunishUtils.getMessage(messages, "operation-cancel");
+            event.getCommandSource().sendMessage(cancelMessage);
+            processor.removeContext(currentBuilder.getPunisher());
+        });
+
         return chatContext;
     }
 

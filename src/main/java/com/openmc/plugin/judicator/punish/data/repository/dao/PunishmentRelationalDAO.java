@@ -1,8 +1,9 @@
-package com.openmc.plugin.judicator.punish.data.repository;
+package com.openmc.plugin.judicator.punish.data.repository.dao;
 
 import com.openmc.plugin.judicator.commons.db.RelationalDBManager;
 import com.openmc.plugin.judicator.commons.db.SchemaUtil;
 import com.openmc.plugin.judicator.punish.Punishment;
+import com.openmc.plugin.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.plugin.judicator.punish.types.PunishType;
 import org.slf4j.Logger;
 
@@ -72,16 +73,16 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                 statement = connection.prepareStatement("""
                         CREATE TABLE IF NOT EXISTS punishments (
                             id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                            player_uuid VARCHAR(36) NOT NULL,  -- UUID em formato de texto
-                            reason TEXT NOT NULL,
+                            player_uuid VARCHAR(36) NOT NULL,
+                            reason VARCHAR(255) NOT NULL,
                             punisher VARCHAR(20) NOT NULL,
                             nickname VARCHAR(20),
                             ip_address VARCHAR(45),
                             lower_nickname VARCHAR(20),
                             started_at DATETIME NOT NULL,
                             finish_at DATETIME,
-                            revoked VARCHAR(20) NOT NULL,
-                            evidences TEXT,
+                            revoked BOOLEAN NOT NULL,
+                            evidences VARCHAR(255),
                             type VARCHAR(20) NOT NULL,
                             permanent BOOLEAN NOT NULL,
                             revoked_reason VARCHAR(100)
