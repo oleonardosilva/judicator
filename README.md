@@ -92,21 +92,13 @@ Os comandos abaixo são utilizados para aplicar, remover ou consultar punições
 
 ### ✅ Remoção de punições
 
-* **`/unban (jogador)`**
-  Remove um banimento ativo.
-  **Permissão:** `judicator.unban`
-
-* **`/unmute (jogador)`**
-  Remove um silenciamento ativo.
-  **Permissão:** `judicator.unmute`
-
-* **`/unpunish (id)`**
+* **`/revoke (id)`**
   Remove qualquer punição com base no ID.
-  **Permissão:** `judicator.unpunish`
+  **Permissão:** `judicator.admin`
 
 ---
 
-### 📝 Relatórios
+### 📝 Denúncias
 
 * **`/reportar (jogador) {motivo}`**
   Envia um relatório à moderação.
