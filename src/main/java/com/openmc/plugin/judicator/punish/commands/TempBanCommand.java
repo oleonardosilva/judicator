@@ -21,27 +21,27 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import net.kyori.adventure.text.TextComponent;
 import org.spongepowered.configurate.ConfigurationNode;
 
-public class BanCommand {
+public class TempBanCommand {
 
     private final Judicator judicator;
     private final ProxyServer server;
-    private final PunishCache processor;
+    private final PunishCache cache;
     private final ConfigurationNode messages;
 
-    public BanCommand(Judicator judicator) {
+    public TempBanCommand(Judicator judicator) {
         this.judicator = judicator;
         this.server = judicator.getServer();
-        this.processor = judicator.getPunishCache();
+        this.cache = judicator.getPunishCache();
         this.messages = judicator.getMessagesConfig();
     }
 
     public void register() {
         final CommandManager commandManager = server.getCommandManager();
-        final CommandMeta commandMeta = commandManager.metaBuilder("ban")
+        final CommandMeta commandMeta = commandManager.metaBuilder("tempban")
                 .plugin(judicator)
                 .build();
 
-        final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("ban")
+        final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("tempban")
                 .requires(source -> {
                     final boolean b = source.hasPermission(PunishPermissions.BAN.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
                     if (!b) {
@@ -56,11 +56,14 @@ public class BanCommand {
                             server.matchPlayer(input).forEach(player -> builder.suggest(player.getUsername()));
                             return builder.buildFuture();
                         })
-                        .then(BrigadierCommand
-                                .requiredArgumentBuilder("reason", StringArgumentType.greedyString())
-                                .executes(this::ban)
+                        .then(BrigadierCommand.requiredArgumentBuilder("duration", StringArgumentType.word())
+                                .then(BrigadierCommand
+                                        .requiredArgumentBuilder("reason", StringArgumentType.greedyString())
+                                        .executes(this::tempban)
+                                )
+                                .executes(this::tempban)
                         )
-                        .executes(this::ban)
+                        .executes(this::wrongUsage)
                 )
                 .executes(this::wrongUsage)
                 .build();
@@ -71,21 +74,24 @@ public class BanCommand {
 
     private int wrongUsage(CommandContext<CommandSource> context) {
         final CommandSource source = context.getSource();
-        final TextComponent text = PunishUtils.getMessage(messages, "usages", "ban");
+        final TextComponent text = PunishUtils.getMessage(messages, "usages", "tempban");
         source.sendMessage(text);
         return Command.SINGLE_SUCCESS;
     }
 
     @SuppressWarnings("SameReturnValue")
-    private int ban(CommandContext<CommandSource> context) {
+    private int tempban(CommandContext<CommandSource> context) {
         final CommandSource source = context.getSource();
+        final String durationStr = context.getArgument("duration", String.class);
         final String targetName = context.getArgument("player", String.class);
         if (!judicator.getImmuneCache().canPunish(source, targetName)) return Command.SINGLE_SUCCESS;
         final String reason = context.getArgument("reason", String.class);
 
         final PunishmentBuilder builder = new PunishmentBuilder()
-                .type(PunishType.BAN)
+                .type(PunishType.TEMPBAN)
                 .reason(reason);
+
+        builder.duration(durationStr);
 
         server.getPlayer(targetName).ifPresentOrElse(
                 builder::target, () -> builder.target(targetName)
@@ -98,11 +104,12 @@ public class BanCommand {
             player.sendMessage(text);
 
             final ChatContext<PunishmentBuilder> chatContext = ChatContext.buildPunishmentContext(punisher, builder, judicator);
-            processor.putContext(punisher, chatContext);
+            cache.putContext(punisher, chatContext);
         } else {
             new BanHandler(judicator, builder).handle();
         }
 
         return Command.SINGLE_SUCCESS;
     }
+
 }

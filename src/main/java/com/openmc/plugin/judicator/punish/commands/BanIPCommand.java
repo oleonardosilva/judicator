@@ -6,6 +6,7 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.openmc.plugin.judicator.Judicator;
 import com.openmc.plugin.judicator.commons.ChatContext;
+import com.openmc.plugin.judicator.punish.AccessAddressService;
 import com.openmc.plugin.judicator.punish.PunishUtils;
 import com.openmc.plugin.judicator.punish.PunishmentBuilder;
 import com.openmc.plugin.judicator.punish.data.cache.PunishCache;
@@ -21,27 +22,29 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import net.kyori.adventure.text.TextComponent;
 import org.spongepowered.configurate.ConfigurationNode;
 
-public class BanCommand {
+public class BanIPCommand {
 
     private final Judicator judicator;
     private final ProxyServer server;
     private final PunishCache processor;
     private final ConfigurationNode messages;
+    private final AccessAddressService addressService;
 
-    public BanCommand(Judicator judicator) {
+    public BanIPCommand(Judicator judicator) {
         this.judicator = judicator;
         this.server = judicator.getServer();
         this.processor = judicator.getPunishCache();
         this.messages = judicator.getMessagesConfig();
+        this.addressService = judicator.getAddressService();
     }
 
     public void register() {
         final CommandManager commandManager = server.getCommandManager();
-        final CommandMeta commandMeta = commandManager.metaBuilder("ban")
+        final CommandMeta commandMeta = commandManager.metaBuilder("banip")
                 .plugin(judicator)
                 .build();
 
-        final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("ban")
+        final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("banip")
                 .requires(source -> {
                     final boolean b = source.hasPermission(PunishPermissions.BAN.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
                     if (!b) {
@@ -88,7 +91,15 @@ public class BanCommand {
                 .reason(reason);
 
         server.getPlayer(targetName).ifPresentOrElse(
-                builder::target, () -> builder.target(targetName)
+                player -> builder.target(player).ipAddress(player.getRemoteAddress().getAddress().getHostAddress())
+                , () -> {
+                    builder.target(targetName);
+                    addressService.findByUsername(targetName)
+                            .ifPresentOrElse(accessAddress -> builder.ipAddress(accessAddress.getHostAddress()), () -> {
+                                final TextComponent text = PunishUtils.getMessage(messages, "player-ip-not-found");
+                                source.sendMessage(text);
+                            });
+                }
         );
 
         if (source instanceof Player player) {

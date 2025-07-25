@@ -5,8 +5,7 @@ import com.openmc.plugin.judicator.commons.UUIDManager;
 import com.openmc.plugin.judicator.commons.db.RelationalDBManager;
 import com.openmc.plugin.judicator.punish.AccessAddressService;
 import com.openmc.plugin.judicator.punish.PunishService;
-import com.openmc.plugin.judicator.punish.commands.BanCommand;
-import com.openmc.plugin.judicator.punish.commands.RevokeCommand;
+import com.openmc.plugin.judicator.punish.commands.*;
 import com.openmc.plugin.judicator.punish.data.cache.ImmuneCache;
 import com.openmc.plugin.judicator.punish.data.cache.PunishCache;
 import com.openmc.plugin.judicator.punish.data.repository.AccessAddressRepository;
@@ -93,6 +92,9 @@ public class Judicator {
 
     private void registerCommands() {
         new BanCommand(this).register();
+        new BanIPCommand(this).register();
+        new TempBanCommand(this).register();
+        new TempBanIPCommand(this).register();
         new RevokeCommand(this).register();
     }
 

@@ -19,7 +19,7 @@ public class PunishmentBuilder {
     private final LocalDateTime startedAt = LocalDateTime.now();
     private final List<String> evidences = new ArrayList<>();
     private UUID playerUUID;
-    private String reason, punisher = "Console", nickname, ipAddress;
+    private String reason = "", punisher = "Console", nickname, ipAddress;
     private LocalDateTime finishAt = null;
     private PunishType type;
 
@@ -34,7 +34,9 @@ public class PunishmentBuilder {
     }
 
     public PunishmentBuilder reason(String reason) {
-        this.reason = reason;
+        if (reason != null) {
+            this.reason = reason;
+        }
         return this;
     }
 

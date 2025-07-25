@@ -41,6 +41,15 @@ public class DateTimeOffsetParser {
         UNITS.put("month", ChronoUnit.MONTHS);
         UNITS.put("years", ChronoUnit.YEARS);
         UNITS.put("year", ChronoUnit.YEARS);
+
+        // abbreviate
+        UNITS.put("s", ChronoUnit.SECONDS);
+        UNITS.put("m", ChronoUnit.MINUTES);
+        UNITS.put("h", ChronoUnit.HOURS);
+        UNITS.put("d", ChronoUnit.DAYS);
+        UNITS.put("w", ChronoUnit.WEEKS);
+        UNITS.put("mo", ChronoUnit.MONTHS);
+        UNITS.put("y", ChronoUnit.YEARS);
     }
 
     public static LocalDateTime apply(String input, LocalDateTime base) throws IllegalArgumentException {
