@@ -85,7 +85,7 @@ public class MuteIPCommand {
         final CommandSource source = context.getSource();
         final String targetName = context.getArgument("player", String.class);
         if (!judicator.getImmuneCache().canPunish(source, targetName)) return Command.SINGLE_SUCCESS;
-        final String reason = context.getArgument("reason", String.class);
+        final String reason = context.getArguments().containsKey("reason") ? context.getArgument("reason", String.class) : "";
 
         final PunishmentBuilder builder = new PunishmentBuilder()
                 .type(PunishType.MUTE)

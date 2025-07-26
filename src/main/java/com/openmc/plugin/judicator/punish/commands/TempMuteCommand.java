@@ -57,7 +57,7 @@ public class TempMuteCommand {
                             server.matchPlayer(input).forEach(player -> builder.suggest(player.getUsername()));
                             return builder.buildFuture();
                         })
-                        .then(BrigadierCommand.requiredArgumentBuilder("duration", StringArgumentType.word())
+                        .then(BrigadierCommand.requiredArgumentBuilder("duration", StringArgumentType.string())
                                 .then(BrigadierCommand
                                         .requiredArgumentBuilder("reason", StringArgumentType.greedyString())
                                         .executes(this::tempmute)
@@ -86,7 +86,7 @@ public class TempMuteCommand {
         final String durationStr = context.getArgument("duration", String.class);
         final String targetName = context.getArgument("player", String.class);
         if (!judicator.getImmuneCache().canPunish(source, targetName)) return Command.SINGLE_SUCCESS;
-        final String reason = context.getArgument("reason", String.class);
+        final String reason = context.getArguments().containsKey("reason") ? context.getArgument("reason", String.class) : "";
 
         final PunishmentBuilder builder = new PunishmentBuilder()
                 .type(PunishType.TEMPMUTE)

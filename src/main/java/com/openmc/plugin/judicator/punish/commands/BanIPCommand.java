@@ -60,11 +60,11 @@ public class BanIPCommand {
                             server.matchPlayer(input).forEach(player -> builder.suggest(player.getUsername()));
                             return builder.buildFuture();
                         })
+                        .executes(this::banip)
                         .then(BrigadierCommand
                                 .requiredArgumentBuilder("reason", StringArgumentType.greedyString())
                                 .executes(this::banip)
                         )
-                        .executes(this::banip)
                 )
                 .executes(this::wrongUsage)
                 .build();
@@ -85,7 +85,7 @@ public class BanIPCommand {
         final CommandSource source = context.getSource();
         final String targetName = context.getArgument("player", String.class);
         if (!judicator.getImmuneCache().canPunish(source, targetName)) return Command.SINGLE_SUCCESS;
-        final String reason = context.getArgument("reason", String.class);
+        final String reason = context.getArguments().containsKey("reason") ? context.getArgument("reason", String.class) : "";
 
         final PunishmentBuilder builder = new PunishmentBuilder()
                 .type(PunishType.BAN)

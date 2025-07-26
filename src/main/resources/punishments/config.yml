@@ -8,7 +8,7 @@ commands-locked-when-silenced:
 warns:
   tree:
     warns: 3
-    command: "tempban {player} 3:dias Recebeu 3 avisos."
+    command: "tempban {player} \"3:dias\" Recebeu 3 avisos."
 reasons: #Esses serão os motivos pré-definidos para utilizar no /punir
   reason1:
     reason: "Ofensa a jogador"

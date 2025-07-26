@@ -52,8 +52,8 @@ public class AccessAddressRelationalDAO implements AccessAddressRepository {
             SchemaUtil.ensureIndexExists(
                     connection,
                     "access_addresses",
-                    "idx_access_addresses_host_name",
-                    "CREATE INDEX idx_access_addresses_host_name ON access_addresses(host_name)"
+                    "idx_access_addresses_host_address",
+                    "CREATE INDEX idx_access_addresses_host_address ON access_addresses(host_address)"
             );
         } catch (SQLException e) {
             logger.error(e.getMessage(), e);

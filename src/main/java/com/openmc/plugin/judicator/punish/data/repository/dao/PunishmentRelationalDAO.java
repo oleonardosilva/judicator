@@ -307,7 +307,7 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
         try (Connection connection = manager.getDataSource().getConnection()) {
             final PreparedStatement st = connection.prepareStatement("""
                     UPDATE punishments
-                    SET revoked = true, reason = ?
+                    SET revoked = true, revoked_reason = ?
                     WHERE id = ?
                     AND revoked = false
                     """);

@@ -77,8 +77,7 @@ public class RevokeCommand {
     private int revoke(CommandContext<CommandSource> context) {
         final CommandSource source = context.getSource();
         final Long id = Long.parseLong(context.getArgument("id", String.class).replace("#", ""));
-        String reason = context.getArgument("reason", String.class);
-        if (reason == null) reason = "";
+        final String reason = context.getArguments().containsKey("reason") ? context.getArgument("reason", String.class) : "";
 
         Optional<Punishment> optPunishment = punishService.findById(id);
         if (optPunishment.isEmpty()) {

@@ -10,6 +10,7 @@ public class AccessAddressService {
 
     public AccessAddressService(AccessAddressRepository repository) {
         this.repository = repository;
+        repository.initialize();
     }
 
     public void updateUserIP(String username, String addressIP) {

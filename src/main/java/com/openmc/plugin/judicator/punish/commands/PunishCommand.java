@@ -65,11 +65,11 @@ public class PunishCommand {
                             server.matchPlayer(input).forEach(player -> builder.suggest(player.getUsername()));
                             return builder.buildFuture();
                         })
+                        .executes(this::punish)
                         .then(BrigadierCommand
                                 .requiredArgumentBuilder("reason", StringArgumentType.greedyString())
                                 .executes(this::punish)
                         )
-                        .executes(this::punish)
                 )
                 .executes(this::wrongUsage)
                 .build();
@@ -91,9 +91,9 @@ public class PunishCommand {
 
         final String targetName = context.getArgument("player", String.class);
         if (!judicator.getImmuneCache().canPunish(source, targetName)) return Command.SINGLE_SUCCESS;
-        final String reason = context.getArgument("reason", String.class);
+        final String reason = context.getArguments().containsKey("reason") ? context.getArgument("reason", String.class) : "";
 
-        if (reason == null) {
+        if (reason.isBlank()) {
             if (source instanceof Player) {
                 final TextComponent textComponent = PunishUtils.getPunishmentsMessage(messages, targetName, reasonCache.getReasons());
                 source.sendMessage(textComponent);

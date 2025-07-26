@@ -18,10 +18,10 @@ public class PunishUtils {
 
     public static List<String> applyPlaceHolders(ConfigurationNode messagesNode, List<String> messages, Punishment punishment) {
         final String dateFormat = messagesNode.node("date-format").getString("dd/MM/yyyy-HH:mm:ss");
-        final String permanent = messagesNode.node("permanent").getString("§cPermanente.");
-        final String yes = messagesNode.node("yes").getString("§aYes.");
-        final String no = messagesNode.node("no").getString("§cNo.");
-        final String status = messagesNode.node(punishment.getStatus().name().toLowerCase()).getString("");
+        final String permanent = messagesNode.node("permanent").getString("§cPermanente.").replace("&", "§");
+        final String yes = messagesNode.node("yes").getString("§aYes.").replace("&", "§");
+        final String no = messagesNode.node("no").getString("§cNo.").replace("&", "§");
+        final String status = messagesNode.node(punishment.getStatus().name().toLowerCase()).getString("").replace("&", "§");
 
         final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern(dateFormat);
         return messages.stream().map(s -> s
@@ -55,7 +55,7 @@ public class PunishUtils {
         try {
             final List<String> list = node.node(path).getList(String.class);
             if (list != null) {
-                text.content(String.join("", list));
+                text.content(String.join("", list).replace("&", "§"));
             }
         } catch (SerializationException e) {
             throw new RuntimeException(e);
@@ -77,9 +77,9 @@ public class PunishUtils {
     }
 
     public static TextComponent getPunishmentsMessage(ConfigurationNode node, String target, List<ConfiguredReason> reasons) {
-        final String yes = node.node("yes").getString("&aSim");
-        final String no = node.node("no").getString("&cNão");
-        final String permanent = node.node("permanent").getString("&cPermanente");
+        final String yes = node.node("yes").getString("&aSim").replace("&", "§");
+        final String no = node.node("no").getString("&cNão").replace("&", "§");
+        final String permanent = node.node("permanent").getString("&cPermanente").replace("&", "§");
         final TextComponent title = Component.text(getMessageList(node, "punish", "title").content());
 
         final TextComponent.Builder reasonsText = Component.text();
@@ -98,7 +98,7 @@ public class PunishUtils {
                 final long timestamp = DateTimeOffsetParser.getMillisFromDuration(reason.getDuration());
                 hoverMessage = hoverMessage.replace("{duration}", DateTimeOffsetParser.format(node, timestamp));
             }
-            final String suggests = "/punir " + target + " " + reason.getReason();
+            final String suggests = "/punish " + target + " " + reason.getReason();
 
             reasonsText.append(
                     Component.text()
@@ -112,9 +112,9 @@ public class PunishUtils {
         return Component.text().append(title).append(reasonsText).append(footer).build();
     }
 
-    public static Component getConfirmationMessage(ConfigurationNode node, String... path) {
-        final String readyPrompt = node.node("ready-prompt").getString("confirmar");
-        final String cancelPrompt = node.node("cancel-prompt").getString("cancelar");
+    public static Component getConfirmationMessage(ConfigurationNode node, Object... path) {
+        final String readyPrompt = node.node("ready-prompt").getString("confirmar").replace("&", "§");
+        final String cancelPrompt = node.node("cancel-prompt").getString("cancelar").replace("&", "§");
 
         final Component ready = Component.text(readyPrompt)
                 .clickEvent(ClickEvent.runCommand(readyPrompt))
@@ -124,8 +124,12 @@ public class PunishUtils {
                 .clickEvent(ClickEvent.runCommand(cancelPrompt))
                 .hoverEvent(HoverEvent.showText(Component.text(cancelPrompt)));
 
-
-        final TextComponent message = getMessage(node, path == null ? new Object[]{"write-evidences"} : path);
+        final TextComponent message;
+        if (path == null || path.length == 0) {
+            message = getMessage(node, "write-evidences");
+        } else {
+            message = getMessage(node, path);
+        }
 
         return message
                 .replaceText(builder -> builder
