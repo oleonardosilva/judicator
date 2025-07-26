@@ -8,7 +8,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import net.kyori.adventure.text.TextComponent;
 import org.spongepowered.configurate.ConfigurationNode;
 
-public class BanHandler {
+public class BanHandler implements PunishHandler {
 
     private final Judicator judicator;
     private final PunishmentBuilder punishmentBuilder;
@@ -22,10 +22,11 @@ public class BanHandler {
         this.announce = judicator.getConfig().node("announce").getBoolean(true);
     }
 
-    public void handle() {
+    public Punishment handle() {
         final Punishment punishment = judicator.getPunishService().save(punishmentBuilder.build());
         this.kick(punishment);
         this.announce(punishment);
+        return punishment;
     }
 
     private void kick(Punishment punishment) {
@@ -35,15 +36,10 @@ public class BanHandler {
                     final TextComponent kickMessage = PunishUtils.getMessageList(messagesNode, punishment, "runners", "ban-kick");
 
                     punishment.getIpAddress()
-                            .ifPresentOrElse(
-                                    (s) ->
-                                            server.getAllPlayers()
-                                                    .stream()
-                                                    .filter(player -> player.getRemoteAddress().getAddress().getHostAddress().equals(s))
-                                                    .forEach(player -> player.disconnect(kickMessage)),
-                                    () -> server.getPlayer(punishment.getNickname())
-                                            .ifPresent(player -> player.disconnect(kickMessage)));
-
+                            .map(ip -> server.getAllPlayers().stream()
+                                    .filter(player -> player.getRemoteAddress().getAddress().getHostAddress().equals(ip)))
+                            .orElseGet(() -> server.getPlayer(punishment.getNickname()).stream())
+                            .forEach(player -> player.disconnect(kickMessage));
                 }
         ).schedule();
     }

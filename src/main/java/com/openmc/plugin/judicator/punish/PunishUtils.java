@@ -1,7 +1,10 @@
 package com.openmc.plugin.judicator.punish;
 
+import com.openmc.plugin.judicator.commons.DateTimeOffsetParser;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.apache.commons.validator.routines.InetAddressValidator;
 import org.spongepowered.configurate.ConfigurationNode;
@@ -69,6 +72,67 @@ public class PunishUtils {
             throw new RuntimeException(e);
         }
         return text.build();
+    }
+
+    public static TextComponent getPunishmentsMessage(ConfigurationNode node, String target, List<ConfiguredReason> reasons) {
+        final String yes = node.node("yes").getString("&aSim");
+        final String no = node.node("no").getString("&cNão");
+        final String permanent = node.node("permanent").getString("&cPermanente");
+        final TextComponent title = Component.text(getMessageList(node, "punish", "title").content());
+
+        final TextComponent.Builder reasonsText = Component.text();
+
+        for (ConfiguredReason reason : reasons) {
+            final String message = node.node("punish", "line", "message").getString("").replace("&", "§").replace("{reason}", reason.getReason());
+            String hoverMessage = node.node("punish", "line", "hoverMessage").getString("")
+                    .replace("&", "§")
+                    .replace("{type}", reason.getType().name())
+                    .replace("{toggle}", reason.isIp() ? yes : no)
+                    .replace("{permission}", reason.getPermission());
+
+            if (reason.isPermanent()) {
+                hoverMessage = hoverMessage.replace("{duration}", permanent);
+            } else {
+                final long timestamp = DateTimeOffsetParser.getMillisFromDuration(reason.getDuration());
+                hoverMessage = hoverMessage.replace("{duration}", DateTimeOffsetParser.format(node, timestamp));
+            }
+            final String suggests = "/punir " + target + " " + reason.getReason();
+
+            reasonsText.append(
+                    Component.text()
+                            .content(message)
+                            .hoverEvent(HoverEvent.showText(Component.text(hoverMessage)))
+                            .clickEvent(ClickEvent.suggestCommand(suggests))
+                            .build());
+        }
+
+        final TextComponent footer = getMessageList(node, "punish", "footer");
+        return Component.text().append(title).append(reasonsText).append(footer).build();
+    }
+
+    public static Component getConfirmationMessage(ConfigurationNode node, String... path) {
+        final String readyPrompt = node.node("ready-prompt").getString("confirmar");
+        final String cancelPrompt = node.node("cancel-prompt").getString("cancelar");
+
+        final Component ready = Component.text(readyPrompt)
+                .clickEvent(ClickEvent.runCommand(readyPrompt))
+                .hoverEvent(HoverEvent.showText(Component.text(readyPrompt)));
+
+        final Component cancel = Component.text(cancelPrompt)
+                .clickEvent(ClickEvent.runCommand(cancelPrompt))
+                .hoverEvent(HoverEvent.showText(Component.text(cancelPrompt)));
+
+
+        final TextComponent message = getMessage(node, path == null ? new Object[]{"write-evidences"} : path);
+
+        return message
+                .replaceText(builder -> builder
+                        .matchLiteral("{ready-prompt}")
+                        .replacement(ready))
+                .replaceText(builder -> builder
+                        .matchLiteral("{cancel-prompt}")
+                        .replacement(cancel));
+
     }
 
 }

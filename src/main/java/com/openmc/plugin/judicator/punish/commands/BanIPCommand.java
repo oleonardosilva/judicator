@@ -10,7 +10,7 @@ import com.openmc.plugin.judicator.punish.AccessAddressService;
 import com.openmc.plugin.judicator.punish.PunishUtils;
 import com.openmc.plugin.judicator.punish.PunishmentBuilder;
 import com.openmc.plugin.judicator.punish.data.cache.PunishCache;
-import com.openmc.plugin.judicator.punish.handlers.BanHandler;
+import com.openmc.plugin.judicator.punish.handlers.PunishFactory;
 import com.openmc.plugin.judicator.punish.types.PunishPermissions;
 import com.openmc.plugin.judicator.punish.types.PunishType;
 import com.velocitypowered.api.command.BrigadierCommand;
@@ -19,6 +19,7 @@ import com.velocitypowered.api.command.CommandMeta;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import org.spongepowered.configurate.ConfigurationNode;
 
@@ -46,7 +47,7 @@ public class BanIPCommand {
 
         final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("banip")
                 .requires(source -> {
-                    final boolean b = source.hasPermission(PunishPermissions.BAN.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
+                    final boolean b = source.hasPermission(PunishPermissions.BANIP.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
                     if (!b) {
                         final TextComponent text = PunishUtils.getMessage(messages, "permission-error");
                         source.sendMessage(text);
@@ -61,9 +62,9 @@ public class BanIPCommand {
                         })
                         .then(BrigadierCommand
                                 .requiredArgumentBuilder("reason", StringArgumentType.greedyString())
-                                .executes(this::ban)
+                                .executes(this::banip)
                         )
-                        .executes(this::ban)
+                        .executes(this::banip)
                 )
                 .executes(this::wrongUsage)
                 .build();
@@ -74,13 +75,13 @@ public class BanIPCommand {
 
     private int wrongUsage(CommandContext<CommandSource> context) {
         final CommandSource source = context.getSource();
-        final TextComponent text = PunishUtils.getMessage(messages, "usages", "ban");
+        final TextComponent text = PunishUtils.getMessage(messages, "usages", "banip");
         source.sendMessage(text);
         return Command.SINGLE_SUCCESS;
     }
 
     @SuppressWarnings("SameReturnValue")
-    private int ban(CommandContext<CommandSource> context) {
+    private int banip(CommandContext<CommandSource> context) {
         final CommandSource source = context.getSource();
         final String targetName = context.getArgument("player", String.class);
         if (!judicator.getImmuneCache().canPunish(source, targetName)) return Command.SINGLE_SUCCESS;
@@ -105,13 +106,13 @@ public class BanIPCommand {
         if (source instanceof Player player) {
             final String punisher = player.getUsername();
             builder.punisher(player);
-            final TextComponent text = PunishUtils.getMessage(messages, "write-evidences");
+            final Component text = PunishUtils.getConfirmationMessage(messages);
             player.sendMessage(text);
 
             final ChatContext<PunishmentBuilder> chatContext = ChatContext.buildPunishmentContext(punisher, builder, judicator);
             processor.putContext(punisher, chatContext);
         } else {
-            new BanHandler(judicator, builder).handle();
+            new PunishFactory(judicator, builder).factory();
         }
 
         return Command.SINGLE_SUCCESS;

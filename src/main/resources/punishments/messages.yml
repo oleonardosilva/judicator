@@ -1,10 +1,10 @@
 permission-error: "&cVocê não possui permissão para utilizar tal função."
 unknown-error: "&cOcorreu um erro desconhecido."
 only-player: "&cEsse comando funciona apenas para jogadores conectados no servidor."
-write-evidences: "&7Envie as provas por vez no chat. Para finalizar digite \"pronto\"."
-ready-prompt: "pronto"
+write-evidences: "&7Envie as provas por vez no chat. Para finalizar clique ou digite \"{ready-prompt}\" ou \"{cancel-prompt}\"."
+ready-prompt: "confirmar"
 cancel-prompt: "cancelar"
-next-link: "&aLink anexado com sucesso, caso queira parar por aqui, digite \"pronto\"."
+next-link: "&aLink anexado com sucesso. Para finalizar clique ou digite \"{ready-prompt}\" ou \"{cancel-prompt}\"."
 operation-cancel: "&aOperação cancelada com sucesso."
 punish-pardon: "&aA punição do ID informado foi revogada com sucesso."
 punish-not-found: "&cNão foi encontrado nenhuma punição com o ID informado."
@@ -124,6 +124,22 @@ runners: #Precisa \n para pular a linha.
     - "&c * Motivo: {reason}\n"
     - "&c * Início: {startedAt}\n"
     - "&c * Término: {finishAt}\n"
+time:
+  format:
+    year: "ano"
+    years: "anos"
+    month: "mês"
+    months: "meses"
+    week: "semana"
+    weeks: "semanas"
+    day: "dia"
+    days: "dias"
+    hour: "hora"
+    hours: "horas"
+    minute: "minuto"
+    minutes: "minutos"
+    second: "segundo"
+    seconds: "segundos"
 usages:
   #[] optional arguments
   #() binding arguments

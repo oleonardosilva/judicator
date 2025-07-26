@@ -1,4 +1,5 @@
 announce: true
+block-global-chat: true # a message entered without command /l /g
 commands-locked-when-silenced:
   - "/g"
   - "/l"

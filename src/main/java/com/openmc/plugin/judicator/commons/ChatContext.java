@@ -4,13 +4,14 @@ import com.openmc.plugin.judicator.Judicator;
 import com.openmc.plugin.judicator.punish.PunishUtils;
 import com.openmc.plugin.judicator.punish.PunishmentBuilder;
 import com.openmc.plugin.judicator.punish.data.cache.PunishCache;
-import com.openmc.plugin.judicator.punish.handlers.BanHandler;
+import com.openmc.plugin.judicator.punish.handlers.PunishFactory;
 import com.velocitypowered.api.event.command.CommandExecuteEvent;
 import com.velocitypowered.api.event.player.PlayerChatEvent;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import org.spongepowered.configurate.ConfigurationNode;
 
@@ -39,7 +40,7 @@ public class ChatContext<T> {
             final String cancelPrompt = messages.node("cancel-prompt").getString("");
             if (message.equalsIgnoreCase(readyPrompt)) {
                 cache.removeContext(currentBuilder.getPunisher());
-                new BanHandler(judicator, currentBuilder).handle();
+                new PunishFactory(judicator, currentBuilder).factory();
                 return;
             }
             if (message.equalsIgnoreCase(cancelPrompt)) {
@@ -50,7 +51,7 @@ public class ChatContext<T> {
             }
 
             currentBuilder.appendEvidences(message);
-            final TextComponent cancelMessage = PunishUtils.getMessage(messages, "next-link");
+            final Component cancelMessage = PunishUtils.getConfirmationMessage(messages, "next-link");
             event.getPlayer().sendMessage(cancelMessage);
         });
 

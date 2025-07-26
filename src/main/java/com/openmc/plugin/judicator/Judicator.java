@@ -8,12 +8,14 @@ import com.openmc.plugin.judicator.punish.PunishService;
 import com.openmc.plugin.judicator.punish.commands.*;
 import com.openmc.plugin.judicator.punish.data.cache.ImmuneCache;
 import com.openmc.plugin.judicator.punish.data.cache.PunishCache;
+import com.openmc.plugin.judicator.punish.data.cache.ReasonCache;
 import com.openmc.plugin.judicator.punish.data.repository.AccessAddressRepository;
 import com.openmc.plugin.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.plugin.judicator.punish.data.repository.dao.AccessAddressRelationalDAO;
 import com.openmc.plugin.judicator.punish.data.repository.dao.PunishmentRelationalDAO;
 import com.openmc.plugin.judicator.punish.listeners.OnBuildingPunishListener;
 import com.openmc.plugin.judicator.punish.listeners.OnPlayerConnectionListener;
+import com.openmc.plugin.judicator.punish.listeners.OnTalkMutedListener;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
@@ -24,6 +26,7 @@ import lombok.Getter;
 import org.slf4j.Logger;
 import org.spongepowered.configurate.CommentedConfigurationNode;
 import org.spongepowered.configurate.ConfigurationNode;
+import org.spongepowered.configurate.serialize.SerializationException;
 import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 
 import java.io.IOException;
@@ -51,6 +54,7 @@ public class Judicator {
     private ConfigurationNode config;
     private ImmuneCache immuneCache;
     private PunishCache punishCache;
+    private ReasonCache reasonCache;
     private RelationalDBManager relationalDBManager;
     private PunishService punishService;
     private AccessAddressService addressService;
@@ -70,6 +74,7 @@ public class Judicator {
         this.dbConfig = loadConfig("data.yml");
         this.uuidManager = new UUIDManager(this);
         this.punishCache = new PunishCache(this);
+        this.reasonCache = new ReasonCache(this);
         this.relationalDBManager = new RelationalDBManager(dbConfig);
         final PunishmentRepository punishmentRepository = new PunishmentRelationalDAO(relationalDBManager, logger);
         this.punishService = new PunishService(this, punishmentRepository);
@@ -95,12 +100,22 @@ public class Judicator {
         new BanIPCommand(this).register();
         new TempBanCommand(this).register();
         new TempBanIPCommand(this).register();
+        new MuteCommand(this).register();
+        new MuteIPCommand(this).register();
+        new TempMuteIPCommand(this).register();
+        new TempMuteCommand(this).register();
         new RevokeCommand(this).register();
+        new PunishCommand(this).register();
     }
 
     private void registerListeners() {
         new OnBuildingPunishListener(this).register();
         new OnPlayerConnectionListener(this).register();
+        try {
+            new OnTalkMutedListener(this).register();
+        } catch (SerializationException e) {
+            logger.error(e.getMessage(), e);
+        }
     }
 
     private ConfigurationNode loadConfig(String... subpaths) {

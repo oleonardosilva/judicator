@@ -19,7 +19,7 @@ public class PunishmentBuilder {
     private final LocalDateTime startedAt = LocalDateTime.now();
     private final List<String> evidences = new ArrayList<>();
     private UUID playerUUID;
-    private String reason = "", punisher = "Console", nickname, ipAddress;
+    private String reason = "", punisher = "Console", nickname, ipAddress = null;
     private LocalDateTime finishAt = null;
     private PunishType type;
 
@@ -41,7 +41,7 @@ public class PunishmentBuilder {
     }
 
     public PunishmentBuilder duration(String input) {
-        this.finishAt = DateTimeOffsetParser.apply(input, startedAt);
+        this.finishAt = DateTimeOffsetParser.getFinishedAtFromDuration(input, startedAt);
         return this;
     }
 
@@ -74,6 +74,14 @@ public class PunishmentBuilder {
     public PunishmentBuilder appendEvidence(String evidence) {
         this.evidences.add(evidence);
         return this;
+    }
+
+    public boolean isBan() {
+        return this.type == PunishType.BAN || this.type == PunishType.TEMPBAN;
+    }
+
+    public boolean isMute() {
+        return this.type == PunishType.MUTE || this.type == PunishType.TEMPMUTE;
     }
 
     public Punishment build() {

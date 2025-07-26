@@ -25,7 +25,7 @@ public class OnBuildingPunishListener {
         judicator.getServer().getEventManager().register(judicator, this);
     }
 
-    @Subscribe(priority = 1)
+    @Subscribe
     private void onPlayerChat(PlayerChatEvent event) {
         final Player player = event.getPlayer();
         final Optional<ChatContext<PunishmentBuilder>> optContext = punishCache.getContext(player.getUsername());
@@ -35,7 +35,7 @@ public class OnBuildingPunishListener {
         event.setResult(PlayerChatEvent.ChatResult.denied());
     }
 
-    @Subscribe(priority = 1)
+    @Subscribe
     private void onPlayerCommand(CommandExecuteEvent event) {
         if (!(event.getCommandSource() instanceof Player player)) {
             return;

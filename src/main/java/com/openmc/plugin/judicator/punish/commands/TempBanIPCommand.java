@@ -10,7 +10,7 @@ import com.openmc.plugin.judicator.punish.AccessAddressService;
 import com.openmc.plugin.judicator.punish.PunishUtils;
 import com.openmc.plugin.judicator.punish.PunishmentBuilder;
 import com.openmc.plugin.judicator.punish.data.cache.PunishCache;
-import com.openmc.plugin.judicator.punish.handlers.BanHandler;
+import com.openmc.plugin.judicator.punish.handlers.PunishFactory;
 import com.openmc.plugin.judicator.punish.types.PunishPermissions;
 import com.openmc.plugin.judicator.punish.types.PunishType;
 import com.velocitypowered.api.command.BrigadierCommand;
@@ -19,6 +19,7 @@ import com.velocitypowered.api.command.CommandMeta;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import org.spongepowered.configurate.ConfigurationNode;
 
@@ -46,7 +47,7 @@ public class TempBanIPCommand {
 
         final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("tempbanip")
                 .requires(source -> {
-                    final boolean b = source.hasPermission(PunishPermissions.BAN.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
+                    final boolean b = source.hasPermission(PunishPermissions.TEMPBANIP.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
                     if (!b) {
                         final TextComponent text = PunishUtils.getMessage(messages, "permission-error");
                         source.sendMessage(text);
@@ -62,9 +63,9 @@ public class TempBanIPCommand {
                         .then(BrigadierCommand.requiredArgumentBuilder("duration", StringArgumentType.word())
                                 .then(BrigadierCommand
                                         .requiredArgumentBuilder("reason", StringArgumentType.greedyString())
-                                        .executes(this::tempban)
+                                        .executes(this::tempbanip)
                                 )
-                                .executes(this::tempban)
+                                .executes(this::tempbanip)
                         )
                         .executes(this::wrongUsage)
                 )
@@ -77,13 +78,13 @@ public class TempBanIPCommand {
 
     private int wrongUsage(CommandContext<CommandSource> context) {
         final CommandSource source = context.getSource();
-        final TextComponent text = PunishUtils.getMessage(messages, "usages", "tempban");
+        final TextComponent text = PunishUtils.getMessage(messages, "usages", "tempbanip");
         source.sendMessage(text);
         return Command.SINGLE_SUCCESS;
     }
 
     @SuppressWarnings("SameReturnValue")
-    private int tempban(CommandContext<CommandSource> context) {
+    private int tempbanip(CommandContext<CommandSource> context) {
         final CommandSource source = context.getSource();
         final String durationStr = context.getArgument("duration", String.class);
         final String targetName = context.getArgument("player", String.class);
@@ -111,13 +112,13 @@ public class TempBanIPCommand {
         if (source instanceof Player player) {
             final String punisher = player.getUsername();
             builder.punisher(player);
-            final TextComponent text = PunishUtils.getMessage(messages, "write-evidences");
+            final Component text = PunishUtils.getConfirmationMessage(messages);
             player.sendMessage(text);
 
             final ChatContext<PunishmentBuilder> chatContext = ChatContext.buildPunishmentContext(punisher, builder, judicator);
             cache.putContext(punisher, chatContext);
         } else {
-            new BanHandler(judicator, builder).handle();
+            new PunishFactory(judicator, builder).factory();
         }
 
         return Command.SINGLE_SUCCESS;

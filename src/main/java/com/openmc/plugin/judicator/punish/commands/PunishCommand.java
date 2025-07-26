@@ -6,12 +6,14 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.openmc.plugin.judicator.Judicator;
 import com.openmc.plugin.judicator.commons.ChatContext;
+import com.openmc.plugin.judicator.punish.AccessAddressService;
+import com.openmc.plugin.judicator.punish.ConfiguredReason;
 import com.openmc.plugin.judicator.punish.PunishUtils;
 import com.openmc.plugin.judicator.punish.PunishmentBuilder;
 import com.openmc.plugin.judicator.punish.data.cache.PunishCache;
+import com.openmc.plugin.judicator.punish.data.cache.ReasonCache;
 import com.openmc.plugin.judicator.punish.handlers.PunishFactory;
 import com.openmc.plugin.judicator.punish.types.PunishPermissions;
-import com.openmc.plugin.judicator.punish.types.PunishType;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.command.CommandMeta;
@@ -22,29 +24,35 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import org.spongepowered.configurate.ConfigurationNode;
 
-public class BanCommand {
+import java.util.Optional;
+
+public class PunishCommand {
 
     private final Judicator judicator;
     private final ProxyServer server;
     private final PunishCache processor;
     private final ConfigurationNode messages;
+    private final ReasonCache reasonCache;
+    private final AccessAddressService addressService;
 
-    public BanCommand(Judicator judicator) {
+    public PunishCommand(Judicator judicator) {
         this.judicator = judicator;
         this.server = judicator.getServer();
         this.processor = judicator.getPunishCache();
         this.messages = judicator.getMessagesConfig();
+        this.reasonCache = judicator.getReasonCache();
+        this.addressService = judicator.getAddressService();
     }
 
     public void register() {
         final CommandManager commandManager = server.getCommandManager();
-        final CommandMeta commandMeta = commandManager.metaBuilder("ban")
+        final CommandMeta commandMeta = commandManager.metaBuilder("punish")
                 .plugin(judicator)
                 .build();
 
-        final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("ban")
+        final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("punish")
                 .requires(source -> {
-                    final boolean b = source.hasPermission(PunishPermissions.BAN.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
+                    final boolean b = source.hasPermission(PunishPermissions.PUNISH.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
                     if (!b) {
                         final TextComponent text = PunishUtils.getMessage(messages, "permission-error");
                         source.sendMessage(text);
@@ -59,9 +67,9 @@ public class BanCommand {
                         })
                         .then(BrigadierCommand
                                 .requiredArgumentBuilder("reason", StringArgumentType.greedyString())
-                                .executes(this::ban)
+                                .executes(this::punish)
                         )
-                        .executes(this::ban)
+                        .executes(this::punish)
                 )
                 .executes(this::wrongUsage)
                 .build();
@@ -72,25 +80,61 @@ public class BanCommand {
 
     private int wrongUsage(CommandContext<CommandSource> context) {
         final CommandSource source = context.getSource();
-        final TextComponent text = PunishUtils.getMessage(messages, "usages", "ban");
+        final TextComponent text = PunishUtils.getMessage(messages, "usages", "punish");
         source.sendMessage(text);
         return Command.SINGLE_SUCCESS;
     }
 
     @SuppressWarnings("SameReturnValue")
-    private int ban(CommandContext<CommandSource> context) {
+    private int punish(CommandContext<CommandSource> context) {
         final CommandSource source = context.getSource();
+
         final String targetName = context.getArgument("player", String.class);
         if (!judicator.getImmuneCache().canPunish(source, targetName)) return Command.SINGLE_SUCCESS;
         final String reason = context.getArgument("reason", String.class);
 
+        if (reason == null) {
+            if (source instanceof Player) {
+                final TextComponent textComponent = PunishUtils.getPunishmentsMessage(messages, targetName, reasonCache.getReasons());
+                source.sendMessage(textComponent);
+            }
+            return Command.SINGLE_SUCCESS;
+        }
+
+        final Optional<ConfiguredReason> optReason = reasonCache.getReason(reason);
+        if (optReason.isEmpty()) {
+            final TextComponent error = PunishUtils.getMessage(messages, "reason-not-found");
+            source.sendMessage(error);
+            return Command.SINGLE_SUCCESS;
+        }
+
+        final ConfiguredReason configuredReason = optReason.get();
+
         final PunishmentBuilder builder = new PunishmentBuilder()
-                .type(PunishType.BAN)
+                .type(configuredReason.getType())
                 .reason(reason);
 
-        server.getPlayer(targetName).ifPresentOrElse(
-                builder::target, () -> builder.target(targetName)
-        );
+        if (!configuredReason.isPermanent()) {
+            builder.duration(configuredReason.getDuration());
+        }
+
+        if (configuredReason.isIp()) {
+            server.getPlayer(targetName).ifPresentOrElse(
+                    player -> builder.target(player).ipAddress(player.getRemoteAddress().getAddress().getHostAddress())
+                    , () -> {
+                        builder.target(targetName);
+                        addressService.findByUsername(targetName)
+                                .ifPresentOrElse(accessAddress -> builder.ipAddress(accessAddress.getHostAddress()), () -> {
+                                    final TextComponent text = PunishUtils.getMessage(messages, "player-ip-not-found");
+                                    source.sendMessage(text);
+                                });
+                    }
+            );
+        } else {
+            server.getPlayer(targetName).ifPresentOrElse(
+                    builder::target, () -> builder.target(targetName)
+            );
+        }
 
         if (source instanceof Player player) {
             final String punisher = player.getUsername();

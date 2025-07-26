@@ -3,32 +3,23 @@ package com.openmc.plugin.judicator.punish.types;
 import com.google.gson.annotations.SerializedName;
 import lombok.Getter;
 
-import java.util.Arrays;
-
+@Getter
 public enum PunishType {
 
     @SerializedName("BAN")
-    BAN("Banimento", false),
+    BAN(false),
     @SerializedName("TEMPBAN")
-    TEMPBAN("Banimento temporário", true),
+    TEMPBAN(true),
     @SerializedName("MUTE")
-    MUTE("Silenciamento", false),
+    MUTE(false),
     @SerializedName("TEMPMUTE")
-    TEMPMUTE("Silenciamento temporário", true),
+    TEMPMUTE(true),
     @SerializedName("KICK")
-    KICK("Suspensão", false);
+    KICK(false);
 
-    @Getter
-    private final String identifier;
-    @Getter
     private final boolean temp;
 
-    PunishType(String identifier, boolean temp) {
-        this.identifier = identifier;
+    PunishType(boolean temp) {
         this.temp = temp;
-    }
-
-    public static PunishType getByIdentifier(String identifier) {
-        return Arrays.stream(PunishType.values()).filter(punishType -> punishType.getIdentifier().equalsIgnoreCase(identifier)).findFirst().orElse(null);
     }
 }
