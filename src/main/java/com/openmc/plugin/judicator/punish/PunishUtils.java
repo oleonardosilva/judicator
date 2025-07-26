@@ -30,12 +30,14 @@ public class PunishUtils {
                         .replace("{author}", punishment.getPunisher())
                         .replace("{status}", status)
                         .replace("{id}", punishment.getId().toString())
-                        .replace("{evidence}", punishment.getEvidences().stream().findFirst().orElse("None"))
+                        .replace("{evidence}", punishment.getEvidences().isEmpty() ? "None" : String.join(", ", punishment.getEvidences()))
                         .replace("{nickname}", punishment.getNickname())
                         .replace("{startedAt}", timeFormatter.format(punishment.getStartedAt()))
                         .replace("{revoked}", punishment.isRevoked() ? yes : no)
-                        .replace("{revokedReason}", punishment.getRevokedReason())
-                        .replace("{reason}", punishment.getReason()))
+                        .replace("{revokedReason}", punishment.isRevoked() ? punishment.getRevokedReason() : "None")
+                        .replace("{reason}", punishment.getReason())
+                        .replace("{addressIP}", punishment.getIpAddress().orElse("None"))
+                )
                 .collect(Collectors.toList());
     }
 

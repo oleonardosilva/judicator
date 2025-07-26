@@ -38,7 +38,7 @@ import java.util.Objects;
 @Plugin(id = "judicator",
         authors = "oleonardosilva",
         url = "https://github.com/oleonardosilva",
-        description = "A moderation plugin for your server",
+        description = "A moderation plugin",
         name = "Judicator",
         version = BuildConstants.VERSION)
 @Getter
@@ -106,6 +106,7 @@ public class Judicator {
         new TempMuteCommand(this).register();
         new RevokeCommand(this).register();
         new PunishCommand(this).register();
+        new PunishViewCommand(this).register();
     }
 
     private void registerListeners() {
