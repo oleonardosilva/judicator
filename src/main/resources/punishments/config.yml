@@ -1,29 +1,28 @@
-announce: true
+announce: true # Announces the punishment on the server that the player was connected
 block-global-chat: true # a message entered without command /l /g
 commands-locked-when-silenced:
   - "/g"
   - "/l"
-  - "/anunciar"
   - "/tell"
 warns:
   tree:
     warns: 3
-    command: "tempban {player} \"3:dias\" Recebeu 3 avisos."
-reasons: #Esses serão os motivos pré-definidos para utilizar no /punir
+    command: "tempban {player} \"3:d\" got three warns"
+reasons: #These will be the predefined reasons to use on /punish
   reason1:
-    reason: "Ofensa a jogador"
-    permission: 'punir.ajudante'
+    reason: "Player Offense"
+    permission: 'punish.helper'
     type: TEMPMUTE
     ip: false
-    duration: "7:dias,2:meses"
+    duration: "7:d,2:h"
   reason2:
-    reason: "Uso de hack"
-    permission: 'punir.moderador'
+    reason: "Cheating"
+    permission: 'punish.moderator'
     type: TEMPBAN
     ip: false
-    duration: "7:dias,2:meses"
+    duration: "7:months,2:weeks"
   reason3:
-    reason: "Divulgação Grave"
-    permission: "punir.moderador"
+    reason: "Serious Dissemination"
+    permission: "punish.moderator"
     type: BAN
     ip: false
