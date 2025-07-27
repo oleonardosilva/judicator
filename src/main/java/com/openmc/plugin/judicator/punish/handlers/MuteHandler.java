@@ -13,7 +13,7 @@ import org.spongepowered.configurate.ConfigurationNode;
 
 import java.util.stream.Stream;
 
-public class MuteHandler implements PunishHandler{
+public class MuteHandler implements PunishHandler {
 
     private final Judicator judicator;
     private final PunishmentBuilder punishmentBuilder;
@@ -60,8 +60,10 @@ public class MuteHandler implements PunishHandler{
     private void announce(Punishment punishment) {
         if (announce) {
             final ProxyServer server = judicator.getServer();
-            final TextComponent announcement = PunishUtils.getMessageList(messagesNode, punishment, "announcements", "mute");
-            server.sendMessage(announcement);
+            server.getPlayer(punishment.getNickname()).flatMap(Player::getCurrentServer).ifPresent(serverConnection -> {
+                final TextComponent announcement = PunishUtils.getMessageList(messagesNode, punishment, "announcements", "mute");
+                serverConnection.getServer().sendMessage(announcement);
+            });
         }
     }
 }

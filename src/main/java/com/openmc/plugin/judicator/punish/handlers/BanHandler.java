@@ -4,6 +4,7 @@ import com.openmc.plugin.judicator.Judicator;
 import com.openmc.plugin.judicator.punish.PunishUtils;
 import com.openmc.plugin.judicator.punish.Punishment;
 import com.openmc.plugin.judicator.punish.PunishmentBuilder;
+import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.kyori.adventure.text.TextComponent;
 import org.spongepowered.configurate.ConfigurationNode;
@@ -24,8 +25,8 @@ public class BanHandler implements PunishHandler {
 
     public Punishment handle() {
         final Punishment punishment = judicator.getPunishService().save(punishmentBuilder.build());
-        this.kick(punishment);
         this.announce(punishment);
+        this.kick(punishment);
         return punishment;
     }
 
@@ -47,8 +48,10 @@ public class BanHandler implements PunishHandler {
     private void announce(Punishment punishment) {
         if (announce) {
             final ProxyServer server = judicator.getServer();
-            final TextComponent announcement = PunishUtils.getMessageList(messagesNode, punishment, "announcements", "ban");
-            server.sendMessage(announcement);
+            server.getPlayer(punishment.getNickname()).flatMap(Player::getCurrentServer).ifPresent(serverConnection -> {
+                final TextComponent announcement = PunishUtils.getMessageList(messagesNode, punishment, "announcements", "ban");
+                serverConnection.getServer().sendMessage(announcement);
+            });
         }
     }
 
