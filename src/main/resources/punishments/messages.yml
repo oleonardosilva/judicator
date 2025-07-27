@@ -1,6 +1,5 @@
 permission-error: "&cYou do not have permission to use this feature."
 unknown-error: "&cAn unknown error occurred."
-only-player: "&cThis command can only be used by players connected to the server."
 write-evidences: "&7Send the evidence one by one in chat. To finish, click or type \"{ready-prompt}\" or \"{cancel-prompt}\"."
 ready-prompt: "confirm"
 cancel-prompt: "cancel"
@@ -9,8 +8,6 @@ operation-cancel: "&aOperation successfully canceled."
 punish-pardon: "&aThe punishment with the provided ID has been successfully revoked."
 punish-not-found: "&cNo punishment was found with the provided ID."
 reason-not-found: "&cThe provided reason was not found."
-wait: "&aPlease wait, this operation may take a while..."
-history: "&ePunishments for player {nickname}: {ids}."
 angel: "&cThis player has no punishments."
 warn-not-found: "&cNo warning was found with this id/name."
 warn-deleted: "&cThe warning has been successfully deleted."
@@ -36,6 +33,21 @@ punish:
     hoverWithoutPermission: "\n\n&cYou do not have permission to apply this punishment."
   footer:
     - "\n&cBe careful when applying punishments on the server, in case of\n&can error, contact an Administrator."
+history:
+  title:
+    - "&ePunishments for player {nickname}\n"
+    - "\n"
+  line:
+    message: "    &f&l• &e#{id} &7- &c{type} &7- &f{startedAt}"
+    hoverMessage:
+      - "&c * IP Address: &f{addressIP}"
+      - "&c * Reason: &f{reason}"
+      - "&c * Start: &f{startedAt}"
+      - "&c * End: &f{finishAt}"
+      - "&c * Author: &f{author}"
+      - "&c * Status: &f{status}"
+  footer:
+    - "\n&7Hover over an entry to see full punishment details."
 announcements:
   ban:
     - ""
@@ -99,10 +111,11 @@ runners:
   punishment-view:
     - "       &6&lOpenMine Network\n"
     - "\n"
-    - "&c * Punishment ID: {id}\n"
+    - "&c * Punishment ID: #{id}\n"
     - "&c * IP Address: {addressIP}\n"
     - "&c * Player: {nickname}\n"
     - "&c * Reason: {reason}\n"
+    - "&c * Type: {type}\n"
     - "&c * Start: {startedAt}\n"
     - "&c * End: {finishAt}\n"
     - "&c * Author: {author}\n"

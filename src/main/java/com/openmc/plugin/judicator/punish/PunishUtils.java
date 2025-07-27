@@ -32,10 +32,11 @@ public class PunishUtils {
                         .replace("{id}", punishment.getId().toString())
                         .replace("{evidence}", punishment.getEvidences().isEmpty() ? "None" : String.join(", ", punishment.getEvidences()))
                         .replace("{nickname}", punishment.getNickname())
+                        .replace("{type}", punishment.getType().name())
                         .replace("{startedAt}", timeFormatter.format(punishment.getStartedAt()))
                         .replace("{revoked}", punishment.isRevoked() ? yes : no)
                         .replace("{revokedReason}", punishment.isRevoked() ? punishment.getRevokedReason() : "None")
-                        .replace("{reason}", punishment.getReason())
+                        .replace("{reason}", punishment.getReason() == null || punishment.getReason().isBlank() ? "None" : punishment.getReason())
                         .replace("{addressIP}", punishment.getIpAddress().orElse("None"))
                 )
                 .collect(Collectors.toList());
@@ -109,6 +110,24 @@ public class PunishUtils {
         }
 
         final TextComponent footer = getMessageList(node, "punish", "footer");
+        return Component.text().append(title).append(reasonsText).append(footer).build();
+    }
+
+    public static TextComponent getPunishmentHistoryMessage(ConfigurationNode node, String target, List<Punishment> punishments) {
+        final TextComponent title = Component.text(getMessageList(node, "history", "title").content().replace("{nickname}", target));
+        final TextComponent.Builder reasonsText = Component.text();
+
+        for (Punishment punishment : punishments) {
+            final String suggests = "/pview " + punishment.getId();
+
+            reasonsText.append(
+                    getMessageList(node, punishment, "history", "line", "message")
+                            .hoverEvent(HoverEvent.showText(getMessageList(node, punishment, "history", "line", "hoverMessage")))
+                            .clickEvent(ClickEvent.suggestCommand(suggests))
+            );
+        }
+
+        final TextComponent footer = getMessageList(node, "history", "footer");
         return Component.text().append(title).append(reasonsText).append(footer).build();
     }
 

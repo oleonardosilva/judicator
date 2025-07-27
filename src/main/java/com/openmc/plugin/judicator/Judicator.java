@@ -107,6 +107,7 @@ public class Judicator {
         new RevokeCommand(this).register();
         new PunishCommand(this).register();
         new PunishViewCommand(this).register();
+        new PunishHistoryCommand(this).register();
     }
 
     private void registerListeners() {
