@@ -36,27 +36,27 @@ public class ChatContext<T> {
         chatContext.setValue(builder);
         chatContext.setCallbackChat((currentBuilder, event) -> {
             final String message = event.getMessage();
-            final String readyPrompt = messages.node("ready-prompt").getString("");
-            final String cancelPrompt = messages.node("cancel-prompt").getString("");
+            final String readyPrompt = messages.node("prompt", "ready").getString("");
+            final String cancelPrompt = messages.node("prompt", "cancel").getString("");
             if (message.equalsIgnoreCase(readyPrompt)) {
                 cache.removeContext(currentBuilder.getPunisher());
                 new PunishFactory(judicator, currentBuilder).factory();
                 return;
             }
             if (message.equalsIgnoreCase(cancelPrompt)) {
-                final TextComponent cancelMessage = PunishUtils.getMessage(messages, "operation-cancel");
+                final TextComponent cancelMessage = PunishUtils.getMessage(messages, "success", "cancel");
                 event.getPlayer().sendMessage(cancelMessage);
                 cache.removeContext(currentBuilder.getPunisher());
                 return;
             }
 
             currentBuilder.appendEvidences(message);
-            final Component cancelMessage = PunishUtils.getConfirmationMessage(messages, "next-link");
+            final Component cancelMessage = PunishUtils.getConfirmationMessage(messages, "prompt", "next-link");
             event.getPlayer().sendMessage(cancelMessage);
         });
 
         chatContext.setCallbackCommand((currentBuilder, event) -> {
-            final TextComponent cancelMessage = PunishUtils.getMessage(messages, "operation-cancel");
+            final TextComponent cancelMessage = PunishUtils.getMessage(messages, "success", "cancel");
             event.getCommandSource().sendMessage(cancelMessage);
             cache.removeContext(currentBuilder.getPunisher());
         });

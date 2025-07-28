@@ -56,7 +56,7 @@ public class Punishment {
                 startedAt,
                 finishAt,
                 false,
-                "",
+                null,
                 evidences,
                 type,
                 !type.isTemp());
@@ -84,6 +84,14 @@ public class Punishment {
 
     public Optional<String> getIpAddress() {
         return Optional.ofNullable(ipAddress);
+    }
+
+    public Optional<String> getRevokedReason() {
+        return Optional.ofNullable(revokedReason);
+    }
+
+    public Optional<String> getReason() {
+        return Optional.ofNullable(reason);
     }
 
 }

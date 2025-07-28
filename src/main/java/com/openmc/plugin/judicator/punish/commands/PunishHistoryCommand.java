@@ -44,7 +44,7 @@ public class PunishHistoryCommand {
                 .requires(source -> {
                     final boolean b = source.hasPermission(PunishPermissions.PUNISHHISTORY.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
                     if (!b) {
-                        final TextComponent text = PunishUtils.getMessage(messages, "permission-error");
+                        final TextComponent text = PunishUtils.getMessage(messages, "error", "permission");
                         source.sendMessage(text);
                     }
                     return b;
@@ -79,7 +79,7 @@ public class PunishHistoryCommand {
 
         final List<Punishment> punishments = punishService.findAllByUsername(targetName);
         if (punishments.isEmpty()) {
-            final TextComponent text = PunishUtils.getMessage(messages, "angel");
+            final TextComponent text = PunishUtils.getMessage(messages, "error", "angel");
             source.sendMessage(text);
             return Command.SINGLE_SUCCESS;
         }

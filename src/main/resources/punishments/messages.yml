@@ -1,53 +1,62 @@
-permission-error: "&cYou do not have permission to use this feature."
-unknown-error: "&cAn unknown error occurred."
-write-evidences: "&7Send the evidence one by one in chat. To finish, click or type \"{ready-prompt}\" or \"{cancel-prompt}\"."
-ready-prompt: "confirm"
-cancel-prompt: "cancel"
-next-link: "&aLink successfully attached. To finish, click or type \"{ready-prompt}\" or \"{cancel-prompt}\"."
-operation-cancel: "&aOperation successfully canceled."
-punish-pardon: "&aThe punishment with the provided ID has been successfully revoked."
-punish-not-found: "&cNo punishment was found with the provided ID."
-reason-not-found: "&cThe provided reason was not found."
-angel: "&cThis player has no punishments."
-warn-not-found: "&cNo warning was found with this id/name."
-warn-deleted: "&cThe warning has been successfully deleted."
-warns: "&eWarnings for player {nickname}: {ids}."
-already-revoked: "&cThis punishment has already been revoked."
-got-pardon: "&aYour punishment has been revoked!"
-immune: "&cThis player cannot be punished."
-invalid-address: "&cNo player was found registered with this IP address."
-player-ip-not-found: "&eThe player's IP was not found in the database, the punishment will be applied without it."
-date-format: "MM/dd/yyyy 'at' HH:mm"
+error:
+  permission: "&cYou do not have permission to use this feature."
+  unknown: "&cAn unknown error occurred."
+  reason-not-found: "&cThe provided reason was not found."
+  punish-not-found: "&cNo punishment was found with the provided ID."
+  already-revoked: "&cThis punishment has already been revoked."
+  immune: "&cThis player cannot be punished."
+  invalid-address: "&cNo player was found registered with this IP address."
+  angel: "&cThis player has no punishments."
+  player-ip-not-found: "&eThe player's IP was not found in the database, the punishment will be applied without it."
+  self-punish: "&cYou cannot punish yourself."
+success:
+  cancel: "&aOperation successfully canceled."
+  pardon: "&aThe punishment with the provided ID has been successfully revoked."
+  got-pardon: "&aYour punishment has been revoked!"
+  punish-applied: "&aThe punishment has been successfully applied to the player."
+  reloaded: "&aThe plugin has been successfully reloaded."
+prompt:
+  write-evidences: "&7Send the evidence one by one in chat. To finish, click or type \"{ready-prompt}\" or \"{cancel-prompt}\"."
+  next-link: "&aLink successfully attached. To finish, click or type \"{ready-prompt}\" or \"{cancel-prompt}\"."
+  ready: "confirm"
+  cancel: "cancel"
+status:
+  finished: "Finished"
+  active: "Active"
+  revoked: "Revoked"
+permanent: "Permanent"
 yes: "Yes"
 no: "No"
-finished: "Finished"
-active: "Active"
-revoked: "Revoked"
+date-format: "MM/dd/yyyy 'at' HH:mm"
+
 punish:
   title:
     - "       &6&lOpenMine Network - Punishments\n"
     - "\n"
   line:
-    message: "    &f&l• &f{reason}"
-    hoverMessage: "&eType: §a{type}\n&ePermission: §a{permission}\n&eBy IP Address: {toggle}\n&eDuration: §a{duration}"
+    message: "    &f&l• &f{reason}\n"
+    hoverMessage:
+      - "&eType: §a{type}\n&ePermission: §a{permission}\n&eBy IP Address: {toggle}\n&eDuration: §a{duration}"
     hoverWithoutPermission: "\n\n&cYou do not have permission to apply this punishment."
   footer:
-    - "\n&cBe careful when applying punishments on the server, in case of\n&can error, contact an Administrator."
+    - "\n&cBe careful when applying punishments on the server, in case \n&cof an error, contact an Administrator."
+
 history:
   title:
     - "&ePunishments for player {nickname}\n"
     - "\n"
   line:
-    message: "    &f&l• &e#{id} &7- &c{type} &7- &f{startedAt}"
+    message: "    &f&l• &e#{id} &7- &c{type} &7- &f{startedAt}\n"
     hoverMessage:
-      - "&c * IP Address: &f{addressIP}"
-      - "&c * Reason: &f{reason}"
-      - "&c * Start: &f{startedAt}"
-      - "&c * End: &f{finishAt}"
-      - "&c * Author: &f{author}"
+      - "&c * IP Address: &f{addressIP}\n"
+      - "&c * Reason: &f{reason}\n"
+      - "&c * Start: &f{startedAt}\n"
+      - "&c * End: &f{finishAt}\n"
+      - "&c * Author: &f{author}\n"
       - "&c * Status: &f{status}"
   footer:
     - "\n&7Hover over an entry to see full punishment details."
+
 announcements:
   ban:
     - ""
@@ -65,6 +74,7 @@ announcements:
     - ""
     - "&c * User {nickname} was warned by {author}."
     - ""
+
 runners:
   ban-kick:
     - "&6&lOpenMine Network\n"
@@ -138,6 +148,7 @@ runners:
     - "&c * Reason: {reason}\n"
     - "&c * Start: {startedAt}\n"
     - "&c * End: {finishAt}\n"
+
 time:
   format:
     year: "year"
@@ -154,6 +165,7 @@ time:
     minutes: "minutes"
     second: "second"
     seconds: "seconds"
+
 usages:
   ban: "&cIncorrect command. Use: /ban (player) [reason]."
   banip: "&cIncorrect command. Use: /banip (player) [reason]."
@@ -169,7 +181,3 @@ usages:
   punishhistory: "&cIncorrect command. Use: /phistory (player)."
   kick: "&cIncorrect command. Use: /kick (player) [reason]."
   warn: "&cIncorrect command. Use: /warn (player) [reason]."
-  tempwarn: "&cIncorrect command. Use: /tempwarn (player) \"(number:days,number:months)\" [reason]."
-  unwarn: "&cIncorrect command. Use: /unwarn (player/id)."
-  warns: "&cIncorrect command. Use: /warns (player)."
-  check: "&cIncorrect command. Use: /check (player/ip)."

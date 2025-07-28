@@ -8,14 +8,15 @@ import javax.sql.DataSource;
 
 public class RelationalDBManager {
 
-    private final HikariDataSource dataSource;
+    private HikariDataSource dataSource;
 
-    public RelationalDBManager(ConfigurationNode config) {
-//        try {
-//            Class.forName("org.postgresql.Driver"); // <- força o registro do driver
-//        } catch (ClassNotFoundException e) {
-//            e.printStackTrace();
-//        }
+    public RelationalDBManager() {
+    }
+
+    public void initialize(ConfigurationNode config) {
+        if (dataSource != null && !dataSource.isClosed()) {
+            dataSource.close();
+        }
 
         config = config.node("database");
         final HikariConfig hikari = new HikariConfig();
@@ -28,7 +29,7 @@ public class RelationalDBManager {
         final String jdbcUrl = type.equalsIgnoreCase("postgres") ?
                 "jdbc:postgresql://" + host + ":" + port + "/" + database :
                 "jdbc:mysql://" + host + ":" + port + "/" + database +
-                "?useSSL=false&characterEncoding=UTF-8";
+                        "?useSSL=false&characterEncoding=UTF-8";
 
         hikari.setJdbcUrl(jdbcUrl);
         hikari.setUsername(username);

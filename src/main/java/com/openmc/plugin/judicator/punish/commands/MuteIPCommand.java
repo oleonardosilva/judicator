@@ -49,7 +49,7 @@ public class MuteIPCommand {
                 .requires(source -> {
                     final boolean b = source.hasPermission(PunishPermissions.MUTEIP.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
                     if (!b) {
-                        final TextComponent text = PunishUtils.getMessage(messages, "permission-error");
+                        final TextComponent text = PunishUtils.getMessage(messages, "error", "permission");
                         source.sendMessage(text);
                     }
                     return b;
@@ -97,7 +97,7 @@ public class MuteIPCommand {
                     builder.target(targetName);
                     addressService.findByUsername(targetName)
                             .ifPresentOrElse(accessAddress -> builder.ipAddress(accessAddress.getHostAddress()), () -> {
-                                final TextComponent text = PunishUtils.getMessage(messages, "player-ip-not-found");
+                                final TextComponent text = PunishUtils.getMessage(messages, "error", "player-ip-not-found");
                                 source.sendMessage(text);
                             });
                 }

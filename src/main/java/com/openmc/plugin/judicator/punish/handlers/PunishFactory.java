@@ -1,6 +1,7 @@
 package com.openmc.plugin.judicator.punish.handlers;
 
 import com.openmc.plugin.judicator.Judicator;
+import com.openmc.plugin.judicator.punish.PunishUtils;
 import com.openmc.plugin.judicator.punish.PunishmentBuilder;
 
 public class PunishFactory {
@@ -15,11 +16,20 @@ public class PunishFactory {
     }
 
     public void factory() {
-        if (punishmentBuilder.isBan()) {
-            new BanHandler(judicator, punishmentBuilder).handle();
-            return;
-        }
+        try {
+            if (punishmentBuilder.isBan()) new BanHandler(judicator, punishmentBuilder).handle();
+            else new MuteHandler(judicator, punishmentBuilder).handle();
 
-        new MuteHandler(judicator, punishmentBuilder).handle();
+            judicator.getServer().getPlayer(punishmentBuilder.getPunisher()).ifPresent(
+                    player -> player
+                            .sendMessage(PunishUtils.getMessage(judicator.getMessagesConfig(), "success", "punish-applied"))
+            );
+        } catch (Exception e) {
+            judicator.getLogger().error("Failed to handle ban punishment", e);
+            judicator.getServer().getPlayer(punishmentBuilder.getPunisher()).ifPresent(
+                    player -> player
+                            .sendMessage(PunishUtils.getMessage(judicator.getMessagesConfig(), "error", "unknown"))
+            );
+        }
     }
 }

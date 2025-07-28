@@ -3,6 +3,7 @@ package com.openmc.plugin.judicator.punish.data.cache;
 import com.openmc.plugin.judicator.Judicator;
 import com.openmc.plugin.judicator.punish.PunishUtils;
 import com.velocitypowered.api.command.CommandSource;
+import com.velocitypowered.api.proxy.Player;
 import net.kyori.adventure.text.TextComponent;
 import org.spongepowered.configurate.ConfigurationNode;
 
@@ -12,10 +13,13 @@ import java.util.Set;
 
 public class ImmuneCache {
 
-    private final Set<String> usersImmune;
-    private final ConfigurationNode messages;
+    private Set<String> usersImmune;
+    private ConfigurationNode messages;
 
-    public ImmuneCache(Judicator judicator) {
+    public ImmuneCache() {
+    }
+
+    public void initialize(Judicator judicator) {
         this.usersImmune = new HashSet<>();
         this.messages = judicator.getMessagesConfig();
         try {
@@ -27,9 +31,14 @@ public class ImmuneCache {
     }
 
     public boolean canPunish(CommandSource source, String target) {
+        if (source instanceof Player player && player.getUsername().equalsIgnoreCase(target)) {
+            player.sendMessage(PunishUtils.getMessage(messages, "error", "self-punish"));
+            return false;
+        }
+
         boolean can = usersImmune.stream().noneMatch(s -> s.equalsIgnoreCase(target));
         if (!can) {
-            final TextComponent text = PunishUtils.getMessage(messages, "immune");
+            final TextComponent text = PunishUtils.getMessage(messages, "error", "immune");
 
             source.sendMessage(text);
         }

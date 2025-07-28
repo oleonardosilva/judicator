@@ -12,8 +12,12 @@ public class ReasonCache {
 
     private final HashMap<String, ConfiguredReason> reasons;
 
-    public ReasonCache(Judicator judicator) {
+    public ReasonCache() {
         this.reasons = new HashMap<>();
+    }
+
+    public void initialize(Judicator judicator) {
+        reasons.clear();
         try {
             judicator.getConfig().node("reasons").childrenMap().forEach((o, configurationNode) -> {
                 final ConfiguredReason reason = ConfiguredReason.from(configurationNode);

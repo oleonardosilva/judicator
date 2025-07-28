@@ -46,7 +46,7 @@ public class MuteCommand {
                 .requires(source -> {
                     final boolean b = source.hasPermission(PunishPermissions.MUTE.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
                     if (!b) {
-                        final TextComponent text = PunishUtils.getMessage(messages, "permission-error");
+                        final TextComponent text = PunishUtils.getMessage(messages, "error", "permission");
                         source.sendMessage(text);
                     }
                     return b;

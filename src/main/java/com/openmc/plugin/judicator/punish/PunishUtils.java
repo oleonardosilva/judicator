@@ -12,6 +12,7 @@ import org.spongepowered.configurate.serialize.SerializationException;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class PunishUtils {
@@ -21,12 +22,12 @@ public class PunishUtils {
         final String permanent = messagesNode.node("permanent").getString("§cPermanente.").replace("&", "§");
         final String yes = messagesNode.node("yes").getString("§aYes.").replace("&", "§");
         final String no = messagesNode.node("no").getString("§cNo.").replace("&", "§");
-        final String status = messagesNode.node(punishment.getStatus().name().toLowerCase()).getString("").replace("&", "§");
+        final String status = messagesNode.node("status", punishment.getStatus().name().toLowerCase()).getString(punishment.getStatus().name()).replace("&", "§");
 
         final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern(dateFormat);
         return messages.stream().map(s -> s
                         .replace("&", "§")
-                        .replace("{finishAt}", punishment.getFinishAt().isEmpty() ? permanent : timeFormatter.format(punishment.getFinishAt().get()))
+                        .replace("{finishAt}", punishment.getFinishAt().map(timeFormatter::format).orElse(permanent))
                         .replace("{author}", punishment.getPunisher())
                         .replace("{status}", status)
                         .replace("{id}", punishment.getId().toString())
@@ -35,8 +36,8 @@ public class PunishUtils {
                         .replace("{type}", punishment.getType().name())
                         .replace("{startedAt}", timeFormatter.format(punishment.getStartedAt()))
                         .replace("{revoked}", punishment.isRevoked() ? yes : no)
-                        .replace("{revokedReason}", punishment.isRevoked() ? punishment.getRevokedReason() : "None")
-                        .replace("{reason}", punishment.getReason() == null || punishment.getReason().isBlank() ? "None" : punishment.getReason())
+                        .replace("{revokedReason}", punishment.getRevokedReason().orElse("None"))
+                        .replace("{reason}", punishment.getReason().orElse("None"))
                         .replace("{addressIP}", punishment.getIpAddress().orElse("None"))
                 )
                 .collect(Collectors.toList());
@@ -87,11 +88,17 @@ public class PunishUtils {
 
         for (ConfiguredReason reason : reasons) {
             final String message = node.node("punish", "line", "message").getString("").replace("&", "§").replace("{reason}", reason.getReason());
-            String hoverMessage = node.node("punish", "line", "hoverMessage").getString("")
-                    .replace("&", "§")
-                    .replace("{type}", reason.getType().name())
-                    .replace("{toggle}", reason.isIp() ? yes : no)
-                    .replace("{permission}", reason.getPermission());
+            String hoverMessage;
+            try {
+                hoverMessage = String.join("", Objects.requireNonNull(node.node("punish", "line", "hoverMessage").getList(String.class)))
+                        .replace("&", "§")
+                        .replace("{type}", reason.getType().name())
+                        .replace("{toggle}", reason.isIp() ? yes : no)
+                        .replace("{permission}", reason.getPermission());
+
+            } catch (SerializationException e) {
+                throw new RuntimeException(e);
+            }
 
             if (reason.isPermanent()) {
                 hoverMessage = hoverMessage.replace("{duration}", permanent);
@@ -118,12 +125,12 @@ public class PunishUtils {
         final TextComponent.Builder reasonsText = Component.text();
 
         for (Punishment punishment : punishments) {
-            final String suggests = "/pview " + punishment.getId();
+            final String command = "/pview " + punishment.getId();
 
             reasonsText.append(
                     getMessageList(node, punishment, "history", "line", "message")
                             .hoverEvent(HoverEvent.showText(getMessageList(node, punishment, "history", "line", "hoverMessage")))
-                            .clickEvent(ClickEvent.suggestCommand(suggests))
+                            .clickEvent(ClickEvent.runCommand(command))
             );
         }
 
@@ -132,8 +139,8 @@ public class PunishUtils {
     }
 
     public static Component getConfirmationMessage(ConfigurationNode node, Object... path) {
-        final String readyPrompt = node.node("ready-prompt").getString("confirmar").replace("&", "§");
-        final String cancelPrompt = node.node("cancel-prompt").getString("cancelar").replace("&", "§");
+        final String readyPrompt = node.node("prompt", "ready").getString("confirmar").replace("&", "§");
+        final String cancelPrompt = node.node("prompt", "cancel").getString("cancelar").replace("&", "§");
 
         final Component ready = Component.text(readyPrompt)
                 .clickEvent(ClickEvent.runCommand(readyPrompt))
@@ -145,7 +152,7 @@ public class PunishUtils {
 
         final TextComponent message;
         if (path == null || path.length == 0) {
-            message = getMessage(node, "write-evidences");
+            message = getMessage(node, "prompt", "write-evidences");
         } else {
             message = getMessage(node, path);
         }

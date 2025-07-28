@@ -20,6 +20,7 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Plugin;
+import com.velocitypowered.api.plugin.PluginContainer;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
 import lombok.Getter;
@@ -58,12 +59,14 @@ public class Judicator {
     private RelationalDBManager relationalDBManager;
     private PunishService punishService;
     private AccessAddressService addressService;
+    private final PluginContainer container;
 
     @Inject
-    public Judicator(Logger logger, ProxyServer server, @DataDirectory Path dataDirectory) {
+    public Judicator(Logger logger, ProxyServer server, @DataDirectory Path dataDirectory, PluginContainer container) {
         this.logger = logger;
         this.server = server;
         this.dataDirectory = dataDirectory;
+        this.container = container;
     }
 
     @Subscribe
@@ -72,18 +75,23 @@ public class Judicator {
         this.config = loadConfig("punishments", "config.yml");
         this.immuneConfig = loadConfig("punishments", "immune.yml");
         this.dbConfig = loadConfig("data.yml");
+
         this.uuidManager = new UUIDManager(this);
         this.punishCache = new PunishCache(this);
-        this.reasonCache = new ReasonCache(this);
-        this.relationalDBManager = new RelationalDBManager(dbConfig);
-        final PunishmentRepository punishmentRepository = new PunishmentRelationalDAO(relationalDBManager, logger);
-        this.punishService = new PunishService(this, punishmentRepository);
-        final AccessAddressRepository addressRepository = new AccessAddressRelationalDAO(relationalDBManager, logger);
-        this.addressService = new AccessAddressService(addressRepository);
-        this.immuneCache = new ImmuneCache(this);
 
+        this.reasonCache = new ReasonCache();
+        this.reasonCache.initialize(this);
+
+        this.immuneCache = new ImmuneCache();
+        this.immuneCache.initialize(this);
+
+        this.relationalDBManager = new RelationalDBManager();
+        this.relationalDBManager.initialize(dbConfig);
+
+        this.registerServices();
         this.registerCommands();
         this.registerListeners();
+
         logger.info("Plugin has been initialized successfully!");
     }
 
@@ -93,6 +101,23 @@ public class Judicator {
         punishCache.shutdown();
         relationalDBManager.shutdown();
         logger.info("Plugin has been shut down successfully!");
+    }
+
+    public void reloadConfigs() {
+        this.messagesConfig = loadConfig("punishments", "messages.yml");
+        this.config = loadConfig("punishments", "config.yml");
+        this.immuneConfig = loadConfig("punishments", "immune.yml");
+        this.dbConfig = loadConfig("data.yml");
+        this.relationalDBManager.initialize(dbConfig);
+        this.reasonCache.initialize(this);
+        logger.info("Configuration files have been reloaded successfully!");
+    }
+
+    public void registerServices() {
+        final PunishmentRepository punishmentRepository = new PunishmentRelationalDAO(relationalDBManager, logger);
+        this.punishService = new PunishService(this, punishmentRepository);
+        final AccessAddressRepository addressRepository = new AccessAddressRelationalDAO(relationalDBManager, logger);
+        this.addressService = new AccessAddressService(addressRepository);
     }
 
     private void registerCommands() {
@@ -108,6 +133,7 @@ public class Judicator {
         new PunishCommand(this).register();
         new PunishViewCommand(this).register();
         new PunishHistoryCommand(this).register();
+        new JudicatorCommand(this).register();
     }
 
     private void registerListeners() {

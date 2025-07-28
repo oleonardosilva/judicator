@@ -47,7 +47,7 @@ public class RevokeCommand {
                 .requires(source -> {
                     final boolean b = source.hasPermission(PunishPermissions.ADMIN.getPermission());
                     if (!b) {
-                        final TextComponent text = PunishUtils.getMessage(messages, "permission-error");
+                        final TextComponent text = PunishUtils.getMessage(messages, "error", "permission");
                         source.sendMessage(text);
                     }
                     return b;
@@ -81,29 +81,29 @@ public class RevokeCommand {
 
         Optional<Punishment> optPunishment = punishService.findById(id);
         if (optPunishment.isEmpty()) {
-            final TextComponent text = PunishUtils.getMessage(messages, "punish-not-found");
+            final TextComponent text = PunishUtils.getMessage(messages, "error", "punish-not-found");
             source.sendMessage(text);
             return Command.SINGLE_SUCCESS;
         }
 
         final Punishment punishment = optPunishment.get();
         if (punishment.isRevoked()) {
-            final TextComponent text = PunishUtils.getMessage(messages, "already-revoked");
+            final TextComponent text = PunishUtils.getMessage(messages, "error", "already-revoked");
             source.sendMessage(text);
             return Command.SINGLE_SUCCESS;
         }
 
         punishService.revoke(id, reason, () -> {
-            final TextComponent text = PunishUtils.getMessage(messages, "punish-pardon");
+            final TextComponent text = PunishUtils.getMessage(messages, "success", "pardon");
             source.sendMessage(text);
 
             server.getPlayer(punishment.getNickname()).ifPresent(player -> {
-                final TextComponent gotPardon = PunishUtils.getMessage(messages, "got-pardon");
+                final TextComponent gotPardon = PunishUtils.getMessage(messages, "success", "got-pardon");
                 punishCache.removeMutePunishment(punishment.getNickname());
                 player.sendMessage(gotPardon);
             });
         }, () -> {
-            final TextComponent text = PunishUtils.getMessage(messages, "unknown-error");
+            final TextComponent text = PunishUtils.getMessage(messages, "error", "unknown");
             source.sendMessage(text);
         });
         return Command.SINGLE_SUCCESS;

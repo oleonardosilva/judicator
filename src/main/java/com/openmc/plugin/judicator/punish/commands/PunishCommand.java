@@ -54,7 +54,7 @@ public class PunishCommand {
                 .requires(source -> {
                     final boolean b = source.hasPermission(PunishPermissions.PUNISH.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
                     if (!b) {
-                        final TextComponent text = PunishUtils.getMessage(messages, "permission-error");
+                        final TextComponent text = PunishUtils.getMessage(messages, "error", "permission");
                         source.sendMessage(text);
                     }
                     return b;
@@ -68,6 +68,13 @@ public class PunishCommand {
                         .executes(this::punish)
                         .then(BrigadierCommand
                                 .requiredArgumentBuilder("reason", StringArgumentType.greedyString())
+                                .suggests((ctx, builder) -> {
+                                    final String input = builder.getRemaining().toLowerCase();
+                                    reasonCache.getReasons().stream().map(ConfiguredReason::getReason)
+                                            .filter(reason -> reason.toLowerCase().contains(input))
+                                            .forEach(builder::suggest);
+                                    return builder.buildFuture();
+                                })
                                 .executes(this::punish)
                         )
                 )
@@ -103,7 +110,7 @@ public class PunishCommand {
 
         final Optional<ConfiguredReason> optReason = reasonCache.getReason(reason);
         if (optReason.isEmpty()) {
-            final TextComponent error = PunishUtils.getMessage(messages, "reason-not-found");
+            final TextComponent error = PunishUtils.getMessage(messages, "error", "reason-not-found");
             source.sendMessage(error);
             return Command.SINGLE_SUCCESS;
         }
@@ -125,7 +132,7 @@ public class PunishCommand {
                         builder.target(targetName);
                         addressService.findByUsername(targetName)
                                 .ifPresentOrElse(accessAddress -> builder.ipAddress(accessAddress.getHostAddress()), () -> {
-                                    final TextComponent text = PunishUtils.getMessage(messages, "player-ip-not-found");
+                                    final TextComponent text = PunishUtils.getMessage(messages, "error", "player-ip-not-found");
                                     source.sendMessage(text);
                                 });
                     }

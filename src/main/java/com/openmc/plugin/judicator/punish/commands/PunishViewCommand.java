@@ -44,7 +44,7 @@ public class PunishViewCommand {
                 .requires(source -> {
                     final boolean b = source.hasPermission(PunishPermissions.PUNISHVIEW.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
                     if (!b) {
-                        final TextComponent text = PunishUtils.getMessage(messages, "permission-error");
+                        final TextComponent text = PunishUtils.getMessage(messages, "error", "permission");
                         source.sendMessage(text);
                     }
                     return b;
@@ -71,7 +71,7 @@ public class PunishViewCommand {
 
         final Optional<Punishment> optPunishment = punishService.findById(id);
         if (optPunishment.isEmpty()) {
-            final TextComponent text = PunishUtils.getMessage(messages, "punish-not-found");
+            final TextComponent text = PunishUtils.getMessage(messages, "error", "punish-not-found");
             source.sendMessage(text);
             return Command.SINGLE_SUCCESS;
         }
