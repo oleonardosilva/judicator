@@ -47,7 +47,7 @@ public class TempMuteIPCommand {
 
         final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("tempmuteip")
                 .requires(source -> {
-                    final boolean b = source.hasPermission(PunishPermissions.TEMPBANIP.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
+                    final boolean b = source.hasPermission(PunishPermissions.TEMPMUTEIP.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
                     if (!b) {
                         final TextComponent text = PunishUtils.getMessage(messages, "error", "permission");
                         source.sendMessage(text);

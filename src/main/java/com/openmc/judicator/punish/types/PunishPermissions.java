@@ -15,16 +15,12 @@ public enum PunishPermissions {
     MUTEIP("judicator.mute.ip"),
     TEMPMUTEIP("judicator.tempmute.ip"),
     TEMPMUTE("judicator.tempmute"),
-    UNBAN("judicator.unban"),
-    UNMUTE("judicator.unmute"),
-    UNPUNISH("judicator.unpunish"),
-    PUNISHVIEW("judicator.view"),
-    PUNISHHISTORY("judicator.history"),
+    VIEW("judicator.view"),
+    HISTORY("judicator.history"),
     KICK("judicator.kick"),
     WARN("judicator.warn"),
     TEMPWARN("judicator.tempwarn"),
-    UNWARN("judicator.unwarn"),
-    WARNS("judicator.warns");
+    UNWARN("judicator.unwarn");
 
     private final String permission;
 

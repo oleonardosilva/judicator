@@ -2,18 +2,23 @@ error:
   permission: "&cYou do not have permission to use this feature."
   unknown: "&cAn unknown error occurred."
   reason-not-found: "&cThe provided reason was not found."
+  warn-not-found: "&cNo warn was found with the provided ID."
   punish-not-found: "&cNo punishment was found with the provided ID."
   already-revoked: "&cThis punishment has already been revoked."
   immune: "&cThis player cannot be punished."
   invalid-address: "&cNo player was found registered with this IP address."
   angel: "&cThis player has no punishments."
   player-ip-not-found: "&eThe player's IP was not found in the database, the punishment will be applied without it."
+  player-offline: "&cThe player is not online."
   self-punish: "&cYou cannot punish yourself."
 success:
   cancel: "&aOperation successfully canceled."
   pardon: "&aThe punishment with the provided ID has been successfully revoked."
   got-pardon: "&aYour punishment has been revoked!"
   punish-applied: "&aThe punishment has been successfully applied to the player."
+  warn-applied: "&aThe warn has been successfully applied to the player."
+  unwarn: "&aThe warn with the provided ID has been successfully deleted."
+  got-unwarn: "&aYour warn has been deleted!"
   reloaded: "&aThe plugin has been successfully reloaded."
 prompt:
   write-evidences: "&7Send the evidence one by one in chat. To finish, click or type \"{ready-prompt}\" or \"{cancel-prompt}\"."
@@ -41,7 +46,7 @@ punish:
   footer:
     - "\n&cBe careful when applying punishments on the server, in case \n&cof an error, contact an Administrator."
 
-history:
+punish-history:
   title:
     - "&ePunishments for player {nickname}\n"
     - "\n"
@@ -56,6 +61,21 @@ history:
       - "&c * Status: &f{status}"
   footer:
     - "\n&7Hover over an entry to see full punishment details."
+
+warn-history:
+  title:
+    - "&eWarns for player {nickname}\n"
+    - "\n"
+  line:
+    message: "    &f&l• &e#{id} &7- &c{reason} &7- &f{startedAt}\n"
+    hoverMessage:
+      - "&c * Reason: &f{reason}\n"
+      - "&c * Start: &f{startedAt}\n"
+      - "&c * End: &f{finishAt}\n"
+      - "&c * Author: &f{author}\n"
+      - "&c * Status: &f{status}"
+  footer:
+    - "\n&7Hover over an entry to see full warn details."
 
 announcements:
   ban:
@@ -73,6 +93,7 @@ announcements:
   warn:
     - ""
     - "&c * User {nickname} was warned by {author}."
+    - "&c * Reason: {reason}."
     - ""
 
 runners:
@@ -133,6 +154,16 @@ runners:
     - "&c * Revoked: {revoked}\n"
     - "&c * Revocation Reason: {revokedReason}\n"
     - "&c * Evidence: {evidence}\n"
+  warn-view:
+    - "       &6&lOpenMine Network\n"
+    - "\n"
+    - "&c * Warn ID: #{id}\n"
+    - "&c * Player: {nickname}\n"
+    - "&c * Reason: {reason}\n"
+    - "&c * Start: {startedAt}\n"
+    - "&c * End: {finishAt}\n"
+    - "&c * Author: {author}\n"
+    - "&c * Status: {status}\n"
   check:
     - "&eChecking: {target}\n"
     - "\n"
@@ -180,4 +211,8 @@ usages:
   punishview: "&cIncorrect command. Use: /pview (id)."
   punishhistory: "&cIncorrect command. Use: /phistory (player)."
   kick: "&cIncorrect command. Use: /kick (player) [reason]."
-  warn: "&cIncorrect command. Use: /warn (player) [reason]."
+  warn: "&cIncorrect command. Use: /warn (player) (reason)."
+  tempwarn: "&cIncorrect command. Use: /tempwarn (player) \"(number:days,number:months...)\" (reason)."
+  warnhistory: "&cIncorrect command. Use: /whistory (player)."
+  unwarn: "&cIncorrect command. Use: /unwarn (player)."
+  warnview: "&cIncorrect command. Use: /wview (id)."

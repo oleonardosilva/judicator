@@ -115,20 +115,20 @@ public class PunishUtils {
     }
 
     public static TextComponent getPunishmentHistoryMessage(ConfigurationNode node, String target, List<Punishment> punishments) {
-        final TextComponent title = Component.text(getMessageList(node, "history", "title").content().replace("{nickname}", target));
+        final TextComponent title = Component.text(getMessageList(node, "punish-history", "title").content().replace("{nickname}", target));
         final TextComponent.Builder reasonsText = Component.text();
 
         for (Punishment punishment : punishments) {
             final String command = "/pview " + punishment.getId();
 
             reasonsText.append(
-                    getMessageList(node, punishment, "history", "line", "message")
-                            .hoverEvent(HoverEvent.showText(getMessageList(node, punishment, "history", "line", "hoverMessage")))
+                    getMessageList(node, punishment, "punish-history", "line", "message")
+                            .hoverEvent(HoverEvent.showText(getMessageList(node, punishment, "punish-history", "line", "hoverMessage")))
                             .clickEvent(ClickEvent.runCommand(command))
             );
         }
 
-        final TextComponent footer = getMessageList(node, "history", "footer");
+        final TextComponent footer = getMessageList(node, "punish-history", "footer");
         return Component.text().append(title).append(reasonsText).append(footer).build();
     }
 

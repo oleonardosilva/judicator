@@ -1,14 +1,14 @@
-package com.openmc.judicator.punish.commands;
+package com.openmc.judicator.warns.commands;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.openmc.judicator.Judicator;
-import com.openmc.judicator.punish.PunishService;
-import com.openmc.judicator.punish.PunishUtils;
-import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.types.PunishPermissions;
+import com.openmc.judicator.warns.Warn;
+import com.openmc.judicator.warns.WarnService;
+import com.openmc.judicator.warns.WarnUtils;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.command.CommandMeta;
@@ -19,32 +19,31 @@ import org.spongepowered.configurate.ConfigurationNode;
 
 import java.util.List;
 
-public class PunishHistoryCommand {
+public class WarnHistoryCommand {
 
     private final Judicator judicator;
     private final ProxyServer server;
-    private final ConfigurationNode messages;
-    private final PunishService punishService;
+    private final WarnService warnService;
 
-    public PunishHistoryCommand(Judicator judicator) {
+    public WarnHistoryCommand(Judicator judicator) {
         this.judicator = judicator;
         this.server = judicator.getServer();
-        this.messages = judicator.getMessagesConfig();
-        this.punishService = judicator.getPunishService();
+        this.warnService = judicator.getWarnService();
     }
 
     public void register() {
+        final ConfigurationNode messages = judicator.getMessagesConfig();
         final CommandManager commandManager = server.getCommandManager();
-        final CommandMeta commandMeta = commandManager.metaBuilder("punishhistory")
-                .aliases("phistory")
+        final CommandMeta commandMeta = commandManager.metaBuilder("warnhistory")
+                .aliases("whistory")
                 .plugin(judicator)
                 .build();
 
-        final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("punishhistory")
+        final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("warnhistory")
                 .requires(source -> {
                     final boolean b = source.hasPermission(PunishPermissions.HISTORY.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
                     if (!b) {
-                        final TextComponent text = PunishUtils.getMessage(messages, "error", "permission");
+                        final TextComponent text = WarnUtils.getMessage(messages, "error", "permission");
                         source.sendMessage(text);
                     }
                     return b;
@@ -55,7 +54,7 @@ public class PunishHistoryCommand {
                             server.matchPlayer(input).forEach(player -> builder.suggest(player.getUsername()));
                             return builder.buildFuture();
                         })
-                        .executes(this::punishhistory)
+                        .executes(this::warnhistory)
                 )
                 .executes(this::wrongUsage)
                 .build();
@@ -65,26 +64,27 @@ public class PunishHistoryCommand {
     }
 
     private int wrongUsage(CommandContext<CommandSource> context) {
+        final ConfigurationNode messages = judicator.getMessagesConfig();
         final CommandSource source = context.getSource();
-        final TextComponent text = PunishUtils.getMessage(messages, "usages", "punishhistory");
+        final TextComponent text = WarnUtils.getMessage(messages, "usages", "warnhistory");
         source.sendMessage(text);
         return Command.SINGLE_SUCCESS;
     }
 
     @SuppressWarnings("SameReturnValue")
-    private int punishhistory(CommandContext<CommandSource> context) {
+    private int warnhistory(CommandContext<CommandSource> context) {
+        final ConfigurationNode messages = judicator.getMessagesConfig();
         final CommandSource source = context.getSource();
         final String targetName = context.getArgument("player", String.class);
 
-
-        final List<Punishment> punishments = punishService.findAllByUsername(targetName);
-        if (punishments.isEmpty()) {
-            final TextComponent text = PunishUtils.getMessage(messages, "error", "angel");
+        final List<Warn> warns = warnService.findAllByUsername(targetName);
+        if (warns.isEmpty()) {
+            final TextComponent text = WarnUtils.getMessage(messages, "error", "angel");
             source.sendMessage(text);
             return Command.SINGLE_SUCCESS;
         }
 
-        final TextComponent textComponent = PunishUtils.getPunishmentHistoryMessage(messages, targetName, punishments);
+        final TextComponent textComponent = WarnUtils.getWarnHistoryMessage(messages, targetName, warns);
         source.sendMessage(textComponent);
         return Command.SINGLE_SUCCESS;
     }

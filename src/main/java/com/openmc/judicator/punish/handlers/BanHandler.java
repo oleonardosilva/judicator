@@ -13,14 +13,10 @@ public class BanHandler implements PunishHandler {
 
     private final Judicator judicator;
     private final PunishmentBuilder punishmentBuilder;
-    private final ConfigurationNode messagesNode;
-    private final boolean announce;
 
     public BanHandler(Judicator judicator, PunishmentBuilder punishmentBuilder) {
         this.judicator = judicator;
         this.punishmentBuilder = punishmentBuilder;
-        this.messagesNode = judicator.getMessagesConfig();
-        this.announce = judicator.getConfig().node("announce").getBoolean(true);
     }
 
     public Punishment handle() {
@@ -32,6 +28,7 @@ public class BanHandler implements PunishHandler {
 
     private void kick(Punishment punishment) {
         final ProxyServer server = judicator.getServer();
+        final ConfigurationNode messagesNode = judicator.getMessagesConfig();
         server.getScheduler().buildTask(judicator,
                 () -> {
                     final TextComponent kickMessage = PunishUtils.getMessageList(messagesNode, punishment, "runners", "ban-kick");
@@ -46,7 +43,8 @@ public class BanHandler implements PunishHandler {
     }
 
     private void announce(Punishment punishment) {
-        if (announce) {
+        final ConfigurationNode messagesNode = judicator.getMessagesConfig();
+        if (judicator.getConfig().node("announce").getBoolean(true)) {
             final ProxyServer server = judicator.getServer();
             server.getPlayer(punishment.getNickname()).flatMap(Player::getCurrentServer).ifPresent(serverConnection -> {
                 final TextComponent announcement = PunishUtils.getMessageList(messagesNode, punishment, "announcements", "ban");

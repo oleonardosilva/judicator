@@ -1,4 +1,4 @@
-package com.openmc.judicator.punish.data.repository;
+package com.openmc.judicator.commons.db;
 
 import java.util.Optional;
 

@@ -1,5 +1,6 @@
 package com.openmc.judicator.punish.data.repository;
 
+import com.openmc.judicator.commons.db.Repository;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.types.PunishType;
 

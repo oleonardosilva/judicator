@@ -1,14 +1,14 @@
-package com.openmc.judicator.punish.commands;
+package com.openmc.judicator.warns.commands;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.openmc.judicator.Judicator;
-import com.openmc.judicator.punish.PunishService;
-import com.openmc.judicator.punish.PunishUtils;
-import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.types.PunishPermissions;
+import com.openmc.judicator.warns.Warn;
+import com.openmc.judicator.warns.WarnService;
+import com.openmc.judicator.warns.WarnUtils;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.command.CommandMeta;
@@ -19,37 +19,36 @@ import org.spongepowered.configurate.ConfigurationNode;
 
 import java.util.Optional;
 
-public class PunishViewCommand {
+public class WarnViewCommand {
 
     private final Judicator judicator;
     private final ProxyServer server;
-    private final ConfigurationNode messages;
-    private final PunishService punishService;
+    private final WarnService warnService;
 
-    public PunishViewCommand(Judicator judicator) {
+    public WarnViewCommand(Judicator judicator) {
         this.judicator = judicator;
         this.server = judicator.getServer();
-        this.messages = judicator.getMessagesConfig();
-        this.punishService = judicator.getPunishService();
+        this.warnService = judicator.getWarnService();
     }
 
     public void register() {
+        final ConfigurationNode messages = judicator.getMessagesConfig();
         final CommandManager commandManager = server.getCommandManager();
-        final CommandMeta commandMeta = commandManager.metaBuilder("punishview")
-                .aliases("pview")
+        final CommandMeta commandMeta = commandManager.metaBuilder("warnview")
+                .aliases("wview")
                 .plugin(judicator)
                 .build();
 
-        final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("punishview")
+        final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("warnview")
                 .requires(source -> {
                     final boolean b = source.hasPermission(PunishPermissions.VIEW.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
                     if (!b) {
-                        final TextComponent text = PunishUtils.getMessage(messages, "error", "permission");
+                        final TextComponent text = WarnUtils.getMessage(messages, "error", "permission");
                         source.sendMessage(text);
                     }
                     return b;
                 })
-                .then(BrigadierCommand.requiredArgumentBuilder("id", StringArgumentType.word()).executes(this::punishview))
+                .then(BrigadierCommand.requiredArgumentBuilder("id", StringArgumentType.word()).executes(this::warnview))
                 .executes(this::wrongUsage)
                 .build();
 
@@ -58,26 +57,28 @@ public class PunishViewCommand {
     }
 
     private int wrongUsage(CommandContext<CommandSource> context) {
+        final ConfigurationNode messages = judicator.getMessagesConfig();
         final CommandSource source = context.getSource();
-        final TextComponent text = PunishUtils.getMessage(messages, "usages", "punishview");
+        final TextComponent text = WarnUtils.getMessage(messages, "usages", "warnview");
         source.sendMessage(text);
         return Command.SINGLE_SUCCESS;
     }
 
     @SuppressWarnings("SameReturnValue")
-    private int punishview(CommandContext<CommandSource> context) {
+    private int warnview(CommandContext<CommandSource> context) {
+        final ConfigurationNode messages = judicator.getMessagesConfig();
         final CommandSource source = context.getSource();
         final Long id = Long.parseLong(context.getArgument("id", String.class).replace("#", ""));
 
-        final Optional<Punishment> optPunishment = punishService.findById(id);
-        if (optPunishment.isEmpty()) {
-            final TextComponent text = PunishUtils.getMessage(messages, "error", "punish-not-found");
+        final Optional<Warn> optWarn = warnService.findById(id);
+        if (optWarn.isEmpty()) {
+            final TextComponent text = WarnUtils.getMessage(messages, "error", "warn-not-found");
             source.sendMessage(text);
             return Command.SINGLE_SUCCESS;
         }
 
-        final Punishment punishment = optPunishment.get();
-        final TextComponent textComponent = PunishUtils.getMessageList(messages, punishment, "runners", "punishment-view");
+        final Warn warn = optWarn.get();
+        final TextComponent textComponent = WarnUtils.getMessageList(messages, warn, "runners", "warn-view");
         source.sendMessage(textComponent);
         return Command.SINGLE_SUCCESS;
     }

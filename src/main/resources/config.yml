@@ -1,5 +1,6 @@
 announce: true # Announces the punishment on the server that the player was connected
-block-global-chat: true # a message entered without command /l /g
+block-global-chat: true # a message entered without no command
+language: en # native languages: en, es or pt
 commands-locked-when-silenced:
   - "/g"
   - "/l"
@@ -7,8 +8,9 @@ commands-locked-when-silenced:
 warns:
   tree:
     warns: 3
-    command: "tempban {player} \"3:d\" got three warns"
-reasons: #These will be the predefined reasons to use on /punish
+    commands:
+      - "tempban {player} \"3:d\" got three warns"
+reasons: # These will be the predefined reasons to use on /punish
   reason1:
     reason: "Player Offense"
     permission: 'punish.helper'

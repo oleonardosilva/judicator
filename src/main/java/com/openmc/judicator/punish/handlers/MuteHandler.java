@@ -18,7 +18,6 @@ public class MuteHandler implements PunishHandler {
     private final Judicator judicator;
     private final PunishmentBuilder punishmentBuilder;
     private final ConfigurationNode messagesNode;
-    private final boolean announce;
     private final PunishService punishService;
     private final PunishCache cache;
 
@@ -26,7 +25,6 @@ public class MuteHandler implements PunishHandler {
         this.judicator = judicator;
         this.punishmentBuilder = punishmentBuilder;
         this.messagesNode = judicator.getMessagesConfig();
-        this.announce = judicator.getConfig().node("announce").getBoolean(true);
         this.punishService = judicator.getPunishService();
         this.cache = judicator.getPunishCache();
     }
@@ -58,7 +56,7 @@ public class MuteHandler implements PunishHandler {
     }
 
     private void announce(Punishment punishment) {
-        if (announce) {
+        if (judicator.getConfig().node("announce").getBoolean(true)) {
             final ProxyServer server = judicator.getServer();
             server.getPlayer(punishment.getNickname()).flatMap(Player::getCurrentServer).ifPresent(serverConnection -> {
                 final TextComponent announcement = PunishUtils.getMessageList(messagesNode, punishment, "announcements", "mute");

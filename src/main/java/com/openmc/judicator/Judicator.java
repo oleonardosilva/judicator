@@ -16,6 +16,11 @@ import com.openmc.judicator.punish.data.repository.dao.PunishmentRelationalDAO;
 import com.openmc.judicator.punish.listeners.OnBuildingPunishListener;
 import com.openmc.judicator.punish.listeners.OnPlayerConnectionListener;
 import com.openmc.judicator.punish.listeners.OnTalkMutedListener;
+import com.openmc.judicator.warns.WarnService;
+import com.openmc.judicator.warns.cache.ActionCache;
+import com.openmc.judicator.warns.commands.*;
+import com.openmc.judicator.warns.repository.WarnRepository;
+import com.openmc.judicator.warns.repository.dao.WarnRelationalDAO;
 import com.openmc.plugin.judicator.BuildConstants;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
@@ -58,8 +63,10 @@ public class Judicator {
     private ImmuneCache immuneCache;
     private PunishCache punishCache;
     private ReasonCache reasonCache;
+    private ActionCache actionCache;
     private RelationalDBManager relationalDBManager;
     private PunishService punishService;
+    private WarnService warnService;
     private AccessAddressService addressService;
 
     @Inject
@@ -72,9 +79,9 @@ public class Judicator {
 
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
-        this.messagesConfig = loadConfig("punishments", "messages.yml");
-        this.config = loadConfig("punishments", "config.yml");
-        this.immuneConfig = loadConfig("punishments", "immune.yml");
+        this.config = loadConfig("config.yml");
+        this.messagesConfig = loadConfig("messages_" + config.node("language").getString("en") + ".yml");
+        this.immuneConfig = loadConfig("immune.yml");
         this.dbConfig = loadConfig("data.yml");
 
         this.uuidManager = new UUIDManager(this);
@@ -86,8 +93,11 @@ public class Judicator {
         this.immuneCache = new ImmuneCache();
         this.immuneCache.initialize(this);
 
+        this.actionCache = new ActionCache();
+        this.actionCache.initialize(this);
+
         this.relationalDBManager = new RelationalDBManager();
-        this.relationalDBManager.initialize(dbConfig);
+        this.relationalDBManager.initialize(dbConfig, logger);
 
         this.registerServices();
         this.registerCommands();
@@ -105,13 +115,14 @@ public class Judicator {
     }
 
     public void reloadConfigs() {
-        this.messagesConfig = loadConfig("punishments", "messages.yml");
-        this.config = loadConfig("punishments", "config.yml");
-        this.immuneConfig = loadConfig("punishments", "immune.yml");
+        this.config = loadConfig("config.yml");
+        this.messagesConfig = loadConfig("messages_" + config.node("language").getString("en") + ".yml");
+        this.immuneConfig = loadConfig("immune.yml");
         this.dbConfig = loadConfig("data.yml");
-        this.relationalDBManager.initialize(dbConfig);
-        this.reasonCache.initialize(this);
         logger.info("Configuration files have been reloaded successfully!");
+        this.relationalDBManager.initialize(dbConfig, logger);
+        this.reasonCache.initialize(this);
+        this.actionCache.initialize(this);
     }
 
     public void registerServices() {
@@ -119,6 +130,8 @@ public class Judicator {
         this.punishService = new PunishService(this, punishmentRepository);
         final AccessAddressRepository addressRepository = new AccessAddressRelationalDAO(relationalDBManager, logger);
         this.addressService = new AccessAddressService(addressRepository);
+        final WarnRepository warnRepository = new WarnRelationalDAO(relationalDBManager, logger);
+        this.warnService = new WarnService(warnRepository);
     }
 
     private void registerCommands() {
@@ -134,6 +147,14 @@ public class Judicator {
         new PunishCommand(this).register();
         new PunishViewCommand(this).register();
         new PunishHistoryCommand(this).register();
+        new KickCommand(this).register();
+
+        new WarnCommand(this).register();
+        new TempWarnCommand(this).register();
+        new UnwarnCommand(this).register();
+        new WarnHistoryCommand(this).register();
+        new WarnViewCommand(this).register();
+
         new JudicatorCommand(this).register();
     }
 

@@ -1,6 +1,7 @@
 # Judicator
 
-**Judicator** is a moderation plugin for Minecraft Velocity servers. It offers a wide variety of commands for punishments, mutes, and player management, making the moderation team's work on the server much easier.
+**Judicator** is a moderation plugin for Minecraft Velocity servers. It offers a wide variety of commands for
+punishments, mutes, and player management, making the moderation team's work on the server much easier.
 
 ---
 
@@ -54,7 +55,7 @@ The following commands are used to apply, remove, or check punishments for playe
 
 ---
 
-### 🚫 Warnings and Kicks - Coming Soon
+### 🚫 Warnings and Kicks
 
 * **`/warn (player) {reason}`**
   Issues a warning to the player.
@@ -63,14 +64,6 @@ The following commands are used to apply, remove, or check punishments for playe
 * **`/tempwarn (player) (duration) {reason}`**
   Issues a temporary warning.
   **Permission:** `judicator.tempwarn`
-
-* **`/unwarn (player/id)`**
-  Removes warnings.
-  **Permission:** `judicator.unwarn`
-
-* **`/warns (player)`**
-  Displays all warnings for a player.
-  **Permission:** `judicator.warns`
 
 * **`/kick (player) {reason}`**
   Kicks the player from the server.
@@ -88,6 +81,14 @@ The following commands are used to apply, remove, or check punishments for playe
   Views details of a specific punishment.
   **Permission:** `judicator.view`
 
+* **`/whistory (player)`**
+  Displays all warnings for a player.
+  **Permission:** `judicator.history`
+
+* **`/wview (id)`**
+  Views details of a specific warn.
+  **Permission:** `judicator.view`
+
 ---
 
 ### ✅ Punishment Removal
@@ -95,6 +96,10 @@ The following commands are used to apply, remove, or check punishments for playe
 * **`/revoke (id)`**
   Removes any punishment by ID.
   **Permission:** `judicator.admin`
+
+* **`/unwarn (id)`**
+  Removes warn.
+  **Permission:** `judicator.unwarn`
 
 ---
 
