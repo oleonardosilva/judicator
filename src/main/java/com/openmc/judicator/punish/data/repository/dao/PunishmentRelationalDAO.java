@@ -272,7 +272,7 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
 
             try (PreparedStatement stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 stmt.setString(1, punishment.getPlayerUUID().toString());
-                stmt.setString(2, punishment.getReason().get());
+                stmt.setString(2, punishment.getReason().orElse(null));
                 stmt.setString(3, punishment.getPunisher());
                 stmt.setString(4, punishment.getNickname());
                 stmt.setString(5, punishment.getIpAddress().orElse(null));
@@ -283,7 +283,7 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                 stmt.setString(10, String.join(",", punishment.getEvidences()));
                 stmt.setString(11, punishment.getType().name());
                 stmt.setBoolean(12, punishment.isPermanent());
-                stmt.setString(13, punishment.getRevokedReason().get());
+                stmt.setString(13, punishment.getRevokedReason().orElse(null));
 
                 if (isUpdate) stmt.setLong(14, punishment.getId());
                 stmt.executeUpdate();

@@ -29,21 +29,13 @@ public class TempWarnCommand {
     }
 
     public void register() {
-        final ConfigurationNode messages = judicator.getMessagesConfig();
         final CommandManager commandManager = server.getCommandManager();
         final CommandMeta commandMeta = commandManager.metaBuilder("tempwarn")
                 .plugin(judicator)
                 .build();
 
         final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("tempwarn")
-                .requires(source -> {
-                    final boolean b = source.hasPermission(PunishPermissions.TEMPWARN.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
-                    if (!b) {
-                        final TextComponent text = WarnUtils.getMessage(messages, "error", "permission");
-                        source.sendMessage(text);
-                    }
-                    return b;
-                })
+                .requires(source -> source.hasPermission(PunishPermissions.TEMPWARN.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission()))
                 .then(BrigadierCommand.requiredArgumentBuilder("player", StringArgumentType.word())
                         .suggests((ctx, builder) -> {
                             final String input = builder.getRemaining().toLowerCase();

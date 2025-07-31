@@ -32,7 +32,6 @@ public class WarnHistoryCommand {
     }
 
     public void register() {
-        final ConfigurationNode messages = judicator.getMessagesConfig();
         final CommandManager commandManager = server.getCommandManager();
         final CommandMeta commandMeta = commandManager.metaBuilder("warnhistory")
                 .aliases("whistory")
@@ -40,14 +39,7 @@ public class WarnHistoryCommand {
                 .build();
 
         final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("warnhistory")
-                .requires(source -> {
-                    final boolean b = source.hasPermission(PunishPermissions.HISTORY.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
-                    if (!b) {
-                        final TextComponent text = WarnUtils.getMessage(messages, "error", "permission");
-                        source.sendMessage(text);
-                    }
-                    return b;
-                })
+                .requires(source -> source.hasPermission(PunishPermissions.HISTORY.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission()))
                 .then(BrigadierCommand.requiredArgumentBuilder("player", StringArgumentType.word())
                         .suggests((ctx, builder) -> {
                             final String input = builder.getRemaining().toLowerCase();

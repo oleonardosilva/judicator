@@ -1,5 +1,4 @@
 error:
-  permission: "&cYou do not have permission to use this feature."
   unknown: "&cAn unknown error occurred."
   reason-not-found: "&cThe provided reason was not found."
   warn-not-found: "&cNo warn was found with the provided ID."
@@ -92,7 +91,7 @@ announcements:
     - ""
   warn:
     - ""
-    - "&c * User {nickname} was warned by {author}."
+    - "&c * User {nickname} was warned by {author}.\n"
     - "&c * Reason: {reason}."
     - ""
 

@@ -32,21 +32,13 @@ public class UnwarnCommand {
     }
 
     public void register() {
-        final ConfigurationNode messages = judicator.getMessagesConfig();
         final CommandManager commandManager = server.getCommandManager();
         final CommandMeta commandMeta = commandManager.metaBuilder("unwarn")
                 .plugin(judicator)
                 .build();
 
         final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("unwarn")
-                .requires(source -> {
-                    final boolean b = source.hasPermission(PunishPermissions.ADMIN.getPermission());
-                    if (!b) {
-                        final TextComponent text = WarnUtils.getMessage(messages, "error", "permission");
-                        source.sendMessage(text);
-                    }
-                    return b;
-                })
+                .requires(source -> source.hasPermission(PunishPermissions.ADMIN.getPermission()))
                 .then(BrigadierCommand.requiredArgumentBuilder("id", StringArgumentType.word())
                         .executes(this::unwarn)
                 )

@@ -1,5 +1,4 @@
 error:
-  permission: "&cNo tienes permiso para usar esta función."
   unknown: "&cOcurrió un error desconocido."
   reason-not-found: "&cNo se encontró el motivo proporcionado."
   warn-not-found: "&cNo se encontró ninguna advertencia con el ID proporcionado."
@@ -92,7 +91,7 @@ announcements:
     - ""
   warn:
     - ""
-    - "&c * El usuario {nickname} fue advertido por {author}."
+    - "&c * El usuario {nickname} fue advertido por {author}.\n"
     - "&c * Motivo: {reason}."
     - ""
 

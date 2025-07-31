@@ -41,14 +41,7 @@ public class PunishViewCommand {
                 .build();
 
         final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("punishview")
-                .requires(source -> {
-                    final boolean b = source.hasPermission(PunishPermissions.VIEW.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
-                    if (!b) {
-                        final TextComponent text = PunishUtils.getMessage(messages, "error", "permission");
-                        source.sendMessage(text);
-                    }
-                    return b;
-                })
+                .requires(source -> source.hasPermission(PunishPermissions.VIEW.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission()))
                 .then(BrigadierCommand.requiredArgumentBuilder("id", StringArgumentType.word()).executes(this::punishview))
                 .executes(this::wrongUsage)
                 .build();

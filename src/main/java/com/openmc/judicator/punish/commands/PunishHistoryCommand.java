@@ -41,14 +41,7 @@ public class PunishHistoryCommand {
                 .build();
 
         final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("punishhistory")
-                .requires(source -> {
-                    final boolean b = source.hasPermission(PunishPermissions.HISTORY.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
-                    if (!b) {
-                        final TextComponent text = PunishUtils.getMessage(messages, "error", "permission");
-                        source.sendMessage(text);
-                    }
-                    return b;
-                })
+                .requires(source -> source.hasPermission(PunishPermissions.HISTORY.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission()))
                 .then(BrigadierCommand.requiredArgumentBuilder("player", StringArgumentType.word())
                         .suggests((ctx, builder) -> {
                             final String input = builder.getRemaining().toLowerCase();

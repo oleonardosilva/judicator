@@ -32,7 +32,6 @@ public class WarnViewCommand {
     }
 
     public void register() {
-        final ConfigurationNode messages = judicator.getMessagesConfig();
         final CommandManager commandManager = server.getCommandManager();
         final CommandMeta commandMeta = commandManager.metaBuilder("warnview")
                 .aliases("wview")
@@ -40,14 +39,7 @@ public class WarnViewCommand {
                 .build();
 
         final LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("warnview")
-                .requires(source -> {
-                    final boolean b = source.hasPermission(PunishPermissions.VIEW.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission());
-                    if (!b) {
-                        final TextComponent text = WarnUtils.getMessage(messages, "error", "permission");
-                        source.sendMessage(text);
-                    }
-                    return b;
-                })
+                .requires(source -> source.hasPermission(PunishPermissions.VIEW.getPermission()) || source.hasPermission(PunishPermissions.ADMIN.getPermission()))
                 .then(BrigadierCommand.requiredArgumentBuilder("id", StringArgumentType.word()).executes(this::warnview))
                 .executes(this::wrongUsage)
                 .build();

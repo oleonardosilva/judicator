@@ -1,5 +1,4 @@
 error:
-  permission: "&cVocê não tem permissão para usar este recurso."
   unknown: "&cOcorreu um erro desconhecido."
   reason-not-found: "&cO motivo fornecido não foi encontrado."
   warn-not-found: "&cNenhuma advertência foi encontrada com o ID fornecido."
@@ -92,7 +91,7 @@ announcements:
     - ""
   warn:
     - ""
-    - "&c * O usuário {nickname} foi advertido por {author}."
+    - "&c * O usuário {nickname} foi advertido por {author}.\n"
     - "&c * Motivo: {reason}."
     - ""
 
