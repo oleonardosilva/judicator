@@ -26,11 +26,15 @@ public class WarnHandler {
             this.announce(warn);
             this.calc(warn);
 
-
             judicator.getServer().getPlayer(warn.getPunisher()).ifPresent(
                     player -> player
                             .sendMessage(WarnUtils.getMessage(judicator.getMessagesConfig(), "success", "warn-applied"))
             );
+
+            judicator.getServer().getPlayer(warn.getNickname()).ifPresent(player -> {
+                final TextComponent warnAlert = WarnUtils.getMessageList(judicator.getMessagesConfig(), warn, "runners", "warn-alert");
+                player.sendMessage(warnAlert);
+            });
 
             return Optional.of(warn);
         } catch (Exception e) {
