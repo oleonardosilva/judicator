@@ -173,7 +173,7 @@ runners:
   warn-alert:
     - "       &6&lOpenMine Network\n"
     - "\n"
-    - "&cYou received a warning from {punisher}.\n"
+    - "&cYou received a warning from {author}.\n"
     - "\n"
     - "&c * Reason: {reason}\n"
     - "&c * Start: {startedAt}\n"

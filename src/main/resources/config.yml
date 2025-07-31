@@ -9,7 +9,7 @@ warns:
   tree:
     warns: 3
     commands:
-      - "tempban {player} \"3:d\" got three warns"
+      - "tempban {player} '3:d' got three warns"
 reasons: # These will be the predefined reasons to use on /punish
   reason1:
     reason: "Player Offense"

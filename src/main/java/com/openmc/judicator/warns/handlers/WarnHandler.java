@@ -56,7 +56,7 @@ public class WarnHandler {
                 .ifPresent(actions -> actions.forEach(action -> {
                     final ConsoleCommandSource console = judicator.getServer().getConsoleCommandSource();
                     judicator.getServer().getCommandManager()
-                            .executeAsync(console, action.replace("{nickname}", warn.getSafeNickname()));
+                            .executeAsync(console, action.replace("{player}", warn.getSafeNickname()));
                 }));
     }
 

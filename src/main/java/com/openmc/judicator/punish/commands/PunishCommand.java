@@ -47,6 +47,7 @@ public class PunishCommand {
     public void register() {
         final CommandManager commandManager = server.getCommandManager();
         final CommandMeta commandMeta = commandManager.metaBuilder("punish")
+                .aliases("punir", "castigar")
                 .plugin(judicator)
                 .build();
 

@@ -39,7 +39,7 @@ public class RevokeCommand {
     public void register() {
         final CommandManager commandManager = server.getCommandManager();
         final CommandMeta commandMeta = commandManager.metaBuilder("revoke")
-                .aliases("revogar")
+                .aliases("revogar", "revocar")
                 .plugin(judicator)
                 .build();
 
