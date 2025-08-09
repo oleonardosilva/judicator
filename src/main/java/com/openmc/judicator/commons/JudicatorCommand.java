@@ -1,8 +1,9 @@
-package com.openmc.judicator;
+package com.openmc.judicator.commons;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
+import com.openmc.judicator.Judicator;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.types.PunishPermissions;
 import com.velocitypowered.api.command.BrigadierCommand;

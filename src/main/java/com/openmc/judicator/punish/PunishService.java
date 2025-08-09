@@ -24,8 +24,6 @@ public class PunishService {
     private final PunishCache cache;
     private final ProxyServer server;
     private final Comparator<Punishment> heavyFirst = (o1, o2) -> {
-        // Permanentes vêm primeiro (empty)
-        // Ambos temporários: ordenar por data decrescente
         final Optional<LocalDateTime> f1 = o1.getFinishAt();
         final Optional<LocalDateTime> f2 = o2.getFinishAt();
         if (f1.isEmpty() && f2.isPresent()) return -1;

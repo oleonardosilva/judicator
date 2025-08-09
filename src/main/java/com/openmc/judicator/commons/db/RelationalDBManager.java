@@ -21,29 +21,39 @@ public class RelationalDBManager {
             }
 
             config = config.node("database");
-            final HikariConfig hikari = new HikariConfig();
             final String type = config.node("type").getString("postgres");
+            final String driverClass = type.equalsIgnoreCase("postgres") ?
+                    "org.postgresql.Driver" : "com.mysql.cj.jdbc.Driver";
+
+            try {
+                Class.forName(driverClass);
+                logger.info("Database driver loaded successfully: {}", driverClass);
+            } catch (ClassNotFoundException e) {
+                logger.error("Database driver not found: {}. Make sure dependencies are loaded first.", driverClass);
+                throw new RuntimeException("Database driver not available", e);
+            }
+
+            final HikariConfig hikari = new HikariConfig();
             final String host = config.node("host").getString("localhost");
             final String port = config.node("port").getString("5432");
             final String database = config.node("database").getString("postgres");
             final String username = config.node("user").getString("postgres");
             final String password = config.node("password").getString("password");
+
             final String jdbcUrl = type.equalsIgnoreCase("postgres") ?
                     "jdbc:postgresql://" + host + ":" + port + "/" + database :
-                    "jdbc:mariadb://" + host + ":" + port + "/" + database +
+                    "jdbc:mysql://" + host + ":" + port + "/" + database +
                     "?useSSL=false&characterEncoding=UTF-8";
 
             hikari.setJdbcUrl(jdbcUrl);
             hikari.setUsername(username);
             hikari.setPassword(password);
-            hikari.setDriverClassName(
-                    type.equalsIgnoreCase("postgres") ? "com.openmc.judicator.libs.postgresql.Driver" : "com.openmc.judicator.libs.mariadb.jdbc.Driver"
-            );
+            hikari.setDriverClassName(driverClass);
             hikari.setMaximumPoolSize(10);
             hikari.setMinimumIdle(2);
             hikari.setPoolName("Judicator");
+
             this.dataSource = new HikariDataSource(hikari);
-            logger.info("Database has been initialized successfully!");
         } catch (Exception e) {
             logger.error("Database initialization failed, verify your data.yml file.");
             logger.error(e.getMessage(), e);

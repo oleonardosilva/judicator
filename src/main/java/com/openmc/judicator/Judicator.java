@@ -1,6 +1,8 @@
 package com.openmc.judicator;
 
 import com.google.inject.Inject;
+import com.openmc.judicator.commons.DependencyManager;
+import com.openmc.judicator.commons.JudicatorCommand;
 import com.openmc.judicator.commons.UUIDManager;
 import com.openmc.judicator.commons.db.RelationalDBManager;
 import com.openmc.judicator.punish.AccessAddressService;
@@ -40,6 +42,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
 @Plugin(id = "judicator",
@@ -55,6 +59,7 @@ public class Judicator {
     private final ProxyServer server;
     private final Path dataDirectory;
     private final PluginContainer container;
+    private DependencyManager dependencyManager;
     private UUIDManager uuidManager;
     private ConfigurationNode messagesConfig;
     private ConfigurationNode immuneConfig;
@@ -79,6 +84,30 @@ public class Judicator {
 
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
+        logger.info("Initializing plugin with automatic dependency download...");
+        dependencyManager = new DependencyManager(this);
+
+        final List<DependencyManager.Dependency> dependencies = Arrays.asList(
+                new DependencyManager.Dependency("com.mysql:mysql-connector-j:9.3.0"),
+                new DependencyManager.Dependency("org.postgresql:postgresql:42.7.7"),
+                new DependencyManager.Dependency("com.github.ben-manes.caffeine:caffeine:3.1.8"),
+                new DependencyManager.Dependency("com.zaxxer", "HikariCP", "6.3.0")
+        );
+
+        dependencyManager.downloadAndLoadDependencies(dependencies);
+        initializeFeatures();
+        logger.info("Plugin has been initialized successfully!");
+    }
+
+    @Subscribe
+    public void onProxyShutdown(ProxyShutdownEvent event) {
+        logger.info("Plugin is shutting down...");
+        punishCache.shutdown();
+        relationalDBManager.shutdown();
+        logger.info("Plugin has been shut down successfully!");
+    }
+
+    private void initializeFeatures() {
         this.config = loadConfig("config.yml");
         this.messagesConfig = loadConfig("messages_" + config.node("language").getString("en") + ".yml");
         this.immuneConfig = loadConfig("immune.yml");
@@ -102,16 +131,6 @@ public class Judicator {
         this.registerServices();
         this.registerCommands();
         this.registerListeners();
-
-        logger.info("Plugin has been initialized successfully!");
-    }
-
-    @Subscribe
-    public void onProxyShutdown(ProxyShutdownEvent event) {
-        logger.info("Plugin is shutting down...");
-        punishCache.shutdown();
-        relationalDBManager.shutdown();
-        logger.info("Plugin has been shut down successfully!");
     }
 
     public void reloadConfigs() {

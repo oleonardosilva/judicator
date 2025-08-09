@@ -19,10 +19,10 @@ repositories {
 dependencies {
     compileOnly 'com.velocitypowered:velocity-api:3.4.0-SNAPSHOT'
 
-    implementation 'com.zaxxer:HikariCP:4.0.3'
-    implementation 'org.mariadb.jdbc:mariadb-java-client:3.5.4'
-    implementation 'org.postgresql:postgresql:42.7.7'
-    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+    compileOnly 'com.zaxxer:HikariCP:6.3.0'
+    compileOnly 'com.mysql:mysql-connector-j:9.3.0'
+    compileOnly 'org.postgresql:postgresql:42.7.7'
+    compileOnly 'com.github.ben-manes.caffeine:caffeine:3.1.8'
 
     compileOnly 'org.projectlombok:lombok:1.18.38'
     annotationProcessor 'org.projectlombok:lombok:1.18.38'
@@ -42,11 +42,6 @@ tasks {
         manifest {
             attributes 'Main-Class': 'com.openmc.judicator.Judicator'
         }
-
-        relocate 'org.postgresql', 'com.openmc.judicator.libs.postgresql'
-        relocate 'org.mariadb', 'com.openmc.judicator.libs.mariadb'
-        relocate 'com.github.benmanes.caffeine', 'com.openmc.judicator.libs.caffeine'
-        relocate 'com.zaxxer', 'com.openmc.judicator.libs'
     }
 
     build {
