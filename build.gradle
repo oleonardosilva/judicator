@@ -7,7 +7,7 @@ plugins {
 }
 
 group = 'com.openmc.plugin'
-version = '0.2.0'
+version = '0.3.0'
 
 repositories {
     mavenCentral()
@@ -19,11 +19,10 @@ repositories {
 dependencies {
     compileOnly 'com.velocitypowered:velocity-api:3.4.0-SNAPSHOT'
 
-    implementation 'com.zaxxer:HikariCP:4.0.3'
-    implementation 'mysql:mysql-connector-java:8.0.33'
-    implementation 'org.postgresql:postgresql:42.6.0'
-    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
-    implementation("commons-validator:commons-validator:1.7")
+    compileOnly 'com.zaxxer:HikariCP:6.3.0'
+    compileOnly 'com.mysql:mysql-connector-j:9.3.0'
+    compileOnly 'org.postgresql:postgresql:42.7.7'
+    compileOnly 'com.github.ben-manes.caffeine:caffeine:3.1.8'
 
     compileOnly 'org.projectlombok:lombok:1.18.38'
     annotationProcessor 'org.projectlombok:lombok:1.18.38'
@@ -41,7 +40,7 @@ tasks {
         archiveClassifier.set('')
         mergeServiceFiles()
         manifest {
-            attributes 'Main-Class': 'com.openmc.plugin.judicator.Judicator'
+            attributes 'Main-Class': 'com.openmc.judicator.Judicator'
         }
     }
 

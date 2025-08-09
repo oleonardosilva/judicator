@@ -1,0 +1,217 @@
+error:
+  unknown: "&cOcurrió un error desconocido."
+  reason-not-found: "&cNo se encontró el motivo proporcionado."
+  warn-not-found: "&cNo se encontró ninguna advertencia con el ID proporcionado."
+  punish-not-found: "&cNo se encontró ningún castigo con el ID proporcionado."
+  already-revoked: "&cEste castigo ya ha sido revocado."
+  immune: "&cEste jugador no puede ser castigado."
+  invalid-address: "&cNo se encontró ningún jugador registrado con esta dirección IP."
+  angel: "&cEste jugador no tiene castigos."
+  player-ip-not-found: "&eNo se encontró la IP del jugador en la base de datos, el castigo se aplicará sin ella."
+  player-offline: "&cEl jugador no está en línea."
+  self-punish: "&cNo puedes castigarte a ti mismo."
+success:
+  cancel: "&aOperación cancelada con éxito."
+  pardon: "&aEl castigo con el ID proporcionado ha sido revocado con éxito."
+  got-pardon: "&a¡Tu castigo ha sido revocado!"
+  punish-applied: "&aEl castigo se aplicó correctamente al jugador."
+  warn-applied: "&aLa advertencia se aplicó correctamente al jugador."
+  unwarn: "&aLa advertencia con el ID proporcionado fue eliminada con éxito."
+  got-unwarn: "&a¡Tu advertencia ha sido eliminada!"
+  reloaded: "&aEl plugin se recargó correctamente."
+prompt:
+  write-evidences: "&7Envía las pruebas una por una en el chat. Para finalizar, haz clic o escribe \"{ready-prompt}\" o \"{cancel-prompt}\"."
+  next-link: "&aEnlace adjuntado con éxito. Para finalizar, haz clic o escribe \"{ready-prompt}\" o \"{cancel-prompt}\"."
+  ready: "confirmar"
+  cancel: "cancelar"
+status:
+  finished: "Finalizado"
+  active: "Activo"
+  revoked: "Revocado"
+permanent: "Permanente"
+yes: "Sí"
+no: "No"
+date-format: "dd/MM/yyyy 'a las' HH:mm"
+
+punish:
+  title:
+    - "       &6&lOpenMine Network - Castigos\n"
+    - "\n"
+  line:
+    message: "    &f&l• &f{reason}\n"
+    hoverMessage:
+      - "&eTipo: §a{type}\n&ePermiso: §a{permission}\n&ePor IP: {toggle}\n&eDuración: §a{duration}"
+    hoverWithoutPermission: "\n\n&cNo tienes permiso para aplicar este castigo."
+  footer:
+    - "\n&cTen cuidado al aplicar castigos en el servidor. En caso \n&cde error, contacta con un Administrador."
+
+punish-history:
+  title:
+    - "&eCastigos del jugador {nickname}\n"
+    - "\n"
+  line:
+    message: "    &f&l• &e#{id} &7- &c{type} &7- &f{startedAt}\n"
+    hoverMessage:
+      - "&c * Dirección IP: &f{addressIP}\n"
+      - "&c * Motivo: &f{reason}\n"
+      - "&c * Inicio: &f{startedAt}\n"
+      - "&c * Fin: &f{finishAt}\n"
+      - "&c * Autor: &f{author}\n"
+      - "&c * Estado: &f{status}"
+  footer:
+    - "\n&7Pasa el cursor sobre una entrada para ver los detalles completos del castigo."
+
+warn-history:
+  title:
+    - "&eAdvertencias del jugador {nickname}\n"
+    - "\n"
+  line:
+    message: "    &f&l• &e#{id} &7- &c{reason} &7- &f{startedAt}\n"
+    hoverMessage:
+      - "&c * Motivo: &f{reason}\n"
+      - "&c * Inicio: &f{startedAt}\n"
+      - "&c * Fin: &f{finishAt}\n"
+      - "&c * Autor: &f{author}\n"
+      - "&c * Estado: &f{status}"
+  footer:
+    - "\n&7Pasa el cursor sobre una entrada para ver los detalles completos de la advertencia."
+
+announcements:
+  ban:
+    - ""
+    - "&c * El usuario {nickname} fue baneado por {author}."
+    - ""
+  mute:
+    - ""
+    - "&c * El usuario {nickname} fue silenciado por {author}."
+    - ""
+  kick:
+    - ""
+    - "&c * El usuario {nickname} fue expulsado por {author}."
+    - ""
+  warn:
+    - ""
+    - "&c * El usuario {nickname} fue advertido por {author}.\n"
+    - "&c * Motivo: {reason}."
+    - ""
+
+runners:
+  ban-kick:
+    - "&6&lOpenMine Network\n"
+    - "&cHas sido baneado del servidor.\n"
+    - "\n"
+    - "&c * Motivo: {reason}\n"
+    - "&c * Inicio: {startedAt}\n"
+    - "&c * Fin: {finishAt}\n"
+    - "&c * Prueba: {evidence}\n"
+    - "&c * Autor: {author}\n"
+    - "\n"
+    - "&cUsa el ID &e#{id} &cpara solicitar una revisión en nuestro Discord: &c&nbit.ly/openmc\n"
+    - "&c&lTIENDA: &ctienda.openmc.com.\n"
+  mute-alert:
+    - "       &6&lOpenMine Network\n"
+    - "&cHas sido silenciado en el servidor.\n"
+    - "\n"
+    - "&c * Motivo: {reason}\n"
+    - "&c * Inicio: {startedAt}\n"
+    - "&c * Fin: {finishAt}\n"
+    - "&c * Prueba: {evidence}\n"
+    - "&c * Autor: {author}\n"
+    - "\n"
+    - "&cUsa el ID &e#{id} &cpara solicitar una revisión en nuestro Discord: &c&nbit.ly/openmc\n"
+    - "&c&lTIENDA: &ctienda.openmc.com.\n"
+  mute-status:
+    - "       &6&lOpenMine Network\n"
+    - "&cActualmente estás silenciado en el servidor.\n"
+    - "\n"
+    - "&c * Inicio: {startedAt}\n"
+    - "&c * Fin: {finishAt}\n"
+    - "\n"
+    - "&cUsa el ID &e#{id} &cpara solicitar una revisión en nuestro Discord: &c&nbit.ly/openmc\n"
+    - "\n"
+  kick:
+    - "       &6&lOpenMine Network\n"
+    - "&cHas sido expulsado del servidor.\n"
+    - "\n"
+    - "&c * Motivo: {reason}\n"
+    - "&c * Autor: {author}\n"
+    - "\n"
+    - "&cSi esto fue un error, solicita una revisión en nuestro Discord: &c&nbit.ly/openmc\n"
+    - "\n"
+  punishment-view:
+    - "       &6&lOpenMine Network\n"
+    - "\n"
+    - "&c * ID del Castigo: #{id}\n"
+    - "&c * Dirección IP: {addressIP}\n"
+    - "&c * Jugador: {nickname}\n"
+    - "&c * Motivo: {reason}\n"
+    - "&c * Tipo: {type}\n"
+    - "&c * Inicio: {startedAt}\n"
+    - "&c * Fin: {finishAt}\n"
+    - "&c * Autor: {author}\n"
+    - "&c * Estado: {status}\n"
+    - "&c * Revocado: {revoked}\n"
+    - "&c * Motivo de Revocación: {revokedReason}\n"
+    - "&c * Prueba: {evidence}\n"
+  warn-view:
+    - "       &6&lOpenMine Network\n"
+    - "\n"
+    - "&c * ID de la Advertencia: #{id}\n"
+    - "&c * Jugador: {nickname}\n"
+    - "&c * Motivo: {reason}\n"
+    - "&c * Inicio: {startedAt}\n"
+    - "&c * Fin: {finishAt}\n"
+    - "&c * Autor: {author}\n"
+    - "&c * Estado: {status}\n"
+  check:
+    - "&eRevisando: {target}\n"
+    - "\n"
+    - "&aDirección IP: {ip}"
+    - "&aUbicación: {country}"
+    - "&aEn línea: {response}."
+    - "&aCuentas: {accounts}\n"
+  warn-alert:
+    - "       &6&lOpenMine Network\n"
+    - "\n"
+    - "&cHas recibido una advertencia de {author}.\n"
+    - "\n"
+    - "&c * Motivo: {reason}\n"
+    - "&c * Inicio: {startedAt}\n"
+    - "&c * Fin: {finishAt}\n"
+
+time:
+  format:
+    year: "año"
+    years: "años"
+    month: "mes"
+    months: "meses"
+    week: "semana"
+    weeks: "semanas"
+    day: "día"
+    days: "días"
+    hour: "hora"
+    hours: "horas"
+    minute: "minuto"
+    minutes: "minutos"
+    second: "segundo"
+    seconds: "segundos"
+
+usages:
+  ban: "&cComando incorrecto. Usa: /ban (jugador) [motivo]."
+  banip: "&cComando incorrecto. Usa: /banip (jugador) [motivo]."
+  tempban: "&cComando incorrecto. Usa: /tempban (jugador) \"(número:días,número:meses...)\" [motivo]."
+  tempbanip: "&cComando incorrecto. Usa: /tempbanip (jugador) \"(número:días,número:meses...)\" [motivo]."
+  mute: "&cComando incorrecto. Usa: /mute (jugador) [motivo]."
+  tempmute: "&cComando incorrecto. Usa: /tempmute (jugador) \"(número:días,número:meses...)\" [motivo]."
+  muteip: "&cComando incorrecto. Usa: /muteip (jugador) [motivo]."
+  tempmuteip: "&cComando incorrecto. Usa: /tempmuteip (jugador) \"(número:días,número:meses...)\" [motivo]."
+  revoke: "&cComando incorrecto. Usa: /revoke (id)."
+  punish: "&cComando incorrecto. Usa: /punish (jugador) [motivo]."
+  punishview: "&cComando incorrecto. Usa: /pview (id)."
+  punishhistory: "&cComando incorrecto. Usa: /phistory (jugador)."
+  kick: "&cComando incorrecto. Usa: /kick (jugador) [motivo]."
+  warn: "&cComando incorrecto. Usa: /warn (jugador) (motivo)."
+  tempwarn: "&cComando incorrecto. Usa: /tempwarn (jugador) \"(número:días,número:meses...)\" (motivo)."
+  warnhistory: "&cComando incorrecto. Usa: /whistory (jugador)."
+  unwarn: "&cComando incorrecto. Usa: /unwarn (jugador)."
+  warnview: "&cComando incorrecto. Usa: /wview (id)."
