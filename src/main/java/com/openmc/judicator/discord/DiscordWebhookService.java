@@ -11,11 +11,12 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public class DiscordWebhookService {
 
-    private static final String SKIN_FACE_URL = "https://crafatar.com/avatars/%s?size=64&overlay";
+    private static final String SKIN_FACE_URL = "https://mc-heads.net/avatar/%s";
     private final DateTimeFormatter FORMATTER;
 
     private final Judicator plugin;
@@ -71,7 +72,7 @@ public class DiscordWebhookService {
     }
 
     private String buildPunishmentPayload(Punishment punishment, ConfigurationNode eventNode) {
-        final String skinUrl = String.format(SKIN_FACE_URL, punishment.getPlayerUUID());
+        final String skinUrl = String.format(SKIN_FACE_URL, punishment.getPlayerUUID().map(UUID::toString).orElse("MHF_Steve"));
         final int color = hexToInt(eventNode.node("color").getString("#FF0000"));
 
         final String title = resolvePlaceholders(eventNode.node("title").getString("Punishment"), punishment, null);
@@ -122,7 +123,7 @@ public class DiscordWebhookService {
     }
 
     private String buildWarnPayload(Warn warn, ConfigurationNode eventNode) {
-        final String skinUrl = String.format(SKIN_FACE_URL, warn.getPlayerUUID());
+        final String skinUrl = String.format(SKIN_FACE_URL, warn.getPlayerUUID().map(UUID::toString).orElse("MHF_Steve"));
         final int color = hexToInt(eventNode.node("color").getString("#FFA500"));
 
         final String title = resolvePlaceholders(eventNode.node("title").getString("Warning"), null, warn);

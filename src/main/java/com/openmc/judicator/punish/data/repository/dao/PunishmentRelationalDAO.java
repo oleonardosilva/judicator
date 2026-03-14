@@ -271,7 +271,7 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
             final String sql = generateSaveSQL(isUpdate);
 
             try (PreparedStatement stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                stmt.setString(1, punishment.getPlayerUUID().toString());
+                stmt.setString(1, punishment.getPlayerUUID().map(UUID::toString).orElse(null));
                 stmt.setString(2, punishment.getReason().orElse(null));
                 stmt.setString(3, punishment.getPunisher());
                 stmt.setString(4, punishment.getNickname());

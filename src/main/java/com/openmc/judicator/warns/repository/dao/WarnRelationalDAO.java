@@ -180,7 +180,7 @@ public class WarnRelationalDAO implements WarnRepository {
             final String sql = generateSaveSQL(isUpdate);
 
             try (PreparedStatement stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                stmt.setString(1, warn.getPlayerUUID().toString());
+                stmt.setString(1, warn.getPlayerUUID().map(UUID::toString).orElse(null));
                 stmt.setString(2, warn.getReason());
                 stmt.setString(3, warn.getPunisher());
                 stmt.setString(4, warn.getNickname());
