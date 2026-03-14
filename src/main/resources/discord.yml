@@ -1,0 +1,59 @@
+# ============================================================
+#  Judicator — Discord Webhook Configuration
+# ============================================================
+# Available placeholders for title and description:
+#   {player}    — punished/warned player's nickname
+#   {punisher}  — staff member who applied the punishment
+#   {reason}    — punishment reason
+#   {type}      — punishment type (BAN, MUTE, etc.)
+#   {id}        — punishment/warn ID in the database
+#
+# Colors: use hex format, e.g. "#FF0000" for red.
+# webhook-url: the full webhook URL of the Discord channel.
+# ============================================================
+
+enabled: true
+
+events:
+
+  ban:
+    enabled: true
+    webhook-url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE"
+    color: "#E74C3C"
+    title: "🔨 Player Banned"
+    description: "Player **{player}** was permanently banned by **{punisher}**."
+
+  tempban:
+    enabled: true
+    webhook-url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE"
+    color: "#E67E22"
+    title: "⏱️ Temporary Ban"
+    description: "Player **{player}** received a temporary ban from **{punisher}**."
+
+  mute:
+    enabled: true
+    webhook-url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE"
+    color: "#9B59B6"
+    title: "🔇 Player Muted"
+    description: "Player **{player}** was permanently muted by **{punisher}**."
+
+  tempmute:
+    enabled: true
+    webhook-url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE"
+    color: "#8E44AD"
+    title: "⏱️ Temporary Mute"
+    description: "Player **{player}** received a temporary mute from **{punisher}**."
+
+  kick:
+    enabled: true
+    webhook-url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE"
+    color: "#F39C12"
+    title: "👢 Player Kicked"
+    description: "Player **{player}** was kicked by **{punisher}**."
+
+  warn:
+    enabled: true
+    webhook-url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE"
+    color: "#F1C40F"
+    title: "⚠️ Warning Issued"
+    description: "Player **{player}** received a warning from **{punisher}**."

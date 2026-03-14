@@ -5,6 +5,7 @@ import com.openmc.judicator.commons.DependencyManager;
 import com.openmc.judicator.commons.JudicatorCommand;
 import com.openmc.judicator.commons.UUIDManager;
 import com.openmc.judicator.commons.db.RelationalDBManager;
+import com.openmc.judicator.discord.DiscordWebhookService;
 import com.openmc.judicator.punish.AccessAddressService;
 import com.openmc.judicator.punish.PunishService;
 import com.openmc.judicator.punish.commands.*;
@@ -65,6 +66,8 @@ public class Judicator {
     private ConfigurationNode immuneConfig;
     private ConfigurationNode dbConfig;
     private ConfigurationNode config;
+    private ConfigurationNode discordConfig;
+    private DiscordWebhookService discordWebhookService;
     private ImmuneCache immuneCache;
     private PunishCache punishCache;
     private ReasonCache reasonCache;
@@ -112,6 +115,9 @@ public class Judicator {
         this.messagesConfig = loadConfig("messages_" + config.node("language").getString("en") + ".yml");
         this.immuneConfig = loadConfig("immune.yml");
         this.dbConfig = loadConfig("data.yml");
+        this.discordConfig = loadConfig("discord.yml");
+
+        this.discordWebhookService = new DiscordWebhookService(this);
 
         this.uuidManager = new UUIDManager(this);
         this.punishCache = new PunishCache(this);
@@ -135,6 +141,7 @@ public class Judicator {
 
     public void reloadConfigs() {
         this.config = loadConfig("config.yml");
+        this.discordConfig = loadConfig("discord.yml");
         this.messagesConfig = loadConfig("messages_" + config.node("language").getString("en") + ".yml");
         this.immuneConfig = loadConfig("immune.yml");
         this.dbConfig = loadConfig("data.yml");

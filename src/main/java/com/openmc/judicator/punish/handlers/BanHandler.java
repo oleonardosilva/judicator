@@ -43,6 +43,8 @@ public class BanHandler implements PunishHandler {
     }
 
     private void announce(Punishment punishment) {
+        judicator.getDiscordWebhookService().sendPunishment(punishment);
+
         final ConfigurationNode messagesNode = judicator.getMessagesConfig();
         if (judicator.getConfig().node("announce").getBoolean(true)) {
             final ProxyServer server = judicator.getServer();
