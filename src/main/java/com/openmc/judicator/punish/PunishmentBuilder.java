@@ -56,23 +56,15 @@ public class PunishmentBuilder {
         return this;
     }
 
-    public PunishmentBuilder target(String nickname) {
+    public PunishmentBuilder target(String nickname, UUID uuid) {
+        this.playerUUID = uuid;
         this.nickname = nickname;
         return this;
     }
 
-    public PunishmentBuilder playerUUID(UUID uuid) {
-        this.playerUUID = uuid;
-        return this;
-    }
 
     public PunishmentBuilder appendEvidences(String evidence) {
         this.evidences.addAll(Arrays.asList(evidence.split(" ")));
-        return this;
-    }
-
-    public PunishmentBuilder appendEvidence(String evidence) {
-        this.evidences.add(evidence);
         return this;
     }
 

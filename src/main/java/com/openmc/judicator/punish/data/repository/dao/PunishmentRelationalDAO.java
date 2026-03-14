@@ -53,7 +53,7 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                         """
                                 CREATE TABLE IF NOT EXISTS punishments (
                                     id BIGSERIAL PRIMARY KEY,
-                                    player_uuid VARCHAR(36) NOT NULL,
+                                    player_uuid VARCHAR(36),
                                     reason VARCHAR(255) NOT NULL,
                                     punisher VARCHAR(20) NOT NULL,
                                     nickname VARCHAR(20),
@@ -73,7 +73,7 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                 statement = connection.prepareStatement("""
                         CREATE TABLE IF NOT EXISTS punishments (
                             id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                            player_uuid VARCHAR(36) NOT NULL,
+                            player_uuid VARCHAR(36),
                             reason VARCHAR(255) NOT NULL,
                             punisher VARCHAR(20) NOT NULL,
                             nickname VARCHAR(20),

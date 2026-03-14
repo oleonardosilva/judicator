@@ -88,7 +88,7 @@ public class TempBanCommand {
         builder.duration(durationStr);
 
         server.getPlayer(targetName).ifPresentOrElse(
-                builder::target, () -> builder.target(targetName)
+                builder::target, () -> builder.target(targetName, judicator.getUuidManager().getUUID(targetName))
         );
 
         if (source instanceof Player player) {
