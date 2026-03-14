@@ -40,8 +40,9 @@ public class WarnBuilder {
         return this;
     }
 
-    public WarnBuilder target(String nickname) {
+    public WarnBuilder target(String nickname, UUID  uuid) {
         this.nickname = nickname;
+        this.playerUUID = uuid;
         return this;
     }
 

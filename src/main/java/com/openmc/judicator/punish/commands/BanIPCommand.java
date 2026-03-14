@@ -87,7 +87,7 @@ public class BanIPCommand {
         server.getPlayer(targetName).ifPresentOrElse(
                 player -> builder.target(player).ipAddress(player.getRemoteAddress().getAddress().getHostAddress())
                 , () -> {
-                    builder.target(targetName);
+                    builder.target(targetName, judicator.getUuidManager().getUUID(targetName));
                     addressService.findByUsername(targetName)
                             .ifPresentOrElse(accessAddress -> builder.ipAddress(accessAddress.getHostAddress()), () -> {
                                 final TextComponent text = PunishUtils.getMessage(messages, "error", "player-ip-not-found");

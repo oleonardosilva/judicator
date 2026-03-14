@@ -78,6 +78,10 @@ public class Punishment {
         return PunishStatus.ACTIVE;
     }
 
+    public Optional<UUID> getPlayerUUID() {
+        return Optional.ofNullable(this.playerUUID);
+    }
+
     public Optional<LocalDateTime> getFinishAt() {
         return Optional.ofNullable(finishAt);
     }

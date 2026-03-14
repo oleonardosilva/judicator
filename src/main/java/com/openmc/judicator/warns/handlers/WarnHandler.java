@@ -61,6 +61,8 @@ public class WarnHandler {
     }
 
     private void announce(Warn warn) {
+        judicator.getDiscordWebhookService().sendWarn(warn);
+
         final ConfigurationNode messagesNode = judicator.getMessagesConfig();
         if (judicator.getConfig().node("announce").getBoolean(true)) {
             final ProxyServer server = judicator.getServer();

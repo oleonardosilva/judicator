@@ -34,22 +34,26 @@ public class UUIDManager {
     }
 
     private UUID getOriginalUUID(String name) {
-        name = name.toLowerCase();
-        Optional<Player> optPlayer = judicator.getServer().getPlayer(name);
-        if (optPlayer.isPresent()) {
-            final UUID uuid = optPlayer.get().getUniqueId();
-            supplyInternUUID(name, uuid);
-            return uuid;
-        }
-        if (activeUUIDs.containsKey(name)) return getUUID(name);
-        String uuid = "";
         try {
-            uuid = askAPI(name);
-        } catch (IOException | URISyntaxException ignored) {
+            name = name.toLowerCase();
+            Optional<Player> optPlayer = judicator.getServer().getPlayer(name);
+            if (optPlayer.isPresent()) {
+                final UUID uuid = optPlayer.get().getUniqueId();
+                supplyInternUUID(name, uuid);
+                return uuid;
+            }
+            if (activeUUIDs.containsKey(name)) return fromString(activeUUIDs.get(name.toLowerCase()));
+            String uuid = "";
+            try {
+                uuid = askAPI(name);
+            } catch (IOException | URISyntaxException ignored) {
+            }
+            UUID parsed = fromString(uuid);
+            supplyInternUUID(name, parsed);
+            return parsed;
+        } catch (Exception ignored) {
+            return null;
         }
-        UUID parsed = fromString(uuid);
-        supplyInternUUID(name, parsed);
-        return parsed;
     }
 
     private void supplyInternUUID(String name, UUID uuid) {
@@ -57,11 +61,16 @@ public class UUIDManager {
     }
 
     public UUID fromString(String uuid) {
-        if (!uuid.contains("-") && uuid.length() == 32)
-            uuid = uuid
-                    .replaceFirst(
-                            "(\\p{XDigit}{8})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}+)", "$1-$2-$3-$4-$5");
-        return uuid.length() == 36 && uuid.contains("-") ? UUID.fromString(uuid) : null;
+        try {
+            if (!uuid.contains("-") && uuid.length() == 32)
+                uuid = uuid
+                        .replaceFirst(
+                                "(\\p{XDigit}{8})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}+)", "$1-$2-$3-$4-$5");
+            return uuid.length() == 36 && uuid.contains("-") ? UUID.fromString(uuid) : null;
+        } catch (Exception ignored) {
+            return null;
+        }
+
     }
 
     public UUID getUUID(String name) {
@@ -96,6 +105,7 @@ public class UUIDManager {
 
     private String askAPI(String name) throws IOException, URISyntaxException {
         name = name.toLowerCase();
+        judicator.getLogger().info("Fetching UUID of {} from Mojang API...", name);
         final HttpURLConnection request = (HttpURLConnection) new URI("https://api.mojang.com/users/profiles/minecraft/%NAME%?at=%TIMESTAMP%"
                 .replaceAll("%NAME%", name)
                 .replaceAll("%TIMESTAMP%", new Date().getTime() + ""))
@@ -103,11 +113,12 @@ public class UUIDManager {
                 .openConnection();
         request.connect();
         String uuid = parseJSON(new InputStreamReader(request.getInputStream()));
-        if (uuid == null) {
+        if (uuid == null || uuid.isBlank()) {
             judicator.getLogger().error("!! Failed fetching UUID of {}", name);
             judicator.getLogger().error("!! Could not find key 'id' in the servers response");
             judicator.getLogger().error("!! Response: {}", request.getResponseMessage());
         } else {
+            judicator.getLogger().info("UUID: {}", uuid);
             activeUUIDs.put(name, uuid);
         }
         return uuid;
@@ -119,7 +130,7 @@ public class UUIDManager {
             return null;
         }
         final JsonElement obj = ((JsonObject) element).get("name");
-        return obj != null ? obj.toString().replaceAll("\"", "") : null;
+        return obj != null ? obj.toString().replace("\"", "") : null;
     }
 
     private String parseJSON(InputStreamReader json) {
@@ -128,6 +139,6 @@ public class UUIDManager {
             return null;
         }
         final JsonElement obj = ((JsonObject) element).get("id");
-        return obj != null ? obj.toString().replaceAll("\"", "") : null;
+        return obj != null ? obj.toString().replace("\"", "") : null;
     }
 }
