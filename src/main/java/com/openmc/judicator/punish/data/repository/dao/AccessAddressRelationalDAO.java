@@ -65,7 +65,7 @@ public class AccessAddressRelationalDAO implements AccessAddressRepository {
         try (Connection connection = manager.getDataSource().getConnection()) {
             final boolean isUpdate = o.getId() != null;
             final String sql = generateSaveSQL(isUpdate);
-            final PreparedStatement statement = connection.prepareStatement(sql);
+            final PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             statement.setString(1, o.getHostAddress());
             statement.setString(2, String.join(",", o.getAccounts()));
             statement.setTimestamp(3, Timestamp.from(o.getLastUsage().toInstant(ZoneOffset.UTC)));
