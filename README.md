@@ -4,7 +4,6 @@
 punishments, mutes, and player management, making the moderation team's work on the server much easier.
 
 Download it!
-- Hangar: https://hangar.papermc.io/oleonardosilva/judicator
 - SpigotMC: https://www.spigotmc.org/resources/1-8-8-1-21-8-judicator-advanced-punishment-system-for-all-server-networks.127337/
 - Mondrith: https://modrinth.com/plugin/judicator
 
