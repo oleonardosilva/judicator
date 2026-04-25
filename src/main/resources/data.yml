@@ -1,7 +1,7 @@
 database:
-  user: postgres
+  user: 'postgres'
   password: 'password'
   host: 'localhost'
   port: '5432'
   database: 'postgres'
-  type: postgres # postgres, mysql
+  type: 'postgres' # postgres, mysql
