@@ -42,8 +42,7 @@ public class RelationalDBManager {
 
             final String jdbcUrl = type.equalsIgnoreCase("postgres") ?
                     "jdbc:postgresql://" + host + ":" + port + "/" + database :
-                    "jdbc:mysql://" + host + ":" + port + "/" + database +
-                    "?useSSL=false&characterEncoding=UTF-8";
+                    "jdbc:mysql://" + host + ":" + port + "/" + database;
 
             hikari.setJdbcUrl(jdbcUrl);
             hikari.setUsername(username);
