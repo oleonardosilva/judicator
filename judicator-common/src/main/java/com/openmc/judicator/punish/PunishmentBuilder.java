@@ -22,9 +22,15 @@ public class PunishmentBuilder {
     private String reason, punisher = "Console", nickname, ipAddress;
     private LocalDateTime finishAt;
     private PunishType type;
+    private boolean silent;
 
     public PunishmentBuilder punisher(JudicatorPlayer player) {
         this.punisher = player.getName();
+        return this;
+    }
+
+    public PunishmentBuilder silent(boolean silent) {
+        this.silent = silent;
         return this;
     }
 
@@ -77,7 +83,7 @@ public class PunishmentBuilder {
     }
 
     public Punishment build() {
-        return Punishment.create(
+        final Punishment punishment = Punishment.create(
                 playerUUID,
                 reason,
                 punisher,
@@ -88,6 +94,8 @@ public class PunishmentBuilder {
                 evidences,
                 type
         );
+        punishment.setSilent(silent);
+        return punishment;
     }
 
 }

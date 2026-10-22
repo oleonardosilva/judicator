@@ -11,6 +11,11 @@ error:
   player-offline: "&cThe player is not online."
   self-punish: "&cYou cannot punish yourself."
   no-permission: "&cYou do not have permission to use this command."
+  hierarchy: "&cYou cannot punish a staff member of equal or higher rank."
+  not-banned: "&cThis player has no active ban."
+  not-muted: "&cThis player has no active mute."
+  silent-not-allowed: "&cYou do not have permission to punish silently (-s)."
+  reason-no-permission: "&cYou do not have permission to use this reason."
 success:
   cancel: "&aOperation successfully canceled."
   pardon: "&aThe punishment with the provided ID has been successfully revoked."
@@ -20,6 +25,8 @@ success:
   unwarn: "&aThe warn with the provided ID has been successfully deleted."
   got-unwarn: "&aYour warn has been deleted!"
   reloaded: "&aThe plugin has been successfully reloaded."
+  unban: "&aRevoked {count} active ban(s) of {nickname}."
+  unmute: "&aRevoked {count} active mute(s) of {nickname}."
 prompt:
   write-evidences: "&7Send the evidence one by one in chat. To finish, click or type \"{ready-prompt}\" or \"{cancel-prompt}\"."
   next-link: "&aLink successfully attached. To finish, click or type \"{ready-prompt}\" or \"{cancel-prompt}\"."
@@ -216,3 +223,21 @@ usages:
   warnhistory: "&cIncorrect command. Use: /whistory (player)."
   unwarn: "&cIncorrect command. Use: /unwarn (player)."
   warnview: "&cIncorrect command. Use: /wview (id)."
+  unban: "&cIncorrect command. Use: /unban (player) [-s] [reason]."
+  unmute: "&cIncorrect command. Use: /unmute (player) [-s] [reason]."
+  alts: "&cIncorrect command. Use: /alts (player)."
+
+notifications:
+  punish: "&7[Staff] &f{author} &7applied &c{type} &7to &f{nickname}&7: &f{reason}"
+  unpunish: "&7[Staff] &f{author} &7revoked {count} &a{type} &7of &f{nickname}"
+  silent-prefix: "&8[silent] "
+
+alts:
+  title: "&eAccounts that shared an IP with &f{nickname}&e:"
+  line: "&f • &e{account} &7- {status}"
+  none: "&aNo other accounts were found for {nickname}."
+  notify: "&e[Alts] &f{nickname} &7shares an IP with banned/muted account(s): &c{accounts}"
+  status:
+    banned: "&cbanned"
+    muted: "&6muted"
+    clean: "&aclean"

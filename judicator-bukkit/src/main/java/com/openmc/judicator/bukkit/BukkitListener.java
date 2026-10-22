@@ -54,6 +54,8 @@ public class BukkitListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onJoin(PlayerJoinEvent event) {
         platform.track(event.getPlayer());
+        platform.getPlayer(event.getPlayer().getName())
+                .ifPresent(player -> platform.runAsync(() -> connectionHandler.onJoin(player)));
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

@@ -28,7 +28,9 @@ public class KickCommand extends CoreCommand {
             return;
         }
         final String targetName = optTarget.get();
+        final boolean silent = args.consumeFlag(PunishTypeCommand.SILENT_FLAG);
         final ConfigurationNode messages = messages();
+        if (silent && !silentAllowed(source)) return;
         if (!judicator.getImmuneCache().canPunish(source, targetName)) return;
         final String remaining = args.remaining();
         final String reason = remaining.isEmpty() ? "None" : remaining;
@@ -48,7 +50,7 @@ public class KickCommand extends CoreCommand {
                     .replace("{author}", punisher)
                     .replace("{reason}", reason));
 
-            if (judicator.getConfig().node("announce").getBoolean(true)) {
+            if (!silent && judicator.getConfig().node("announce").getBoolean(true)) {
                 final TextComponent announcement = Component.text(PunishUtils.getMessageList(messages, "announcements", "kick").content()
                         .replace("{nickname}", targetName)
                         .replace("{author}", punisher)
@@ -57,6 +59,7 @@ public class KickCommand extends CoreCommand {
             }
             player.disconnect(kickMessage);
         });
+        judicator.getStaffNotifier().notifyKick(punisher, targetName, reason, silent);
     }
 
 }

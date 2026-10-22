@@ -15,21 +15,34 @@ final class PunishmentCommandSupport {
     private PunishmentCommandSupport() {
     }
 
-    static void resolveTarget(Judicator judicator, JudicatorSender source, PunishmentBuilder builder, String targetName, boolean byAddress) {
+    /**
+     * Fills the target (and, for IP punishments, the address) of the builder.
+     *
+     * @return false when the punishment must not go on: an IP punishment would reach an account the source cannot
+     * punish (the reason was already sent to the source).
+     */
+    static boolean resolveTarget(Judicator judicator, JudicatorSender source, PunishmentBuilder builder, String targetName, boolean byAddress) {
         final Optional<JudicatorPlayer> online = judicator.getPlatform().getPlayer(targetName);
+        String address = null;
         if (online.isPresent()) {
             builder.target(online.get());
-            if (byAddress) builder.ipAddress(online.get().getHostAddress());
-            return;
+            if (byAddress) address = online.get().getHostAddress();
+        } else {
+            builder.target(targetName, judicator.getUuidManager().getUUID(targetName));
+            if (byAddress) {
+                address = judicator.getAddressService().findByUsername(targetName)
+                        .map(accessAddress -> accessAddress.getHostAddress())
+                        .orElse(null);
+                if (address == null) {
+                    source.sendMessage(PunishUtils.getMessage(judicator.getMessagesConfig(), "error", "player-ip-not-found"));
+                }
+            }
         }
 
-        builder.target(targetName, judicator.getUuidManager().getUUID(targetName));
-        if (!byAddress) return;
-
-        judicator.getAddressService().findByUsername(targetName).ifPresentOrElse(
-                accessAddress -> builder.ipAddress(accessAddress.getHostAddress()),
-                () -> source.sendMessage(PunishUtils.getMessage(judicator.getMessagesConfig(), "error", "player-ip-not-found"))
-        );
+        if (address == null) return true;
+        if (!judicator.getImmuneCache().canPunishAddress(source, address)) return false;
+        builder.ipAddress(address);
+        return true;
     }
 
     static void submit(Judicator judicator, JudicatorSender source, PunishmentBuilder builder) {

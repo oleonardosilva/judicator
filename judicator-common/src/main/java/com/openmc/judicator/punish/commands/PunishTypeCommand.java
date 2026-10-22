@@ -13,6 +13,8 @@ import java.util.Optional;
 
 public class PunishTypeCommand extends CoreCommand {
 
+    static final String SILENT_FLAG = "-s";
+
     private final PunishType type;
     private final boolean byAddress;
 
@@ -43,6 +45,7 @@ public class PunishTypeCommand extends CoreCommand {
             return;
         }
         final String targetName = optTarget.get();
+        boolean silent = args.consumeFlag(SILENT_FLAG);
 
         String duration = null;
         if (type.isTemp()) {
@@ -52,14 +55,17 @@ public class PunishTypeCommand extends CoreCommand {
                 return;
             }
             duration = optDuration.get();
+            silent |= args.consumeFlag(SILENT_FLAG);
         }
         final String reason = args.remaining();
 
+        if (silent && !silentAllowed(source)) return;
         if (!judicator.getImmuneCache().canPunish(source, targetName)) return;
 
         final PunishmentBuilder builder = new PunishmentBuilder()
                 .type(type)
-                .reason(reason);
+                .reason(reason)
+                .silent(silent);
 
         if (duration != null) {
             try {
@@ -70,7 +76,7 @@ public class PunishTypeCommand extends CoreCommand {
             }
         }
 
-        PunishmentCommandSupport.resolveTarget(judicator, source, builder, targetName, byAddress);
+        if (!PunishmentCommandSupport.resolveTarget(judicator, source, builder, targetName, byAddress)) return;
         PunishmentCommandSupport.submit(judicator, source, builder);
     }
 

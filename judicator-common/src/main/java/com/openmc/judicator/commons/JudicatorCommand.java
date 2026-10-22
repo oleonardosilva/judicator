@@ -36,7 +36,10 @@ public class JudicatorCommand extends CoreCommand {
             new HelpEntry("/pview <id>", "Views the details of a punishment by its ID.", "/pview "),
             new HelpEntry("/phistory <player>", "Views the punishment history of a player.", "/phistory "),
             new HelpEntry("/unwarn <id>", "Deletes a warn by its ID.", "/unwarn "),
-            new HelpEntry("/revoke <id>", "Revokes a punishment by its ID.", "/revoke ")
+            new HelpEntry("/revoke <id>", "Revokes a punishment by its ID.", "/revoke "),
+            new HelpEntry("/unban <player> [-s] [reason]", "Revokes every active ban of a player.", "/unban "),
+            new HelpEntry("/unmute <player> [-s] [reason]", "Revokes every active mute of a player.", "/unmute "),
+            new HelpEntry("/alts <player>", "Lists accounts that shared an IP with a player.", "/alts ")
     );
 
     public JudicatorCommand(Judicator judicator) {

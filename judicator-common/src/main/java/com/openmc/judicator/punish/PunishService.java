@@ -87,6 +87,18 @@ public class PunishService {
         });
     }
 
+    public String statusOf(String username) {
+        final List<Punishment> active = repository.findAllActiveByUsernameAndTypes(username,
+                PunishType.BAN, PunishType.TEMPBAN, PunishType.MUTE, PunishType.TEMPMUTE);
+        if (active.stream().anyMatch(Punishment::isBanType)) return "banned";
+        if (active.stream().anyMatch(Punishment::isMuteType)) return "muted";
+        return "clean";
+    }
+
+    public boolean revokeNow(Long id, String reason) {
+        return repository.revoke(id, reason);
+    }
+
     public Optional<Punishment> findById(Long id) {
         return repository.findById(id);
     }

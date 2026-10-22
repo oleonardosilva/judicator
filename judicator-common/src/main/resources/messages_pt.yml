@@ -11,6 +11,11 @@ error:
   player-offline: "&cO jogador não está online."
   self-punish: "&cVocê não pode se punir."
   no-permission: "&cVocê não tem permissão para usar este comando."
+  hierarchy: "&cVocê não pode punir um membro da equipe de cargo igual ou superior."
+  not-banned: "&cEste jogador não tem banimento ativo."
+  not-muted: "&cEste jogador não tem silenciamento ativo."
+  silent-not-allowed: "&cVocê não tem permissão para punir em silêncio (-s)."
+  reason-no-permission: "&cVocê não tem permissão para usar este motivo."
 success:
   cancel: "&aOperação cancelada com sucesso."
   pardon: "&aA punição com o ID fornecido foi revogada com sucesso."
@@ -20,6 +25,8 @@ success:
   unwarn: "&aA advertência com o ID fornecido foi removida com sucesso."
   got-unwarn: "&aSua advertência foi removida!"
   reloaded: "&aO plugin foi recarregado com sucesso."
+  unban: "&aForam revogados {count} banimento(s) ativo(s) de {nickname}."
+  unmute: "&aForam revogados {count} silenciamento(s) ativo(s) de {nickname}."
 prompt:
   write-evidences: "&7Envie as evidências uma por uma no chat. Para finalizar, clique ou digite \"{ready-prompt}\" ou \"{cancel-prompt}\"."
   next-link: "&aLink anexado com sucesso. Para finalizar, clique ou digite \"{ready-prompt}\" ou \"{cancel-prompt}\"."
@@ -216,3 +223,21 @@ usages:
   warnhistory: "&cComando incorreto. Use: /whistory (jogador)."
   unwarn: "&cComando incorreto. Use: /unwarn (jogador)."
   warnview: "&cComando incorreto. Use: /wview (id)."
+  unban: "&cComando incorreto. Use: /unban (jogador) [-s] [motivo]."
+  unmute: "&cComando incorreto. Use: /unmute (jogador) [-s] [motivo]."
+  alts: "&cComando incorreto. Use: /alts (jogador)."
+
+notifications:
+  punish: "&7[Staff] &f{author} &7aplicou &c{type} &7em &f{nickname}&7: &f{reason}"
+  unpunish: "&7[Staff] &f{author} &7revogou {count} &a{type} &7de &f{nickname}"
+  silent-prefix: "&8[silencioso] "
+
+alts:
+  title: "&eContas que já usaram o mesmo IP de &f{nickname}&e:"
+  line: "&f • &e{account} &7- {status}"
+  none: "&aNenhuma outra conta encontrada para {nickname}."
+  notify: "&e[Alts] &f{nickname} &7compartilha IP com conta(s) banida(s)/silenciada(s): &c{accounts}"
+  status:
+    banned: "&cbanido"
+    muted: "&6silenciado"
+    clean: "&alimpo"

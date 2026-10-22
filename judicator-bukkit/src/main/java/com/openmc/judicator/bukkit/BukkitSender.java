@@ -38,6 +38,11 @@ public class BukkitSender implements JudicatorSender {
     }
 
     @Override
+    public boolean hasExplicitPermission(String permission) {
+        return handle.isPermissionSet(permission) && handle.hasPermission(permission);
+    }
+
+    @Override
     public void sendMessage(Component message) {
         platform.audiences().sender(handle).sendMessage(message);
     }

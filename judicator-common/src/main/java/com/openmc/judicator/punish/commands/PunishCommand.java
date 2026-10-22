@@ -6,6 +6,7 @@ import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.punish.ConfiguredReason;
 import com.openmc.judicator.punish.PunishUtils;
+import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.PunishmentBuilder;
 import com.openmc.judicator.punish.data.cache.ReasonCache;
 import com.openmc.judicator.punish.types.PunishPermissions;
@@ -28,13 +29,20 @@ public class PunishCommand extends CoreCommand {
             return;
         }
         final String targetName = optTarget.get();
+        final boolean silent = args.consumeFlag(PunishTypeCommand.SILENT_FLAG);
+        if (silent && !silentAllowed(source)) return;
         if (!judicator.getImmuneCache().canPunish(source, targetName)) return;
         final String reason = args.remaining();
         final ReasonCache reasonCache = judicator.getReasonCache();
 
         if (reason.isBlank()) {
             if (source.isPlayer()) {
-                source.sendMessage(PunishUtils.getPunishmentsMessage(messages(), targetName, reasonCache.getReasons()));
+                final List<Punishment> history = judicator.getPunishService().findAllByUsername(targetName);
+                final List<ConfiguredReason> usable = reasonCache.getReasons().stream()
+                        .filter(configured -> canUseReason(source, configured))
+                        .toList();
+                source.sendMessage(PunishUtils.getPunishmentsMessage(messages(), targetName, usable,
+                        configured -> configured.stepFor(countPrevious(history, configured))));
             }
             return;
         }
@@ -46,29 +54,55 @@ public class PunishCommand extends CoreCommand {
         }
 
         final ConfiguredReason configuredReason = optReason.get();
-
-        final PunishmentBuilder builder = new PunishmentBuilder()
-                .type(configuredReason.getType())
-                .reason(reason);
-
-        if (!configuredReason.isPermanent()) {
-            builder.duration(configuredReason.getDuration());
+        if (!canUseReason(source, configuredReason)) {
+            source.sendMessage(PunishUtils.getMessage(messages(), "error", "reason-no-permission"));
+            return;
         }
 
-        PunishmentCommandSupport.resolveTarget(judicator, source, builder, targetName, configuredReason.isIp());
+        final ConfiguredReason.Step step = configuredReason.isProgressive()
+                ? configuredReason.stepFor(countPrevious(judicator.getPunishService().findAllByUsername(targetName), configuredReason))
+                : configuredReason.stepFor(0);
+
+        final PunishmentBuilder builder = new PunishmentBuilder()
+                .type(step.type())
+                .reason(reason)
+                .silent(silent);
+
+        if (!step.isPermanent()) {
+            builder.duration(step.duration());
+        }
+
+        if (!PunishmentCommandSupport.resolveTarget(judicator, source, builder, targetName, configuredReason.isIp())) return;
         PunishmentCommandSupport.submit(judicator, source, builder);
     }
 
     @Override
     public List<String> suggest(JudicatorSender sender, String[] args) {
-        if (args.length >= 2) {
-            final String input = String.join(" ", Arrays.copyOfRange(args, 1, args.length)).toLowerCase();
+        final int reasonStart = args.length >= 2 && args[1].equalsIgnoreCase(PunishTypeCommand.SILENT_FLAG) ? 2 : 1;
+        if (args.length > reasonStart) {
+            final String input = String.join(" ", Arrays.copyOfRange(args, reasonStart, args.length)).toLowerCase();
             return judicator.getReasonCache().getReasons().stream()
+                    .filter(reason -> canUseReason(sender, reason))
                     .map(ConfiguredReason::getReason)
                     .filter(reason -> reason.toLowerCase().contains(input))
                     .toList();
         }
         return super.suggest(sender, args);
+    }
+
+    private boolean canUseReason(JudicatorSender sender, ConfiguredReason reason) {
+        if (!judicator.getConfig().node("require-reason-permission").getBoolean(false)) return true;
+        final String permission = reason.getPermission();
+        return permission == null || permission.isBlank()
+                || sender.hasPermission(permission)
+                || sender.hasPermission(PunishPermissions.ADMIN.getPermission());
+    }
+
+    private static int countPrevious(List<Punishment> history, ConfiguredReason reason) {
+        return (int) history.stream()
+                .filter(punishment -> !punishment.isRevoked())
+                .filter(punishment -> punishment.getReason().map(r -> r.equalsIgnoreCase(reason.getReason())).orElse(false))
+                .count();
     }
 
 }

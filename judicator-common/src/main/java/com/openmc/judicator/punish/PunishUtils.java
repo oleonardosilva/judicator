@@ -11,11 +11,21 @@ import org.spongepowered.configurate.serialize.SerializationException;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class PunishUtils {
+
+    public static TextComponent format(ConfigurationNode node, Map<String, String> placeholders, Object... path) {
+        String content = node.node(path).getString("§cFind Message Error").replace("&", "§");
+        for (Map.Entry<String, String> entry : placeholders.entrySet()) {
+            content = content.replace("{" + entry.getKey() + "}", entry.getValue() == null ? "None" : entry.getValue());
+        }
+        return Component.text(content);
+    }
 
     public static Optional<Long> parseId(String raw) {
         try {
@@ -81,7 +91,8 @@ public class PunishUtils {
         return text.build();
     }
 
-    public static TextComponent getPunishmentsMessage(ConfigurationNode node, String target, List<ConfiguredReason> reasons) {
+    public static TextComponent getPunishmentsMessage(ConfigurationNode node, String target, List<ConfiguredReason> reasons,
+                                                      Function<ConfiguredReason, ConfiguredReason.Step> nextStep) {
         final String yes = node.node("yes").getString("&aSim").replace("&", "§");
         final String no = node.node("no").getString("&cNão").replace("&", "§");
         final String permanent = node.node("permanent").getString("&cPermanente").replace("&", "§");
@@ -90,23 +101,24 @@ public class PunishUtils {
         final TextComponent.Builder reasonsText = Component.text();
 
         for (ConfiguredReason reason : reasons) {
+            final ConfiguredReason.Step step = nextStep.apply(reason);
             final String message = node.node("punish", "line", "message").getString("").replace("&", "§").replace("{reason}", reason.getReason());
             String hoverMessage;
             try {
                 hoverMessage = String.join("", Objects.requireNonNull(node.node("punish", "line", "hoverMessage").getList(String.class)))
                         .replace("&", "§")
-                        .replace("{type}", reason.getType().name())
+                        .replace("{type}", step.type().name())
                         .replace("{toggle}", reason.isIp() ? yes : no)
-                        .replace("{permission}", reason.getPermission());
+                        .replace("{permission}", reason.getPermission() == null ? "-" : reason.getPermission());
 
             } catch (SerializationException e) {
                 throw new RuntimeException(e);
             }
 
-            if (reason.isPermanent()) {
+            if (step.isPermanent()) {
                 hoverMessage = hoverMessage.replace("{duration}", permanent);
             } else {
-                final long timestamp = DateTimeOffsetParser.getMillisFromDuration(reason.getDuration());
+                final long timestamp = DateTimeOffsetParser.getMillisFromDuration(step.duration());
                 hoverMessage = hoverMessage.replace("{duration}", DateTimeOffsetParser.format(node, timestamp));
             }
             final String suggests = "/punish " + target + " " + reason.getReason();

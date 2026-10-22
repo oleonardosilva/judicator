@@ -43,6 +43,16 @@ public final class CommandArgs {
         return word();
     }
 
+    public boolean consumeFlag(String flag) {
+        skipSpaces();
+        final int end = cursor + flag.length();
+        if (input.startsWith(flag, cursor) && (end == input.length() || input.charAt(end) == ' ')) {
+            cursor = end;
+            return true;
+        }
+        return false;
+    }
+
     public String remaining() {
         skipSpaces();
         if (cursor >= input.length()) return "";

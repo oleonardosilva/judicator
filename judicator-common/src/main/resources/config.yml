@@ -10,13 +10,18 @@ warns:
     warns: 3
     commands:
       - "tempban {player} '3:d' got three warns"
+require-reason-permission: false # true: /punish only lets staff use a reason if they have its 'permission' (or judicator.admin)
 reasons: # These will be the predefined reasons to use on /punish
-  reason1:
+  reason1: # progressive: 1st time 7 days, 2nd time 30 days, from the 3rd time on permanent
     reason: "Player Offense"
     permission: 'punish.helper'
-    type: TEMPMUTE
     ip: false
-    duration: "7:d,2:h"
+    steps:
+      - type: TEMPMUTE
+        duration: "7:d,2:h"
+      - type: TEMPMUTE
+        duration: "30:d"
+      - type: MUTE
   reason2:
     reason: "Cheating"
     permission: 'punish.moderator'
@@ -28,3 +33,10 @@ reasons: # These will be the predefined reasons to use on /punish
     permission: "punish.moderator"
     type: BAN
     ip: false
+
+hierarchy:
+  enabled: true # staff can only punish players with a lower judicator.level.<N>; players without a level can always be punished
+  max-level: 100 # highest N checked in judicator.level.<N>
+staff-notifications: true # players with judicator.notify see every punishment; silent (-s) ones only judicator.notify.silent
+alts:
+  notify-on-join: true # players with judicator.alts.notify are warned when someone shares an IP with a banned/muted account

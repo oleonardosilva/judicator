@@ -44,7 +44,8 @@ public class MuteHandler implements PunishHandler {
     private void announce(Punishment punishment) {
         judicator.getDiscordWebhookService().sendPunishment(punishment);
 
-        if (judicator.getConfig().node("announce").getBoolean(true)) {
+        judicator.getStaffNotifier().notifyPunishment(punishment);
+        if (!punishment.isSilent() && judicator.getConfig().node("announce").getBoolean(true)) {
             final Platform platform = judicator.getPlatform();
             platform.getPlayer(punishment.getNickname()).ifPresent(player -> {
                 final TextComponent announcement = PunishUtils.getMessageList(messagesNode, punishment, "announcements", "mute");

@@ -36,6 +36,11 @@ public class BukkitPlayer implements JudicatorPlayer {
     }
 
     @Override
+    public boolean hasExplicitPermission(String permission) {
+        return handle.isPermissionSet(permission) && handle.hasPermission(permission);
+    }
+
+    @Override
     public void sendMessage(Component message) {
         platform.audiences().player(handle).sendMessage(message);
     }

@@ -17,7 +17,7 @@ import java.util.Optional;
 public class UnwarnCommand extends CoreCommand {
 
     public UnwarnCommand(Judicator judicator) {
-        super(judicator, "unwarn", List.of(), PunishPermissions.ADMIN.getPermission());
+        super(judicator, "unwarn", List.of(), PunishPermissions.UNWARN.getPermission(), PunishPermissions.ADMIN.getPermission());
     }
 
     @Override

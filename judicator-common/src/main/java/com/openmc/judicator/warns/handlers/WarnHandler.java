@@ -58,7 +58,8 @@ public class WarnHandler {
         judicator.getDiscordWebhookService().sendWarn(warn);
 
         final ConfigurationNode messagesNode = judicator.getMessagesConfig();
-        if (judicator.getConfig().node("announce").getBoolean(true)) {
+        judicator.getStaffNotifier().notifyWarn(warn);
+        if (!warn.isSilent() && judicator.getConfig().node("announce").getBoolean(true)) {
             judicator.getPlatform().getPlayer(warn.getNickname()).ifPresent(player -> {
                 final TextComponent announcement = WarnUtils.getMessageList(messagesNode, warn, "announcements", "warn");
                 judicator.getPlatform().announceToServerOf(player, announcement);

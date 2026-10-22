@@ -1,6 +1,7 @@
 package com.openmc.judicator;
 
 import com.openmc.judicator.commons.JudicatorCommand;
+import com.openmc.judicator.commons.StaffNotifier;
 import com.openmc.judicator.commons.UUIDManager;
 import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.commons.db.RelationalDBManager;
@@ -10,6 +11,8 @@ import com.openmc.judicator.punish.AccessAddressService;
 import com.openmc.judicator.punish.PunishService;
 import com.openmc.judicator.punish.commands.*;
 import com.openmc.judicator.punish.data.cache.ImmuneCache;
+import com.openmc.judicator.punish.hierarchy.HierarchyService;
+import com.openmc.judicator.punish.hierarchy.PlayerLevelRelationalDAO;
 import com.openmc.judicator.punish.data.cache.PunishCache;
 import com.openmc.judicator.punish.data.cache.ReasonCache;
 import com.openmc.judicator.punish.data.repository.AccessAddressRepository;
@@ -31,6 +34,7 @@ import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -58,6 +62,8 @@ public class Judicator {
     private PunishService punishService;
     private WarnService warnService;
     private AccessAddressService addressService;
+    private HierarchyService hierarchyService;
+    private StaffNotifier staffNotifier;
     private ConnectionHandler connectionHandler;
     private ChatHandler chatHandler;
     private List<CoreCommand> commands;
@@ -124,6 +130,8 @@ public class Judicator {
         this.addressService = new AccessAddressService(addressRepository);
         final WarnRepository warnRepository = new WarnRelationalDAO(relationalDBManager, logger);
         this.warnService = new WarnService(warnRepository);
+        this.hierarchyService = new HierarchyService(this, new PlayerLevelRelationalDAO(relationalDBManager, logger));
+        this.staffNotifier = new StaffNotifier(this);
     }
 
     private List<CoreCommand> createCommands() {
@@ -133,6 +141,8 @@ public class Judicator {
         list.add(new PunishViewCommand(this));
         list.add(new PunishHistoryCommand(this));
         list.add(new KickCommand(this));
+        list.addAll(UnpunishCommand.all(this));
+        list.add(new AltsCommand(this));
         list.add(new WarnCommand(this));
         list.add(new TempWarnCommand(this));
         list.add(new UnwarnCommand(this));
@@ -166,9 +176,26 @@ public class Judicator {
 
             final CommentedConfigurationNode node = loader.load();
             logger.info("Loaded config file: {}", pathConfig.getFileName());
+            if (pathConfig.getFileName().toString().startsWith("messages_")) {
+                mergeBundledDefaults(node, resourcePath);
+            }
             return node;
         } catch (IOException e) {
             throw new IllegalStateException("Failed to load YAML config " + pathConfig.getFileName(), e);
+        }
+    }
+
+    /**
+     * Fills keys missing from an older messages file with the bundled ones, in memory only: the file on disk is
+     * not rewritten, so the server owner's edits and comments stay as they are.
+     */
+    private void mergeBundledDefaults(ConfigurationNode node, String resourcePath) {
+        final URL resource = Judicator.class.getResource(resourcePath);
+        if (resource == null) return;
+        try {
+            node.mergeFrom(YamlConfigurationLoader.builder().url(resource).build().load());
+        } catch (IOException e) {
+            logger.warn("Could not read bundled defaults for {}", resourcePath, e);
         }
     }
 

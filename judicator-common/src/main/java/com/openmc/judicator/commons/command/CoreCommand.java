@@ -3,6 +3,7 @@ package com.openmc.judicator.commons.command;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.punish.PunishUtils;
+import com.openmc.judicator.punish.types.PunishPermissions;
 import lombok.Getter;
 import org.spongepowered.configurate.ConfigurationNode;
 
@@ -40,6 +41,15 @@ public abstract class CoreCommand {
 
     protected ConfigurationNode messages() {
         return judicator.getMessagesConfig();
+    }
+
+    protected boolean silentAllowed(JudicatorSender sender) {
+        if (sender.hasPermission(PunishPermissions.SILENT.getPermission())
+                || sender.hasPermission(PunishPermissions.ADMIN.getPermission())) {
+            return true;
+        }
+        sender.sendMessage(PunishUtils.getMessage(messages(), "error", "silent-not-allowed"));
+        return false;
     }
 
     protected void sendUsage(JudicatorSender sender, String usageKey) {

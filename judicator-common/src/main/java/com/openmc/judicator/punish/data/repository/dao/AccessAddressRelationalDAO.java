@@ -8,7 +8,9 @@ import org.slf4j.Logger;
 
 import java.sql.*;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 public class AccessAddressRelationalDAO implements AccessAddressRepository {
@@ -65,20 +67,21 @@ public class AccessAddressRelationalDAO implements AccessAddressRepository {
         try (Connection connection = manager.getDataSource().getConnection()) {
             final boolean isUpdate = o.getId() != null;
             final String sql = generateSaveSQL(isUpdate);
-            final PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-            statement.setString(1, o.getHostAddress());
-            statement.setString(2, String.join(",", o.getAccounts()));
-            statement.setTimestamp(3, Timestamp.from(o.getLastUsage().toInstant(ZoneOffset.UTC)));
-            if (isUpdate) statement.setLong(4, o.getId());
+            try (PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+                statement.setString(1, o.getHostAddress());
+                statement.setString(2, String.join(",", o.getAccounts()));
+                statement.setTimestamp(3, Timestamp.from(o.getLastUsage().toInstant(ZoneOffset.UTC)));
+                if (isUpdate) statement.setLong(4, o.getId());
+                statement.executeUpdate();
 
-            if (!isUpdate) {
-                try (ResultSet rs = statement.getGeneratedKeys()) {
-                    if (rs.next()) {
-                        o.setId(rs.getLong(1));
+                if (!isUpdate) {
+                    try (ResultSet rs = statement.getGeneratedKeys()) {
+                        if (rs.next()) {
+                            o.setId(rs.getLong(1));
+                        }
                     }
                 }
             }
-
         } catch (SQLException e) {
             logger.error(e.getMessage(), e);
         }
@@ -117,7 +120,7 @@ public class AccessAddressRelationalDAO implements AccessAddressRepository {
         final AccessAddress address = new AccessAddress();
         address.setId(rs.getLong("id"));
         address.setHostAddress(rs.getString("host_address"));
-        address.setAccounts(Arrays.stream(rs.getString("accounts").split(",")).toList());
+        address.setAccounts(new ArrayList<>(Arrays.stream(rs.getString("accounts").split(",")).filter(a -> !a.isBlank()).toList()));
         address.setLastUsage(rs.getTimestamp("last_usage").toLocalDateTime());
         return address;
     }
@@ -152,18 +155,27 @@ public class AccessAddressRelationalDAO implements AccessAddressRepository {
 
     @Override
     public Optional<AccessAddress> findByUsername(String username) {
-        try (Connection connection = manager.getDataSource().getConnection()) {
-            final PreparedStatement statement = connection.prepareStatement("""
-                    SELECT * FROM access_addresses WHERE accounts ILIKE ?
-                    """);
-            statement.setString(1, "%" + username + "%");
-            final ResultSet resultSet = statement.executeQuery();
-            if (resultSet.next()) {
-                return Optional.of(load(resultSet));
+        return findAllByUsername(username).stream().findFirst();
+    }
+
+    @Override
+    public List<AccessAddress> findAllByUsername(String username) {
+        final String account = username.toLowerCase();
+        final List<AccessAddress> addresses = new ArrayList<>();
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement("""
+                     SELECT * FROM access_addresses WHERE LOWER(accounts) LIKE ? ORDER BY last_usage DESC
+                     """)) {
+            statement.setString(1, "%" + account + "%");
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    final AccessAddress address = load(resultSet);
+                    if (address.contains(account)) addresses.add(address);
+                }
             }
         } catch (SQLException e) {
             logger.error(e.getMessage(), e);
         }
-        return Optional.empty();
+        return addresses;
     }
 }

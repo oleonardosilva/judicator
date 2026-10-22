@@ -26,6 +26,7 @@ public class Punishment {
     private List<String> evidences;
     private PunishType type;
     private boolean permanent;
+    private transient boolean silent;
 
     public Punishment(Long id, UUID playerUUID, String reason, String punisher, String nickname, String ipAddress, LocalDateTime startedAt, LocalDateTime finishAt, boolean revoked, String revokedReason, List<String> evidences, PunishType type, boolean permanent) {
         this.id = id;

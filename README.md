@@ -127,6 +127,81 @@ The following commands are used to apply, remove, or check punishments for playe
   Removes warn.
   **Permission:** `judicator.unwarn`
 
+* **`/unban (player) {-s} {reason}`**
+  Revokes every active ban of the player.
+  **Permission:** `judicator.unban`
+
+* **`/unmute (player) {-s} {reason}`**
+  Revokes every active mute of the player.
+  **Permission:** `judicator.unmute`
+
+---
+
+### 👥 Alt Accounts
+
+* **`/alts (player)`**
+  Lists the accounts that have used the same IP as the player, with their status (banned, muted, clean).
+  **Permission:** `judicator.alts`
+
+* Staff with **`judicator.alts.notify`** are warned when a player joins sharing an IP with a banned or muted
+  account (`alts.notify-on-join` in `config.yml`).
+
+---
+
+### 🤫 Silent Punishments and Staff Notifications
+
+* Add **`-s`** right after the player (or after the duration) to punish without the public announcement:
+  `/tempban Steve -s 7:d cheating`. **Permission:** `judicator.silent`
+* Staff with **`judicator.notify`** receive a notification for every punishment; silent ones are only shown to
+  **`judicator.notify.silent`** (`staff-notifications` in `config.yml`).
+
+---
+
+### 🛡️ Staff Hierarchy
+
+* Give each rank a level with **`judicator.level.<N>`** (for example `judicator.level.10` for helpers and
+  `judicator.level.50` for admins). Staff can only punish players with a **lower** level; players without a level
+  can always be punished. Levels are stored on join, so they also apply to offline targets.
+* Levels must be given on purpose: on Spigot/Paper being op does **not** grant any `judicator.level.<N>`.
+* IP punishments (`/banip`, `/muteip`, IP reasons of `/punish`...) are refused when any account that used that IP is
+  above the staff member, is in `immune.yml`, or is the staff member themselves.
+* A staff member's level is only known once they have joined after the update; until then they can be punished
+  while offline like any player without a level.
+* Configure it under `hierarchy` in `config.yml`. `immune.yml` still works as before.
+
+---
+
+### 📈 Progressive Punishments
+
+Reasons used by `/punish` can escalate with `steps`: the first time uses the first step, the second time the
+second step, and so on (the last step repeats). Reasons without `steps` keep working as before.
+
+```yaml
+reasons:
+  reason1:
+    reason: "Player Offense"
+    permission: 'punish.helper'
+    ip: false
+    steps:
+      - type: TEMPMUTE
+        duration: "7:d"
+      - type: TEMPMUTE
+        duration: "30:d"
+      - type: MUTE
+```
+
+Set `require-reason-permission: true` in `config.yml` to require the `permission` of each reason to use it (staff
+with `judicator.admin` can always use every reason). It is `false` by default, so existing setups keep working.
+
+---
+
+### ⬆️ Upgrading from 1.0.0
+
+* New message keys are read from the plugin's bundled files when your `messages_*.yml` doesn't have them yet, so you
+  don't need to delete your translations. Copy the new keys into your file if you want to change their text.
+* New `config.yml` sections (`hierarchy`, `staff-notifications`, `alts`, `require-reason-permission`) are optional;
+  their defaults are shown above.
+
 ---
 
 ### 📝 Reports - Coming Soon

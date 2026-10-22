@@ -32,6 +32,7 @@ public class WarnCommand extends CoreCommand {
             return;
         }
         final String targetName = optTarget.get();
+        boolean silent = args.consumeFlag("-s");
 
         String duration = null;
         if (temporary) {
@@ -41,6 +42,7 @@ public class WarnCommand extends CoreCommand {
                 return;
             }
             duration = optDuration.get();
+            silent |= args.consumeFlag("-s");
         }
 
         final String reason = args.remaining();
@@ -49,10 +51,12 @@ public class WarnCommand extends CoreCommand {
             return;
         }
 
+        if (silent && !silentAllowed(source)) return;
         if (!judicator.getImmuneCache().canPunish(source, targetName)) return;
 
         final WarnBuilder builder = new WarnBuilder()
-                .reason(reason);
+                .reason(reason)
+                .silent(silent);
 
         if (duration != null) {
             try {

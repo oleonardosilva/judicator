@@ -19,6 +19,7 @@ public class Warn {
     private String reason, punisher, nickname;
     private LocalDateTime startedAt, finishAt;
     private boolean permanent;
+    private transient boolean silent;
 
     public Warn(Long id, UUID playerUUID, String reason, String punisher, String nickname, LocalDateTime startedAt, LocalDateTime finishAt, boolean permanent) {
         this.id = id;

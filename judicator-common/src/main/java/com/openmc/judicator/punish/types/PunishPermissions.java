@@ -20,7 +20,16 @@ public enum PunishPermissions {
     KICK("judicator.kick"),
     WARN("judicator.warn"),
     TEMPWARN("judicator.tempwarn"),
-    UNWARN("judicator.unwarn");
+    UNWARN("judicator.unwarn"),
+    UNBAN("judicator.unban"),
+    UNMUTE("judicator.unmute"),
+    ALTS("judicator.alts"),
+    ALTS_NOTIFY("judicator.alts.notify"),
+    SILENT("judicator.silent"),
+    NOTIFY("judicator.notify"),
+    NOTIFY_SILENT("judicator.notify.silent");
+
+    public static final String LEVEL_PREFIX = "judicator.level.";
 
     private final String permission;
 

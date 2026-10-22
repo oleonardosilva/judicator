@@ -16,9 +16,15 @@ public class WarnBuilder {
     private UUID playerUUID;
     private String reason, punisher = "Console", nickname;
     private LocalDateTime finishAt;
+    private boolean silent;
 
     public WarnBuilder punisher(JudicatorPlayer player) {
         this.punisher = player.getName();
+        return this;
+    }
+
+    public WarnBuilder silent(boolean silent) {
+        this.silent = silent;
         return this;
     }
 
@@ -47,7 +53,7 @@ public class WarnBuilder {
     }
 
     public Warn build() {
-        return Warn.create(
+        final Warn warn = Warn.create(
                 playerUUID,
                 reason,
                 punisher,
@@ -55,6 +61,8 @@ public class WarnBuilder {
                 startedAt,
                 finishAt
         );
+        warn.setSilent(silent);
+        return warn;
     }
 
 }

@@ -65,7 +65,7 @@ commands:
     permission: judicator.command.tempwarn
     description: Temporarily warns a player.
   unwarn:
-    permission: judicator.admin
+    permission: judicator.command.unwarn
     description: Removes a warn by its ID.
   warnview:
     permission: judicator.command.warnview
@@ -75,6 +75,15 @@ commands:
     permission: judicator.command.warnhistory
     description: Shows the warn history of a player.
     aliases: [whistory]
+  unban:
+    description: Revokes the active bans of a player.
+    permission: judicator.command.unban
+  unmute:
+    description: Revokes the active mutes of a player.
+    permission: judicator.command.unmute
+  alts:
+    description: Lists accounts that shared an IP with a player.
+    permission: judicator.command.alts
 permissions:
   judicator.admin:
     description: Full access to every Judicator command.
@@ -96,6 +105,14 @@ permissions:
       judicator.command.warnhistory: true
       judicator.command.warn: true
       judicator.command.tempwarn: true
+      judicator.command.unwarn: true
+      judicator.command.unban: true
+      judicator.command.unmute: true
+      judicator.command.alts: true
+      judicator.alts.notify: true
+      judicator.notify: true
+      judicator.notify.silent: true
+      judicator.silent: true
   judicator.punish:
     default: op
     children:
@@ -156,6 +173,11 @@ permissions:
       judicator.command.tempwarn: true
   judicator.unwarn:
     default: op
+    children:
+      judicator.command.unwarn: true
+  judicator.command.unwarn:
+    description: Shows and allows /unwarn (granted by judicator.unwarn or judicator.admin).
+    default: false
   judicator.command.ban:
     description: Shows and allows /ban (granted by judicator.ban or judicator.admin).
     default: false
@@ -203,4 +225,34 @@ permissions:
     default: false
   judicator.command.tempwarn:
     description: Shows and allows /tempwarn (granted by judicator.tempwarn or judicator.admin).
+    default: false
+  judicator.unban:
+    default: op
+    children:
+      judicator.command.unban: true
+  judicator.unmute:
+    default: op
+    children:
+      judicator.command.unmute: true
+  judicator.alts:
+    default: op
+    children:
+      judicator.command.alts: true
+  judicator.alts.notify:
+    description: Warned when someone shares an IP with a banned or muted account.
+    default: op
+  judicator.silent:
+    description: Allows the -s flag (no public announcement).
+    default: op
+  judicator.notify:
+    description: Receives staff notifications of punishments.
+    default: op
+  judicator.notify.silent:
+    description: Receives staff notifications of silent punishments.
+    default: op
+  judicator.command.unban:
+    default: false
+  judicator.command.unmute:
+    default: false
+  judicator.command.alts:
     default: false

@@ -45,6 +45,7 @@ public class VelocityListener {
                     .ifPresent(kick -> event.setResult(ResultedEvent.ComponentResult.denied(kick)));
             if (event.getResult().isAllowed()) {
                 connectionHandler.onLoginAllowed(username, address);
+                connectionHandler.onJoin(new VelocityPlayer(player));
             }
         });
     }
