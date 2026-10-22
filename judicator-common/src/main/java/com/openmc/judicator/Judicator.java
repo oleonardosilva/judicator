@@ -6,6 +6,7 @@ import com.openmc.judicator.commons.UUIDManager;
 import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.commons.db.RelationalDBManager;
 import com.openmc.judicator.discord.DiscordWebhookService;
+import com.openmc.judicator.importer.ImportService;
 import com.openmc.judicator.platform.Platform;
 import com.openmc.judicator.punish.AccessAddressService;
 import com.openmc.judicator.punish.PunishService;
@@ -64,6 +65,7 @@ public class Judicator {
     private AccessAddressService addressService;
     private HierarchyService hierarchyService;
     private StaffNotifier staffNotifier;
+    private ImportService importService;
     private ConnectionHandler connectionHandler;
     private ChatHandler chatHandler;
     private List<CoreCommand> commands;
@@ -96,7 +98,7 @@ public class Judicator {
         this.actionCache.initialize(this);
 
         this.relationalDBManager = new RelationalDBManager();
-        this.relationalDBManager.initialize(dbConfig, logger);
+        this.relationalDBManager.initialize(dbConfig, dataDirectory, logger);
 
         this.registerServices();
         this.connectionHandler = new ConnectionHandler(this);
@@ -116,7 +118,7 @@ public class Judicator {
         this.immuneConfig = loadConfig("immune.yml");
         this.dbConfig = loadConfig("data.yml");
         logger.info("Configuration files have been reloaded successfully!");
-        this.relationalDBManager.initialize(dbConfig, logger);
+        this.relationalDBManager.initialize(dbConfig, dataDirectory, logger);
         this.reasonCache.initialize(this);
         this.immuneCache.initialize(this);
         this.actionCache.initialize(this);
@@ -132,6 +134,14 @@ public class Judicator {
         this.warnService = new WarnService(warnRepository);
         this.hierarchyService = new HierarchyService(this, new PlayerLevelRelationalDAO(relationalDBManager, logger));
         this.staffNotifier = new StaffNotifier(this);
+        this.importService = new ImportService(this, punishmentRepository, warnRepository);
+    }
+
+    /**
+     * {@code import.yml} is only needed by {@code /judicator import}, so it is read (and created) on demand.
+     */
+    public ConfigurationNode loadImportConfig() {
+        return loadConfig("import.yml");
     }
 
     private List<CoreCommand> createCommands() {
@@ -143,6 +153,7 @@ public class Judicator {
         list.add(new KickCommand(this));
         list.addAll(UnpunishCommand.all(this));
         list.add(new AltsCommand(this));
+        list.add(new BlameCommand(this));
         list.add(new WarnCommand(this));
         list.add(new TempWarnCommand(this));
         list.add(new UnwarnCommand(this));

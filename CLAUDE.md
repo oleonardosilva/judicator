@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 **Judicator** is a moderation plugin (bans, mutes, kicks, warns) for Minecraft. It runs on the
-[Velocity](https://velocitypowered.com/) proxy and on Spigot/Paper servers (1.18+), backed by PostgreSQL or MySQL,
+[Velocity](https://velocitypowered.com/) proxy and on Spigot/Paper servers (1.18+), backed by PostgreSQL, MySQL or SQLite,
 with Discord webhook notifications and multi-language support.
 
 ## Build Commands
@@ -53,8 +53,14 @@ There are no test or lint tasks configured.
 
 ### Database
 
-Configured in `data.yml`. PostgreSQL (default) and MySQL. HikariCP pool in `RelationalDBManager`; DDL for both
-dialects lives in each `*RelationalDAO.initialize()`.
+Configured in `data.yml`. PostgreSQL (default), MySQL and SQLite (`commons/db/Dialect`). HikariCP pool in
+`RelationalDBManager`; DDL for the three dialects lives in each `*RelationalDAO.initialize()`. Dates go through
+`commons/db/SqlTime` (a `LocalDateTime` is stored as that time in UTC and read back the same way; "now" is a
+parameter, never `CURRENT_TIMESTAMP`, which follows the database time zone and does not work in SQLite).
+
+`/judicator import` (console only) lives in `importer/`: one `ImportSource` per plugin (LiteBans, AdvancedBan,
+LibertyBans, BanManager, vanilla ban lists), `ImportContext` for the shared conversions and `ImportService` for dry-run, de-duplication
+and batch inserts. Sources are read-only; their connection settings are in `import.yml`.
 
 ### Localization
 

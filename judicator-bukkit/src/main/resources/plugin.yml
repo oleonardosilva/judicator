@@ -84,6 +84,10 @@ commands:
   alts:
     description: Lists accounts that shared an IP with a player.
     permission: judicator.command.alts
+  blame:
+    description: Lists the punishments applied by a staff member.
+    permission: judicator.command.blame
+    aliases: [staffhistory]
 permissions:
   judicator.admin:
     description: Full access to every Judicator command.
@@ -109,6 +113,7 @@ permissions:
       judicator.command.unban: true
       judicator.command.unmute: true
       judicator.command.alts: true
+      judicator.command.blame: true
       judicator.alts.notify: true
       judicator.notify: true
       judicator.notify.silent: true
@@ -238,6 +243,10 @@ permissions:
     default: op
     children:
       judicator.command.alts: true
+  judicator.blame:
+    default: op
+    children:
+      judicator.command.blame: true
   judicator.alts.notify:
     description: Warned when someone shares an IP with a banned or muted account.
     default: op
@@ -255,4 +264,7 @@ permissions:
   judicator.command.unmute:
     default: false
   judicator.command.alts:
+    default: false
+  judicator.command.blame:
+    description: Shows and allows /blame (granted by judicator.blame or judicator.admin).
     default: false

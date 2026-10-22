@@ -103,6 +103,14 @@ public class PunishService {
         return repository.findById(id);
     }
 
+    public int countByPunisher(String punisher) {
+        return repository.countByPunisher(punisher);
+    }
+
+    public List<Punishment> findByPunisher(String punisher, int limit, int offset) {
+        return repository.findByPunisher(punisher, limit, offset);
+    }
+
     public List<Punishment> findAllByUsername(String username) {
         return repository.findAllByUsername(username);
     }

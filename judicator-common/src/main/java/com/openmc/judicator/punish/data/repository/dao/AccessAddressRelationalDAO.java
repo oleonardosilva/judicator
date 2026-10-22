@@ -1,13 +1,14 @@
 package com.openmc.judicator.punish.data.repository.dao;
 
+import com.openmc.judicator.commons.db.Dialect;
 import com.openmc.judicator.commons.db.RelationalDBManager;
 import com.openmc.judicator.commons.db.SchemaUtil;
+import com.openmc.judicator.commons.db.SqlTime;
 import com.openmc.judicator.punish.AccessAddress;
 import com.openmc.judicator.punish.data.repository.AccessAddressRepository;
 import org.slf4j.Logger;
 
 import java.sql.*;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -26,9 +27,9 @@ public class AccessAddressRelationalDAO implements AccessAddressRepository {
     @Override
     public void initialize() {
         try (Connection connection = manager.getDataSource().getConnection()) {
-            final String dbProduct = connection.getMetaData().getDatabaseProductName().toLowerCase();
+            final Dialect dialect = manager.getDialect();
             final PreparedStatement statement;
-            if (dbProduct.contains("postgresql")) {
+            if (dialect == Dialect.POSTGRESQL) {
                 statement = connection.prepareStatement(
                         """
                                 CREATE TABLE IF NOT EXISTS access_addresses (
@@ -39,6 +40,15 @@ public class AccessAddressRelationalDAO implements AccessAddressRepository {
                                 );
                                 """
                 );
+            } else if (dialect == Dialect.SQLITE) {
+                statement = connection.prepareStatement("""
+                        CREATE TABLE IF NOT EXISTS access_addresses (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            host_address VARCHAR(50) NOT NULL,
+                            accounts TEXT NOT NULL,
+                            last_usage TIMESTAMP NOT NULL
+                        );
+                        """);
             } else {
                 statement = connection.prepareStatement("""
                         CREATE TABLE IF NOT EXISTS access_addresses (
@@ -70,7 +80,7 @@ public class AccessAddressRelationalDAO implements AccessAddressRepository {
             try (PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 statement.setString(1, o.getHostAddress());
                 statement.setString(2, String.join(",", o.getAccounts()));
-                statement.setTimestamp(3, Timestamp.from(o.getLastUsage().toInstant(ZoneOffset.UTC)));
+                statement.setTimestamp(3, SqlTime.of(o.getLastUsage()));
                 if (isUpdate) statement.setLong(4, o.getId());
                 statement.executeUpdate();
 
@@ -121,7 +131,7 @@ public class AccessAddressRelationalDAO implements AccessAddressRepository {
         address.setId(rs.getLong("id"));
         address.setHostAddress(rs.getString("host_address"));
         address.setAccounts(new ArrayList<>(Arrays.stream(rs.getString("accounts").split(",")).filter(a -> !a.isBlank()).toList()));
-        address.setLastUsage(rs.getTimestamp("last_usage").toLocalDateTime());
+        address.setLastUsage(SqlTime.read(rs, "last_usage"));
         return address;
     }
 

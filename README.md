@@ -21,6 +21,14 @@ Use the Velocity build when you run a network behind a proxy: punishments then a
 Spigot/Paper build on a standalone server. On Spigot/Paper the database drivers, HikariCP and Caffeine are downloaded
 by the server itself (`libraries` in `plugin.yml`); on Velocity they are downloaded by the plugin on the first start.
 
+### Database
+
+Set `type` in `data.yml` to `postgres` (default), `mysql` or `sqlite`. SQLite needs no database server: the data is
+kept in `plugins/<Judicator folder>/judicator.db` (`file` in `data.yml`). Spigot/Paper already include the SQLite
+driver; on Velocity it is downloaded on the first start with `type: 'sqlite'`. Use SQLite for a single server or a
+small network; a network with several Spigot/Paper servers sharing punishments needs PostgreSQL or MySQL. Changing
+`type` requires a restart (it is not applied by `/judicator reload`).
+
 ### Building
 
 ```bash
@@ -135,6 +143,10 @@ The following commands are used to apply, remove, or check punishments for playe
   Revokes every active mute of the player.
   **Permission:** `judicator.unmute`
 
+* **`/blame (staff) {page}`**
+  Lists the punishments applied by a staff member, newest first (10 per page). Alias: `/staffhistory`.
+  **Permission:** `judicator.blame`
+
 ---
 
 ### 👥 Alt Accounts
@@ -192,6 +204,37 @@ reasons:
 
 Set `require-reason-permission: true` in `config.yml` to require the `permission` of each reason to use it (staff
 with `judicator.admin` can always use every reason). It is `false` by default, so existing setups keep working.
+
+---
+
+### 📥 Importing from Other Plugins
+
+Run from the **server console**: `/judicator import <litebans|advancedban|libertybans|banmanager|vanilla>` shows what would be imported
+without writing anything; add `confirm` to write it. Back up your database first. Running it again is safe:
+punishments already in Judicator (same target — IP, UUID or name — type and start time) are skipped.
+
+| Source | What is read | Notes |
+|---|---|---|
+| `litebans` | bans, mutes and warnings from LiteBans' database | names come from LiteBans' history table; kicks, wildcard IP bans and punishments limited to one server (`server_scope`) are skipped |
+| `advancedban` | `PunishmentHistory` and `Punishments` from AdvancedBan's database | punishments no longer in `Punishments` are imported as revoked; kicks and notes are skipped |
+| `libertybans` | every punishment from LibertyBans' database (`simple_history` view) | names from its `names` table; kicks and punishments limited to some servers (scopes) are skipped |
+| `banmanager` | player/IP bans and mutes (active and `*_records`) and warnings from BanManager's database | kicks, notes, name bans and IP range bans are not read; soft mutes become normal mutes; an online-only mute ends after the time it had left |
+| `vanilla` | `banned-players.json` and `banned-ips.json` (also used by Essentials) | bans only |
+
+Configure the source database in `import.yml` (`jdbc-url`, `user`, `password`). MySQL/MariaDB (`jdbc:mysql://`),
+PostgreSQL and SQLite work directly. For H2 (LiteBans' and BanManager's default) or HSQLDB (AdvancedBan's and
+LibertyBans' default), put the driver
+jar in `plugins/<Judicator folder>/drivers` and set `driver-jar` and `driver-class` (see the comments in
+`import.yml`); the source plugin must not be running while its embedded database is read.
+
+* Punishments removed in the source plugin are imported as revoked; removed warns as finished.
+* IP punishments with no player are stored by address only, never under a player's name.
+* LiteBans, LibertyBans and BanManager keep a name history: a punishment whose player's last known name now belongs
+  to someone else is stored under `#<uuid>` (enforced by UUID) so the new owner of the name is not punished.
+  AdvancedBan has no name history, so its punishments keep the name they were applied to.
+* Player punishments whose player is missing from the source's name table are skipped (shown in the report).
+* No Mojang lookups are made: on an online-mode server, AdvancedBan records without a UUID are enforced by name.
+* Online players pick up imported mutes when they rejoin.
 
 ---
 

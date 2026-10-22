@@ -12,6 +12,7 @@ import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.event.ClickEvent;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 public class JudicatorCommand extends CoreCommand {
@@ -39,7 +40,9 @@ public class JudicatorCommand extends CoreCommand {
             new HelpEntry("/revoke <id>", "Revokes a punishment by its ID.", "/revoke "),
             new HelpEntry("/unban <player> [-s] [reason]", "Revokes every active ban of a player.", "/unban "),
             new HelpEntry("/unmute <player> [-s] [reason]", "Revokes every active mute of a player.", "/unmute "),
-            new HelpEntry("/alts <player>", "Lists accounts that shared an IP with a player.", "/alts ")
+            new HelpEntry("/alts <player>", "Lists accounts that shared an IP with a player.", "/alts "),
+            new HelpEntry("/blame <staff> [page]", "Lists the punishments applied by a staff member.", "/blame "),
+            new HelpEntry("/judicator import <source> [confirm]", "Imports punishments from another plugin (console only).", "/judicator import ")
     );
 
     public JudicatorCommand(Judicator judicator) {
@@ -53,6 +56,7 @@ public class JudicatorCommand extends CoreCommand {
             case "reload" -> reload(source);
             case "help" -> help(source);
             case "version" -> source.sendMessage(Component.text("§aJudicator Version: " + BuildConstants.VERSION));
+            case "import" -> importPunishments(source, args);
             default -> source.sendMessage(Component.text("§cType /judicator help for a list of commands."));
         }
     }
@@ -60,13 +64,36 @@ public class JudicatorCommand extends CoreCommand {
     @Override
     public List<String> suggest(JudicatorSender sender, String[] args) {
         final String prefix = args.length == 0 ? "" : args[0].toLowerCase();
+        if (args.length == 2 && args[0].equalsIgnoreCase("import")) {
+            final String source = args[1].toLowerCase();
+            return judicator.getImportService().sourceNames().stream().sorted().filter(s -> s.startsWith(source)).toList();
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("import")) {
+            return Stream.of("confirm").filter(s -> s.startsWith(args[2].toLowerCase())).toList();
+        }
         if (args.length > 1) return List.of();
-        return Stream.of("reload", "help", "version").filter(s -> s.startsWith(prefix)).toList();
+        return Stream.of("reload", "help", "version", "import").filter(s -> s.startsWith(prefix)).toList();
     }
 
     private void reload(JudicatorSender source) {
         judicator.reloadConfigs();
         source.sendMessage(PunishUtils.getMessage(messages(), "success", "reloaded"));
+    }
+
+    private void importPunishments(JudicatorSender source, CommandArgs args) {
+        // Bulk writes to the database: only from the console, never from an in-game account.
+        if (source.isPlayer()) {
+            source.sendMessage(Component.text("§cRun /judicator import from the server console."));
+            return;
+        }
+        final Optional<String> name = args.word();
+        if (name.isEmpty()) {
+            source.sendMessage(Component.text("§cUse: /judicator import <" + String.join("|",
+                    judicator.getImportService().sourceNames().stream().sorted().toList()) + "> [confirm]"));
+            return;
+        }
+        final boolean confirm = args.word().map(word -> word.equalsIgnoreCase("confirm")).orElse(false);
+        judicator.getImportService().run(source, name.get(), confirm);
     }
 
     private void help(JudicatorSender source) {

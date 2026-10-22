@@ -1,6 +1,8 @@
 package com.openmc.judicator.punish.hierarchy;
 
+import com.openmc.judicator.commons.db.Dialect;
 import com.openmc.judicator.commons.db.RelationalDBManager;
+import com.openmc.judicator.commons.db.SqlTime;
 import org.slf4j.Logger;
 
 import java.sql.Connection;
@@ -8,7 +10,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.time.Instant;
 import java.util.OptionalInt;
 import java.util.UUID;
 
@@ -25,8 +26,8 @@ public class PlayerLevelRelationalDAO implements PlayerLevelRepository {
     @Override
     public void initialize() {
         try (Connection connection = manager.getDataSource().getConnection()) {
-            final String dbProduct = connection.getMetaData().getDatabaseProductName().toLowerCase();
-            final String sql = dbProduct.contains("postgresql") ? """
+            final Dialect dialect = manager.getDialect();
+            final String sql = dialect != Dialect.MYSQL ? """
                     CREATE TABLE IF NOT EXISTS player_levels (
                         lower_nickname VARCHAR(20) PRIMARY KEY,
                         player_uuid VARCHAR(36),
@@ -53,7 +54,7 @@ public class PlayerLevelRelationalDAO implements PlayerLevelRepository {
     public void saveLevel(String nickname, UUID uuid, int level) {
         final String key = nickname.toLowerCase();
         final String uuidText = uuid == null ? null : uuid.toString();
-        final Timestamp now = Timestamp.from(Instant.now());
+        final Timestamp now = SqlTime.now();
         try (Connection connection = manager.getDataSource().getConnection()) {
             if (update(connection, key, uuidText, level, now) > 0) return;
             try (PreparedStatement insert = connection.prepareStatement(

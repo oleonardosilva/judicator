@@ -1,14 +1,17 @@
 package com.openmc.judicator.punish.data.repository.dao;
 
+import com.openmc.judicator.commons.db.Dialect;
 import com.openmc.judicator.commons.db.RelationalDBManager;
 import com.openmc.judicator.commons.db.SchemaUtil;
+import com.openmc.judicator.commons.db.SqlTime;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.judicator.punish.types.PunishType;
 import org.slf4j.Logger;
 
 import java.sql.*;
-import java.time.ZoneOffset;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -46,9 +49,9 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
     @Override
     public void initialize() {
         try (Connection connection = manager.getDataSource().getConnection()) {
-            final String dbProduct = connection.getMetaData().getDatabaseProductName().toLowerCase();
+            final Dialect dialect = manager.getDialect();
             final PreparedStatement statement;
-            if (dbProduct.contains("postgresql")) {
+            if (dialect == Dialect.POSTGRESQL) {
                 statement = connection.prepareStatement(
                         """
                                 CREATE TABLE IF NOT EXISTS punishments (
@@ -69,6 +72,25 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                                 );
                                 """
                 );
+            } else if (dialect == Dialect.SQLITE) {
+                statement = connection.prepareStatement("""
+                        CREATE TABLE IF NOT EXISTS punishments (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            player_uuid VARCHAR(36),
+                            reason VARCHAR(255) NOT NULL,
+                            punisher VARCHAR(20) NOT NULL,
+                            nickname VARCHAR(20),
+                            ip_address VARCHAR(45),
+                            lower_nickname VARCHAR(20),
+                            started_at TIMESTAMP NOT NULL,
+                            finish_at TIMESTAMP,
+                            revoked BOOLEAN NOT NULL,
+                            evidences VARCHAR(255),
+                            type VARCHAR(20) NOT NULL,
+                            permanent BOOLEAN NOT NULL,
+                            revoked_reason VARCHAR(100)
+                        );
+                        """);
             } else {
                 statement = connection.prepareStatement("""
                         CREATE TABLE IF NOT EXISTS punishments (
@@ -158,14 +180,15 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                     SELECT * FROM punishments
                     WHERE lower_nickname = ?
                       AND revoked = false
-                      AND (finish_at IS NULL OR finish_at > CURRENT_TIMESTAMP)
+                      AND (finish_at IS NULL OR finish_at > ?)
                       AND type IN (%s)
                     """.formatted(placeholders);
 
             final PreparedStatement statement = connection.prepareStatement(sql);
             statement.setString(1, username.toLowerCase());
+            statement.setTimestamp(2, SqlTime.now());
             for (int i = 0; i < types.length; i++) {
-                statement.setString(i + 2, types[i].toString()); // começa no índice 2
+                statement.setString(i + 3, types[i].toString());
             }
 
             final ResultSet resultSet = statement.executeQuery();
@@ -188,15 +211,16 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                     SELECT * FROM punishments
                     WHERE (lower_nickname = ? OR ip_address = ?)
                       AND revoked = false
-                      AND (finish_at IS NULL OR finish_at > CURRENT_TIMESTAMP)
+                      AND (finish_at IS NULL OR finish_at > ?)
                       AND type IN (%s)
                     """.formatted(placeholders);
 
             final PreparedStatement statement = connection.prepareStatement(sql);
             statement.setString(1, username.toLowerCase());
             statement.setString(2, ipAddress.toLowerCase());
+            statement.setTimestamp(3, SqlTime.now());
             for (int i = 0; i < types.length; i++) {
-                statement.setString(i + 3, types[i].toString()); // começa no índice 2
+                statement.setString(i + 4, types[i].toString());
             }
 
             final ResultSet resultSet = statement.executeQuery();
@@ -240,15 +264,16 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                     SELECT * FROM punishments
                     WHERE player_uuid = ?
                       AND revoked = false
-                      AND (finish_at IS NULL OR finish_at > CURRENT_TIMESTAMP)
+                      AND (finish_at IS NULL OR finish_at > ?)
                       AND type IN (%s)
                     """.formatted(placeholders);
 
             final PreparedStatement statement = connection.prepareStatement(sql);
             statement.setString(1, uuid.toString());
+            statement.setTimestamp(2, SqlTime.now());
 
             for (int i = 0; i < types.length; i++) {
-                statement.setString(i + 2, types[i].toString()); // começa do índice 2
+                statement.setString(i + 3, types[i].toString());
             }
 
             final ResultSet resultSet = statement.executeQuery();
@@ -271,20 +296,7 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
             final String sql = generateSaveSQL(isUpdate);
 
             try (PreparedStatement stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                stmt.setString(1, punishment.getPlayerUUID().map(UUID::toString).orElse(null));
-                stmt.setString(2, punishment.getReason().orElse(null));
-                stmt.setString(3, punishment.getPunisher());
-                stmt.setString(4, punishment.getNickname());
-                stmt.setString(5, punishment.getIpAddress().orElse(null));
-                stmt.setString(6, punishment.getNickname().toLowerCase());
-                stmt.setTimestamp(7, Timestamp.from(punishment.getStartedAt().toInstant(ZoneOffset.UTC)));
-                stmt.setTimestamp(8, punishment.getFinishAt().isPresent() ? Timestamp.from(punishment.getFinishAt().get().toInstant(ZoneOffset.UTC)) : null);
-                stmt.setBoolean(9, punishment.isRevoked());
-                stmt.setString(10, String.join(",", punishment.getEvidences()));
-                stmt.setString(11, punishment.getType().name());
-                stmt.setBoolean(12, punishment.isPermanent());
-                stmt.setString(13, punishment.getRevokedReason().orElse(null));
-
+                bind(stmt, punishment);
                 if (isUpdate) stmt.setLong(14, punishment.getId());
                 stmt.executeUpdate();
 
@@ -335,10 +347,120 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
         }
     }
 
+    private static void bind(PreparedStatement stmt, Punishment punishment) throws SQLException {
+        stmt.setString(1, punishment.getPlayerUUID().map(UUID::toString).orElse(null));
+        stmt.setString(2, punishment.getReason().orElse(null));
+        stmt.setString(3, punishment.getPunisher());
+        stmt.setString(4, punishment.getNickname());
+        stmt.setString(5, punishment.getIpAddress().orElse(null));
+        stmt.setString(6, punishment.getNickname().toLowerCase());
+        stmt.setTimestamp(7, SqlTime.of(punishment.getStartedAt()));
+        stmt.setTimestamp(8, SqlTime.of(punishment.getFinishAt().orElse(null)));
+        stmt.setBoolean(9, punishment.isRevoked());
+        stmt.setString(10, String.join(",", punishment.getEvidences()));
+        stmt.setString(11, punishment.getType().name());
+        stmt.setBoolean(12, punishment.isPermanent());
+        stmt.setString(13, punishment.getRevokedReason().orElse(null));
+    }
+
+    @Override
+    public int countByPunisher(String punisher) {
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT COUNT(*) FROM punishments WHERE LOWER(punisher) = ?")) {
+            statement.setString(1, punisher.toLowerCase());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next() ? resultSet.getInt(1) : 0;
+            }
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return 0;
+        }
+    }
+
+    @Override
+    public List<Punishment> findByPunisher(String punisher, int limit, int offset) {
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT * FROM punishments WHERE LOWER(punisher) = ? ORDER BY started_at DESC, id DESC LIMIT ? OFFSET ?")) {
+            statement.setString(1, punisher.toLowerCase());
+            statement.setInt(2, limit);
+            statement.setInt(3, offset);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                final List<Punishment> punishments = new ArrayList<>();
+                while (resultSet.next()) {
+                    punishments.add(load(resultSet));
+                }
+                return punishments;
+            }
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return List.of();
+        }
+    }
+
+    @Override
+    public Set<String> findAllImportKeys() throws SQLException {
+        final Set<String> keys = new HashSet<>();
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT player_uuid, ip_address, lower_nickname, type, started_at FROM punishments");
+             ResultSet resultSet = statement.executeQuery()) {
+            while (resultSet.next()) {
+                keys.add(importKey(resultSet.getString("player_uuid"), resultSet.getString("ip_address"),
+                        resultSet.getString("lower_nickname"), resultSet.getString("type"),
+                        SqlTime.read(resultSet, "started_at")));
+            }
+        }
+        return keys;
+    }
+
+    @Override
+    public int insertAll(List<Punishment> punishments) throws SQLException {
+        if (punishments.isEmpty()) return 0;
+        try (Connection connection = manager.getDataSource().getConnection()) {
+            final boolean autoCommit = connection.getAutoCommit();
+            connection.setAutoCommit(false);
+            try (PreparedStatement stmt = connection.prepareStatement(generateSaveSQL(false))) {
+                for (Punishment punishment : punishments) {
+                    bind(stmt, punishment);
+                    stmt.addBatch();
+                }
+                stmt.executeBatch();
+                connection.commit();
+                return punishments.size();
+            } catch (SQLException e) {
+                connection.rollback();
+                throw e;
+            } finally {
+                connection.setAutoCommit(autoCommit);
+            }
+        }
+    }
+
+    /**
+     * Identity of a punishment for imports: the target (IP for IP punishments, else UUID, else name), the type and
+     * the start to the second. Names are the last resort because a source may report a newer name on a re-run.
+     */
+    public static String importKey(String uuid, String ipAddress, String lowerNickname, String type, LocalDateTime startedAt) {
+        final String target;
+        if (ipAddress != null && !ipAddress.isBlank()) target = "ip:" + ipAddress.toLowerCase();
+        else if (uuid != null && !uuid.isBlank()) target = "uuid:" + uuid.toLowerCase();
+        else target = "name:" + (lowerNickname == null ? "" : lowerNickname.toLowerCase());
+        final String start = startedAt == null ? "" : startedAt.truncatedTo(ChronoUnit.SECONDS).toString();
+        return target + "|" + type + "|" + start;
+    }
+
+    public static String importKey(Punishment punishment) {
+        return importKey(punishment.getPlayerUUID().map(UUID::toString).orElse(null), punishment.getIpAddress().orElse(null),
+                punishment.getNickname(), punishment.getType().name(), punishment.getStartedAt());
+    }
+
     private Punishment load(ResultSet rs) throws SQLException {
         final Punishment punishment = new Punishment();
         punishment.setId(rs.getLong("id"));
-        punishment.setPlayerUUID(UUID.fromString(rs.getString("player_uuid")));
+        final String uuid = rs.getString("player_uuid");
+        punishment.setPlayerUUID(uuid == null || uuid.isBlank() ? null : UUID.fromString(uuid));
         punishment.setIpAddress(rs.getString("ip_address"));
         punishment.setNickname(rs.getString("nickname"));
         punishment.setPunisher(rs.getString("punisher"));
@@ -346,9 +468,11 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
         punishment.setPermanent(rs.getBoolean("permanent"));
         punishment.setRevoked(rs.getBoolean("revoked"));
         punishment.setRevokedReason(rs.getString("revoked_reason"));
-        punishment.setStartedAt(rs.getTimestamp("started_at").toLocalDateTime());
-        punishment.setFinishAt(Optional.ofNullable(rs.getTimestamp("finish_at")).map(Timestamp::toLocalDateTime).orElse(null));
-        punishment.setEvidences(new ArrayList<>(Arrays.stream(rs.getString("evidences").split(",")).filter(s -> !s.isBlank()).toList()));
+        punishment.setStartedAt(SqlTime.read(rs, "started_at"));
+        punishment.setFinishAt(SqlTime.read(rs, "finish_at"));
+        final String evidences = rs.getString("evidences");
+        punishment.setEvidences(evidences == null ? new ArrayList<>()
+                : new ArrayList<>(Arrays.stream(evidences.split(",")).filter(s -> !s.isBlank()).toList()));
         punishment.setType(PunishType.valueOf(rs.getString("type")));
         return punishment;
     }

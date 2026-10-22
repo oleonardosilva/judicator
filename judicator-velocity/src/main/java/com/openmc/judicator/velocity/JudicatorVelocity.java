@@ -3,6 +3,8 @@ package com.openmc.judicator.velocity;
 import com.google.inject.Inject;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.commons.command.CoreCommand;
+import com.openmc.judicator.commons.db.Dialect;
+import com.openmc.judicator.commons.db.RelationalDBManager;
 import com.openmc.plugin.judicator.BuildConstants;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.command.CommandMeta;
@@ -15,6 +17,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import org.slf4j.Logger;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -43,12 +46,16 @@ public class JudicatorVelocity {
         logger.info("Initializing plugin with automatic dependency download...");
         final DependencyManager dependencyManager = new DependencyManager(this, server.getPluginManager(), logger, dataDirectory);
 
-        final List<DependencyManager.Dependency> dependencies = Arrays.asList(
+        final List<DependencyManager.Dependency> dependencies = new ArrayList<>(Arrays.asList(
                 new DependencyManager.Dependency("com.mysql:mysql-connector-j:9.3.0"),
                 new DependencyManager.Dependency("org.postgresql:postgresql:42.7.7"),
                 new DependencyManager.Dependency("com.github.ben-manes.caffeine:caffeine:3.1.8"),
                 new DependencyManager.Dependency("com.zaxxer", "HikariCP", "6.3.0")
-        );
+        ));
+        // The SQLite driver bundles native libraries (~13 MB): only fetch it when data.yml asks for SQLite.
+        if (RelationalDBManager.readConfiguredDialect(dataDirectory) == Dialect.SQLITE) {
+            dependencies.add(new DependencyManager.Dependency("org.xerial:sqlite-jdbc:3.46.1.2"));
+        }
 
         dependencyManager.downloadAndLoadDependencies(dependencies);
 

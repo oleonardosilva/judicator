@@ -226,6 +226,7 @@ usages:
   unban: "&cComando incorreto. Use: /unban (jogador) [-s] [motivo]."
   unmute: "&cComando incorreto. Use: /unmute (jogador) [-s] [motivo]."
   alts: "&cComando incorreto. Use: /alts (jogador)."
+  blame: "&cComando incorreto. Use: /blame (staff) [página]."
 
 notifications:
   punish: "&7[Staff] &f{author} &7aplicou &c{type} &7em &f{nickname}&7: &f{reason}"
@@ -241,3 +242,9 @@ alts:
     banned: "&cbanido"
     muted: "&6silenciado"
     clean: "&alimpo"
+
+blame:
+  title: "&ePunições aplicadas por &f{staff} &7({count} no total, página {page}/{pages})\n\n"
+  line: "    &f&l• &e#{id} &7- &c{type} &7- &f{nickname} &7- &f{startedAt}\n"
+  none: "&c{staff} não aplicou nenhuma punição."
+  next-page: "\n&7Próxima página: &e/blame {staff} {next} &7(clique)"

@@ -24,6 +24,7 @@ public enum PunishPermissions {
     UNBAN("judicator.unban"),
     UNMUTE("judicator.unmute"),
     ALTS("judicator.alts"),
+    BLAME("judicator.blame"),
     ALTS_NOTIFY("judicator.alts.notify"),
     SILENT("judicator.silent"),
     NOTIFY("judicator.notify"),

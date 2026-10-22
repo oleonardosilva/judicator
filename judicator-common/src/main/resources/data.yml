@@ -4,4 +4,5 @@ database:
   host: 'localhost'
   port: '5432'
   database: 'postgres'
-  type: 'postgres' # postgres, mysql
+  type: 'postgres' # postgres, mysql or sqlite (sqlite needs no server: user, password, host, port and database are ignored)
+  file: 'judicator.db' # sqlite only: database file, relative to the plugin folder

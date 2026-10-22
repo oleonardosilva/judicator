@@ -1,16 +1,21 @@
 package com.openmc.judicator.warns.repository.dao;
 
+import com.openmc.judicator.commons.db.Dialect;
 import com.openmc.judicator.commons.db.RelationalDBManager;
 import com.openmc.judicator.commons.db.SchemaUtil;
+import com.openmc.judicator.commons.db.SqlTime;
 import com.openmc.judicator.warns.Warn;
 import com.openmc.judicator.warns.repository.WarnRepository;
 import org.slf4j.Logger;
 
 import java.sql.*;
-import java.time.ZoneOffset;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 public class WarnRelationalDAO implements WarnRepository {
@@ -47,9 +52,9 @@ public class WarnRelationalDAO implements WarnRepository {
     @Override
     public void initialize() {
         try (Connection connection = manager.getDataSource().getConnection()) {
-            final String dbProduct = connection.getMetaData().getDatabaseProductName().toLowerCase();
+            final Dialect dialect = manager.getDialect();
             final PreparedStatement statement;
-            if (dbProduct.contains("postgresql")) {
+            if (dialect == Dialect.POSTGRESQL) {
                 statement = connection.prepareStatement(
                         """
                                 CREATE TABLE IF NOT EXISTS warns (
@@ -65,6 +70,20 @@ public class WarnRelationalDAO implements WarnRepository {
                                 );
                                 """
                 );
+            } else if (dialect == Dialect.SQLITE) {
+                statement = connection.prepareStatement("""
+                        CREATE TABLE IF NOT EXISTS warns (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            player_uuid VARCHAR(36) NOT NULL,
+                            reason VARCHAR(255) NOT NULL,
+                            punisher VARCHAR(20) NOT NULL,
+                            nickname VARCHAR(20),
+                            lower_nickname VARCHAR(20),
+                            started_at TIMESTAMP NOT NULL,
+                            finish_at TIMESTAMP,
+                            permanent BOOLEAN NOT NULL
+                        );
+                        """);
             } else {
                 statement = connection.prepareStatement("""
                         CREATE TABLE IF NOT EXISTS warns (
@@ -140,9 +159,10 @@ public class WarnRelationalDAO implements WarnRepository {
         try (Connection connection = manager.getDataSource().getConnection()) {
             final PreparedStatement statement = connection.prepareStatement("""
                     SELECT COUNT(*) FROM warns WHERE lower_nickname = ?
-                    AND (permanent = true OR finish_at > CURRENT_TIMESTAMP)
+                    AND (permanent = true OR finish_at > ?)
                     """);
             statement.setString(1, username.toLowerCase());
+            statement.setTimestamp(2, SqlTime.now());
             final ResultSet resultSet = statement.executeQuery();
 
             if (resultSet.next()) {
@@ -185,8 +205,8 @@ public class WarnRelationalDAO implements WarnRepository {
                 stmt.setString(3, warn.getPunisher());
                 stmt.setString(4, warn.getNickname());
                 stmt.setString(5, warn.getNickname().toLowerCase());
-                stmt.setTimestamp(6, Timestamp.from(warn.getStartedAt().toInstant(ZoneOffset.UTC)));
-                stmt.setTimestamp(7, warn.getFinishAt().isPresent() ? Timestamp.from(warn.getFinishAt().get().toInstant(ZoneOffset.UTC)) : null);
+                stmt.setTimestamp(6, SqlTime.of(warn.getStartedAt()));
+                stmt.setTimestamp(7, SqlTime.of(warn.getFinishAt().orElse(null)));
                 stmt.setBoolean(8, warn.isPermanent());
 
                 if (isUpdate) stmt.setLong(9, warn.getId());
@@ -221,6 +241,60 @@ public class WarnRelationalDAO implements WarnRepository {
         }
     }
 
+    @Override
+    public Set<String> findAllImportKeys() throws SQLException {
+        final Set<String> keys = new HashSet<>();
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement("SELECT player_uuid, lower_nickname, started_at FROM warns");
+             ResultSet resultSet = statement.executeQuery()) {
+            while (resultSet.next()) {
+                keys.add(importKey(resultSet.getString("player_uuid"), resultSet.getString("lower_nickname"),
+                        SqlTime.read(resultSet, "started_at")));
+            }
+        }
+        return keys;
+    }
+
+    @Override
+    public int insertAll(List<Warn> warns) throws SQLException {
+        if (warns.isEmpty()) return 0;
+        try (Connection connection = manager.getDataSource().getConnection()) {
+            final boolean autoCommit = connection.getAutoCommit();
+            connection.setAutoCommit(false);
+            try (PreparedStatement stmt = connection.prepareStatement(generateSaveSQL(false))) {
+                for (Warn warn : warns) {
+                    stmt.setString(1, warn.getPlayerUUID().map(UUID::toString).orElse(null));
+                    stmt.setString(2, warn.getReason());
+                    stmt.setString(3, warn.getPunisher());
+                    stmt.setString(4, warn.getNickname());
+                    stmt.setString(5, warn.getNickname().toLowerCase());
+                    stmt.setTimestamp(6, SqlTime.of(warn.getStartedAt()));
+                    stmt.setTimestamp(7, SqlTime.of(warn.getFinishAt().orElse(null)));
+                    stmt.setBoolean(8, warn.isPermanent());
+                    stmt.addBatch();
+                }
+                stmt.executeBatch();
+                connection.commit();
+                return warns.size();
+            } catch (SQLException e) {
+                connection.rollback();
+                throw e;
+            } finally {
+                connection.setAutoCommit(autoCommit);
+            }
+        }
+    }
+
+    /**
+     * Identity of a warn for imports: UUID (else name) and start to the second.
+     */
+    public static String importKey(String uuid, String lowerNickname, LocalDateTime startedAt) {
+        final String target = uuid != null && !uuid.isBlank() ? "uuid:" + uuid.toLowerCase()
+                : "name:" + (lowerNickname == null ? "" : lowerNickname.toLowerCase());
+        final String start = startedAt == null ? "" : startedAt.truncatedTo(ChronoUnit.SECONDS).toString();
+        return target + "|" + start;
+    }
+
     private Warn load(ResultSet rs) throws SQLException {
         final Warn warn = new Warn();
         warn.setId(rs.getLong("id"));
@@ -229,8 +303,8 @@ public class WarnRelationalDAO implements WarnRepository {
         warn.setPunisher(rs.getString("punisher"));
         warn.setReason(rs.getString("reason"));
         warn.setPermanent(rs.getBoolean("permanent"));
-        warn.setStartedAt(rs.getTimestamp("started_at").toLocalDateTime());
-        warn.setFinishAt(Optional.ofNullable(rs.getTimestamp("finish_at")).map(Timestamp::toLocalDateTime).orElse(null));
+        warn.setStartedAt(SqlTime.read(rs, "started_at"));
+        warn.setFinishAt(SqlTime.read(rs, "finish_at"));
         return warn;
     }
 

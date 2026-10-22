@@ -1,0 +1,62 @@
+# Used only by /judicator import <source> [confirm], run from the server console.
+# Back up your database first. Without "confirm" the command only reports what it would import.
+# Running it again is safe: punishments already in Judicator (same target, type and start) are skipped.
+# Judicator only reads the source; nothing is changed there.
+#
+# Embedded databases (H2, HSQLDB): stop the source plugin or, better, copy its files and point the URL at the copy;
+# use the user/password the source plugin created them with (shown below for each default); add ;IFEXISTS=TRUE
+# (H2) or ;ifexists=true (HSQLDB) so a mistyped path fails instead of creating an empty database.
+
+litebans:
+  # Same database LiteBans uses, e.g. MySQL/MariaDB: jdbc:mysql://localhost:3306/litebans
+  #                                   PostgreSQL:    jdbc:postgresql://localhost:5432/litebans
+  jdbc-url: ''
+  user: ''
+  password: ''
+  table-prefix: 'litebans_'
+  # LiteBans' default storage is H2, whose driver Judicator does not ship. Put the H2 driver jar in
+  # plugins/<Judicator folder>/drivers (LibertyBans' import guide uses h2-1.4.199.jar for LiteBans), set driver-jar
+  # to its file name, driver-class to 'org.h2.Driver' and jdbc-url to a jdbc:h2: URL pointing at LiteBans' database
+  # file, ending in ;ACCESS_MODE_DATA=r so the file is opened read-only. Stop LiteBans first: an embedded database
+  # file cannot be opened by two programs at once.
+  driver-jar: ''
+  driver-class: ''
+
+advancedban:
+  # MySQL: jdbc:mysql://localhost:3306/advancedban. AdvancedBan's default storage is HSQLDB (files
+  # plugins/AdvancedBan/data/storage.*, user 'SA', empty password): use driver-jar/driver-class
+  # ('org.hsqldb.jdbc.JDBCDriver') with an HSQLDB driver jar and point a jdbc:hsqldb:file: URL at a COPY of those
+  # files, so the originals are never opened by another program.
+  jdbc-url: ''
+  user: ''
+  password: ''
+  driver-jar: ''
+  driver-class: ''
+
+libertybans:
+  # MySQL/MariaDB: jdbc:mysql://localhost:3306/libertybans   PostgreSQL: jdbc:postgresql://localhost:5432/libertybans
+  # LibertyBans' default storage is HSQLDB 2.7 (files plugins/LibertyBans/internal/hypersql/punishments-database.*):
+  # use driver-jar/driver-class ('org.hsqldb.jdbc.JDBCDriver') with an HSQLDB driver jar and point a
+  # jdbc:hsqldb:file: URL at a COPY of those files.
+  jdbc-url: ''
+  user: ''
+  password: ''
+  table-prefix: 'libertybans_'
+  driver-jar: ''
+  driver-class: ''
+
+banmanager:
+  # MySQL/MariaDB: jdbc:mysql://localhost:3306/local_bans (the database in BanManager's config.yml, databases.local).
+  # BanManager's default storage is H2 1.4.200 (file plugins/BanManager/local_bans): use driver-jar/driver-class
+  # ('org.h2.Driver') with the H2 1.4.200 driver jar and a jdbc:h2: URL pointing at a COPY of that file.
+  # Only the table prefix is supported: tables renamed one by one in BanManager's config are not found.
+  jdbc-url: ''
+  user: ''
+  password: ''
+  table-prefix: 'bm_'
+  driver-jar: ''
+  driver-class: ''
+
+vanilla:
+  # Folder with banned-players.json and banned-ips.json (also used by Essentials). Empty: the server folder.
+  directory: ''
