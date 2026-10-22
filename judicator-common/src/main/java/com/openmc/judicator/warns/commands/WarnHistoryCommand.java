@@ -1,0 +1,38 @@
+package com.openmc.judicator.warns.commands;
+
+import com.openmc.judicator.Judicator;
+import com.openmc.judicator.commons.command.CommandArgs;
+import com.openmc.judicator.commons.command.CoreCommand;
+import com.openmc.judicator.platform.JudicatorSender;
+import com.openmc.judicator.punish.types.PunishPermissions;
+import com.openmc.judicator.warns.Warn;
+import com.openmc.judicator.warns.WarnUtils;
+
+import java.util.List;
+import java.util.Optional;
+
+public class WarnHistoryCommand extends CoreCommand {
+
+    public WarnHistoryCommand(Judicator judicator) {
+        super(judicator, "warnhistory", List.of("whistory"), PunishPermissions.HISTORY.getPermission(), PunishPermissions.ADMIN.getPermission());
+    }
+
+    @Override
+    public void execute(JudicatorSender source, CommandArgs args) {
+        final Optional<String> optTarget = args.word();
+        if (optTarget.isEmpty()) {
+            sendUsage(source, "warnhistory");
+            return;
+        }
+        final String targetName = optTarget.get();
+
+        final List<Warn> warns = judicator.getWarnService().findAllByUsername(targetName);
+        if (warns.isEmpty()) {
+            source.sendMessage(WarnUtils.getMessage(messages(), "error", "angel"));
+            return;
+        }
+
+        source.sendMessage(WarnUtils.getWarnHistoryMessage(messages(), targetName, warns));
+    }
+
+}

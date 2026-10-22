@@ -1,0 +1,53 @@
+plugins {
+    id 'com.github.johnrengelman.shadow'
+    id 'xyz.jpenilla.run-paper'
+}
+
+dependencies {
+    implementation project(':judicator-common')
+
+    compileOnly 'org.spigotmc:spigot-api:1.18.2-R0.1-SNAPSHOT'
+    compileOnly 'com.zaxxer:HikariCP:6.3.0'
+    compileOnly 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+
+    implementation 'net.kyori:adventure-api:4.17.0'
+    implementation 'net.kyori:adventure-text-serializer-legacy:4.17.0'
+    implementation 'net.kyori:adventure-platform-bukkit:4.3.4'
+    implementation 'org.spongepowered:configurate-yaml:4.1.2'
+}
+
+processResources {
+    def props = ['version': project.version]
+    inputs.properties props
+    filteringCharset 'UTF-8'
+    filesMatching('plugin.yml') {
+        expand props
+    }
+}
+
+tasks {
+    runServer {
+        minecraftVersion("1.20.4")
+    }
+
+    shadowJar {
+        archiveBaseName.set('Judicator-Bukkit')
+        archiveClassifier.set('')
+        mergeServiceFiles()
+
+        dependencies {
+            exclude(dependency('com.google.code.gson:gson'))
+            exclude(dependency('org.jetbrains:annotations'))
+        }
+
+        def libs = 'com.openmc.judicator.libs'
+        relocate 'net.kyori', "${libs}.kyori"
+        relocate 'org.spongepowered.configurate', "${libs}.configurate"
+        relocate 'io.leangen.geantyref', "${libs}.geantyref"
+        relocate 'org.yaml.snakeyaml', "${libs}.snakeyaml"
+    }
+
+    build {
+        dependsOn shadowJar
+    }
+}

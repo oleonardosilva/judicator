@@ -1,0 +1,27 @@
+plugins {
+    id 'com.github.johnrengelman.shadow'
+    id 'xyz.jpenilla.run-velocity'
+}
+
+dependencies {
+    implementation project(':judicator-common')
+
+    compileOnly 'com.velocitypowered:velocity-api:3.4.0-SNAPSHOT'
+    annotationProcessor 'com.velocitypowered:velocity-api:3.4.0-SNAPSHOT'
+}
+
+tasks {
+    runVelocity {
+        velocityVersion("3.4.0-SNAPSHOT")
+    }
+
+    shadowJar {
+        archiveBaseName.set('Judicator-Velocity')
+        archiveClassifier.set('')
+        mergeServiceFiles()
+    }
+
+    build {
+        dependsOn shadowJar
+    }
+}

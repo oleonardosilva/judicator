@@ -1,11 +1,33 @@
 # Judicator
 
-**Judicator** is a moderation plugin for Minecraft Velocity servers. It offers a wide variety of commands for
-punishments, mutes, and player management, making the moderation team's work on the server much easier.
+**Judicator** is a moderation plugin for Minecraft networks and servers. It runs on the Velocity proxy and on
+Spigot/Paper servers, and offers a wide variety of commands for punishments, mutes, and player management, making the
+moderation team's work on the server much easier.
 
 Download it!
 - SpigotMC: https://www.spigotmc.org/resources/1-8-8-1-21-8-judicator-advanced-punishment-system-for-all-server-networks.127337/
 - Mondrith: https://modrinth.com/plugin/judicator
+
+---
+
+## 🧩 Supported Platforms
+
+| Platform | JAR | Requirements |
+|---|---|---|
+| Velocity (proxy) | `Judicator-Velocity-<version>.jar` | Velocity 3.4+, Java 17+ |
+| Spigot / Paper (server) | `Judicator-Bukkit-<version>.jar` | Minecraft 1.18+, Java 17+ |
+
+Use the Velocity build when you run a network behind a proxy: punishments then apply to every backend server. Use the
+Spigot/Paper build on a standalone server. On Spigot/Paper the database drivers, HikariCP and Caffeine are downloaded
+by the server itself (`libraries` in `plugin.yml`); on Velocity they are downloaded by the plugin on the first start.
+
+### Building
+
+```bash
+./gradlew build
+```
+
+The JARs are written to `judicator-velocity/build/libs/` and `judicator-bukkit/build/libs/`.
 
 ---
 

@@ -1,1 +1,5 @@
 rootProject.name = 'Judicator'
+
+include 'judicator-common'
+include 'judicator-velocity'
+include 'judicator-bukkit'

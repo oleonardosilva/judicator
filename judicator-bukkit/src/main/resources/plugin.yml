@@ -1,0 +1,206 @@
+name: Judicator
+version: '${version}'
+main: com.openmc.judicator.bukkit.JudicatorBukkit
+api-version: '1.18'
+author: oleonardosilva
+website: https://github.com/oleonardosilva
+description: A moderation plugin
+libraries:
+  - com.zaxxer:HikariCP:6.3.0
+  - com.mysql:mysql-connector-j:9.3.0
+  - org.postgresql:postgresql:42.7.7
+  - com.github.ben-manes.caffeine:caffeine:3.1.8
+commands:
+  judicator:
+    permission: judicator.admin
+    description: Judicator administration (reload, help, version).
+    aliases: [jud]
+  ban:
+    permission: judicator.command.ban
+    description: Permanently bans a player.
+  banip:
+    permission: judicator.command.banip
+    description: Permanently bans the IP of a player.
+  tempban:
+    permission: judicator.command.tempban
+    description: Temporarily bans a player.
+  tempbanip:
+    permission: judicator.command.tempbanip
+    description: Temporarily bans the IP of a player.
+  mute:
+    permission: judicator.command.mute
+    description: Permanently mutes a player.
+  muteip:
+    permission: judicator.command.muteip
+    description: Permanently mutes the IP of a player.
+  tempmute:
+    permission: judicator.command.tempmute
+    description: Temporarily mutes a player.
+  tempmuteip:
+    permission: judicator.command.tempmuteip
+    description: Temporarily mutes the IP of a player.
+  kick:
+    permission: judicator.command.kick
+    description: Kicks a player.
+  punish:
+    permission: judicator.command.punish
+    description: Punishes a player with a preset reason.
+    aliases: [punir, castigar]
+  punishview:
+    permission: judicator.command.punishview
+    description: Shows a punishment by its ID.
+    aliases: [pview]
+  punishhistory:
+    permission: judicator.command.punishhistory
+    description: Shows the punishment history of a player.
+    aliases: [phistory]
+  revoke:
+    permission: judicator.admin
+    description: Revokes a punishment by its ID.
+    aliases: [revogar, revocar]
+  warn:
+    permission: judicator.command.warn
+    description: Warns a player.
+  tempwarn:
+    permission: judicator.command.tempwarn
+    description: Temporarily warns a player.
+  unwarn:
+    permission: judicator.admin
+    description: Removes a warn by its ID.
+  warnview:
+    permission: judicator.command.warnview
+    description: Shows a warn by its ID.
+    aliases: [wview]
+  warnhistory:
+    permission: judicator.command.warnhistory
+    description: Shows the warn history of a player.
+    aliases: [whistory]
+permissions:
+  judicator.admin:
+    description: Full access to every Judicator command.
+    default: op
+    children:
+      judicator.command.ban: true
+      judicator.command.banip: true
+      judicator.command.tempban: true
+      judicator.command.tempbanip: true
+      judicator.command.mute: true
+      judicator.command.muteip: true
+      judicator.command.tempmute: true
+      judicator.command.tempmuteip: true
+      judicator.command.kick: true
+      judicator.command.punish: true
+      judicator.command.punishview: true
+      judicator.command.punishhistory: true
+      judicator.command.warnview: true
+      judicator.command.warnhistory: true
+      judicator.command.warn: true
+      judicator.command.tempwarn: true
+  judicator.punish:
+    default: op
+    children:
+      judicator.command.punish: true
+  judicator.ban:
+    default: op
+    children:
+      judicator.command.ban: true
+  judicator.ban.ip:
+    default: op
+    children:
+      judicator.command.banip: true
+  judicator.tempban:
+    default: op
+    children:
+      judicator.command.tempban: true
+  judicator.tempban.ip:
+    default: op
+    children:
+      judicator.command.tempbanip: true
+  judicator.mute:
+    default: op
+    children:
+      judicator.command.mute: true
+  judicator.mute.ip:
+    default: op
+    children:
+      judicator.command.muteip: true
+  judicator.tempmute:
+    default: op
+    children:
+      judicator.command.tempmute: true
+  judicator.tempmute.ip:
+    default: op
+    children:
+      judicator.command.tempmuteip: true
+  judicator.kick:
+    default: op
+    children:
+      judicator.command.kick: true
+  judicator.view:
+    default: op
+    children:
+      judicator.command.punishview: true
+      judicator.command.warnview: true
+  judicator.history:
+    default: op
+    children:
+      judicator.command.punishhistory: true
+      judicator.command.warnhistory: true
+  judicator.warn:
+    default: op
+    children:
+      judicator.command.warn: true
+  judicator.tempwarn:
+    default: op
+    children:
+      judicator.command.tempwarn: true
+  judicator.unwarn:
+    default: op
+  judicator.command.ban:
+    description: Shows and allows /ban (granted by judicator.ban or judicator.admin).
+    default: false
+  judicator.command.banip:
+    description: Shows and allows /banip (granted by judicator.ban.ip or judicator.admin).
+    default: false
+  judicator.command.tempban:
+    description: Shows and allows /tempban (granted by judicator.tempban or judicator.admin).
+    default: false
+  judicator.command.tempbanip:
+    description: Shows and allows /tempbanip (granted by judicator.tempban.ip or judicator.admin).
+    default: false
+  judicator.command.mute:
+    description: Shows and allows /mute (granted by judicator.mute or judicator.admin).
+    default: false
+  judicator.command.muteip:
+    description: Shows and allows /muteip (granted by judicator.mute.ip or judicator.admin).
+    default: false
+  judicator.command.tempmute:
+    description: Shows and allows /tempmute (granted by judicator.tempmute or judicator.admin).
+    default: false
+  judicator.command.tempmuteip:
+    description: Shows and allows /tempmuteip (granted by judicator.tempmute.ip or judicator.admin).
+    default: false
+  judicator.command.kick:
+    description: Shows and allows /kick (granted by judicator.kick or judicator.admin).
+    default: false
+  judicator.command.punish:
+    description: Shows and allows /punish (granted by judicator.punish or judicator.admin).
+    default: false
+  judicator.command.punishview:
+    description: Shows and allows /punishview (granted by judicator.view or judicator.admin).
+    default: false
+  judicator.command.punishhistory:
+    description: Shows and allows /punishhistory (granted by judicator.history or judicator.admin).
+    default: false
+  judicator.command.warnview:
+    description: Shows and allows /warnview (granted by judicator.view or judicator.admin).
+    default: false
+  judicator.command.warnhistory:
+    description: Shows and allows /warnhistory (granted by judicator.history or judicator.admin).
+    default: false
+  judicator.command.warn:
+    description: Shows and allows /warn (granted by judicator.warn or judicator.admin).
+    default: false
+  judicator.command.tempwarn:
+    description: Shows and allows /tempwarn (granted by judicator.tempwarn or judicator.admin).
+    default: false
