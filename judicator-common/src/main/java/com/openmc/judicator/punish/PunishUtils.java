@@ -11,6 +11,7 @@ import org.spongepowered.configurate.serialize.SerializationException;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Objects;
@@ -40,7 +41,7 @@ public class PunishUtils {
         final String permanent = messagesNode.node("permanent").getString("§cPermanente.").replace("&", "§");
         final String yes = messagesNode.node("yes").getString("§aYes.").replace("&", "§");
         final String no = messagesNode.node("no").getString("§cNo.").replace("&", "§");
-        final String status = messagesNode.node("status", punishment.getStatus().name().toLowerCase()).getString(punishment.getStatus().name()).replace("&", "§");
+        final String status = messagesNode.node("status", punishment.getStatus().name().toLowerCase(Locale.ROOT)).getString(punishment.getStatus().name()).replace("&", "§");
 
         final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern(dateFormat);
         return messages.stream().map(s -> s

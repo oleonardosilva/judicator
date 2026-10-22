@@ -45,11 +45,10 @@ public class RevokeCommand extends CoreCommand {
 
         punishService.revoke(id, reason, () -> {
             source.sendMessage(PunishUtils.getMessage(messages, "success", "pardon"));
+            judicator.getPunishCache().forgetMute(id);
 
-            judicator.getPlatform().getPlayer(punishment.getNickname()).ifPresent(player -> {
-                judicator.getPunishCache().removeMutePunishment(punishment.getNickname());
-                player.sendMessage(PunishUtils.getMessage(messages, "success", "got-pardon"));
-            });
+            judicator.getPlatform().getPlayer(punishment.getNickname()).ifPresent(player ->
+                    player.sendMessage(PunishUtils.getMessage(messages, "success", "got-pardon")));
         }, () -> source.sendMessage(PunishUtils.getMessage(messages, "error", "unknown")));
     }
 

@@ -4,6 +4,11 @@ plugins {
     id 'org.jetbrains.gradle.plugin.idea-ext'
 }
 
+configurations {
+    // The tests run the core outside a server, so they need the libraries the platforms provide at runtime.
+    testImplementation.extendsFrom compileOnly
+}
+
 dependencies {
     compileOnly 'net.kyori:adventure-api:4.17.0'
     compileOnly 'net.kyori:adventure-text-serializer-legacy:4.17.0'
@@ -13,6 +18,16 @@ dependencies {
     compileOnly 'com.google.guava:guava:33.3.1-jre'
     compileOnly 'com.zaxxer:HikariCP:6.3.0'
     compileOnly 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.xerial:sqlite-jdbc:3.46.1.2'
+    testRuntimeOnly 'org.slf4j:slf4j-nop:2.0.16'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
 }
 
 def templateSource = file('src/main/templates')

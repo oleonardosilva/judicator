@@ -21,7 +21,26 @@ with Discord webhook notifications and multi-language support.
 ./gradlew :judicator-bukkit:runServer
 ```
 
-There are no test or lint tasks configured.
+```bash
+# Unit and SQLite integration tests of the core (JUnit 5)
+./gradlew :judicator-common:test
+```
+
+Tests live in `judicator-common/src/test/java`:
+
+- `features/*Test` run the whole core through `testing/TestServer`: the real `*.yml` resources, commands, handlers
+  and services, in-memory repositories and a `FakePlatform` (players added by the test, tasks run immediately,
+  announcements and console commands recorded). Player actions go through the same `ConnectionHandler` /
+  `ChatHandler` calls the Velocity/Bukkit listeners make: `server.online(player)`, `server.command(sender, "ban
+  Steve x")`, `server.chat(player, "confirm")`, `server.quit(player)`, `server.restart()`. Assert on the text of
+  `messages_en.yml` (`player.received("...")`). Mojang lookups are off in `TestServer`.
+- `database/RepositoryContract` runs the same tests on the in-memory repositories and on the SQLite DAOs, so the
+  test doubles cannot drift from the SQL. The in-memory repositories reject what the tables reject (NOT NULL,
+  VARCHAR lengths) with an exception, where the DAOs would only log it and lose the row.
+- Unit tests for parsers, `ConfiguredReason`, importer helpers, etc.
+
+Add a test with every bug fix and every new command, parser, DAO query or importer; see it fail before the fix.
+There is no lint task.
 
 ## Modules
 

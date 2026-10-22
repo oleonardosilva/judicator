@@ -38,6 +38,7 @@ public class ConnectionHandler {
     }
 
     public void onJoin(JudicatorPlayer player) {
+        judicator.getUuidManager().remember(player.getName(), player.getUniqueId());
         judicator.getHierarchyService().recordLevel(player);
     }
 

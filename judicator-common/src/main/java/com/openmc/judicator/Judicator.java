@@ -14,6 +14,7 @@ import com.openmc.judicator.punish.commands.*;
 import com.openmc.judicator.punish.data.cache.ImmuneCache;
 import com.openmc.judicator.punish.hierarchy.HierarchyService;
 import com.openmc.judicator.punish.hierarchy.PlayerLevelRelationalDAO;
+import com.openmc.judicator.punish.hierarchy.PlayerLevelRepository;
 import com.openmc.judicator.punish.data.cache.PunishCache;
 import com.openmc.judicator.punish.data.cache.ReasonCache;
 import com.openmc.judicator.punish.data.repository.AccessAddressRepository;
@@ -70,10 +71,29 @@ public class Judicator {
     private ChatHandler chatHandler;
     private List<CoreCommand> commands;
 
+    /**
+     * Where the services keep their data. The plugin uses the relational database of {@code data.yml}; tests pass
+     * in-memory repositories so commands and listeners can be exercised without a database.
+     */
+    public record Repositories(PunishmentRepository punishments, WarnRepository warns,
+                               AccessAddressRepository addresses, PlayerLevelRepository levels) {
+    }
+
+    private final Repositories providedRepositories;
+
     public Judicator(Platform platform) {
+        this(platform, null);
+    }
+
+    /**
+     * @param repositories repositories to use instead of the database configured in {@code data.yml}; {@code null}
+     *                     for the database (what the plugin does)
+     */
+    public Judicator(Platform platform, Repositories repositories) {
         this.platform = platform;
         this.logger = platform.getLogger();
         this.dataDirectory = platform.getDataDirectory();
+        this.providedRepositories = repositories;
     }
 
     public void enable() {
@@ -97,10 +117,20 @@ public class Judicator {
         this.actionCache = new ActionCache();
         this.actionCache.initialize(this);
 
-        this.relationalDBManager = new RelationalDBManager();
-        this.relationalDBManager.initialize(dbConfig, dataDirectory, logger);
+        final Repositories repositories;
+        if (providedRepositories == null) {
+            this.relationalDBManager = new RelationalDBManager();
+            this.relationalDBManager.initialize(dbConfig, dataDirectory, logger);
+            repositories = new Repositories(
+                    new PunishmentRelationalDAO(relationalDBManager, logger),
+                    new WarnRelationalDAO(relationalDBManager, logger),
+                    new AccessAddressRelationalDAO(relationalDBManager, logger),
+                    new PlayerLevelRelationalDAO(relationalDBManager, logger));
+        } else {
+            repositories = providedRepositories;
+        }
 
-        this.registerServices();
+        this.registerServices(repositories);
         this.connectionHandler = new ConnectionHandler(this);
         this.chatHandler = new ChatHandler(this);
         this.commands = createCommands();
@@ -118,23 +148,20 @@ public class Judicator {
         this.immuneConfig = loadConfig("immune.yml");
         this.dbConfig = loadConfig("data.yml");
         logger.info("Configuration files have been reloaded successfully!");
-        this.relationalDBManager.initialize(dbConfig, dataDirectory, logger);
+        if (relationalDBManager != null) this.relationalDBManager.initialize(dbConfig, dataDirectory, logger);
         this.reasonCache.initialize(this);
         this.immuneCache.initialize(this);
         this.actionCache.initialize(this);
         this.chatHandler.reload();
     }
 
-    private void registerServices() {
-        final PunishmentRepository punishmentRepository = new PunishmentRelationalDAO(relationalDBManager, logger);
-        this.punishService = new PunishService(this, punishmentRepository);
-        final AccessAddressRepository addressRepository = new AccessAddressRelationalDAO(relationalDBManager, logger);
-        this.addressService = new AccessAddressService(addressRepository);
-        final WarnRepository warnRepository = new WarnRelationalDAO(relationalDBManager, logger);
-        this.warnService = new WarnService(warnRepository);
-        this.hierarchyService = new HierarchyService(this, new PlayerLevelRelationalDAO(relationalDBManager, logger));
+    private void registerServices(Repositories repositories) {
+        this.punishService = new PunishService(this, repositories.punishments());
+        this.addressService = new AccessAddressService(repositories.addresses());
+        this.warnService = new WarnService(repositories.warns());
+        this.hierarchyService = new HierarchyService(this, repositories.levels());
         this.staffNotifier = new StaffNotifier(this);
-        this.importService = new ImportService(this, punishmentRepository, warnRepository);
+        this.importService = new ImportService(this, repositories.punishments(), repositories.warns());
     }
 
     /**

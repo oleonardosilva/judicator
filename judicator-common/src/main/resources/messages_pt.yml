@@ -30,6 +30,7 @@ success:
 prompt:
   write-evidences: "&7Envie as evidências uma por uma no chat. Para finalizar, clique ou digite \"{ready-prompt}\" ou \"{cancel-prompt}\"."
   next-link: "&aLink anexado com sucesso. Para finalizar, clique ou digite \"{ready-prompt}\" ou \"{cancel-prompt}\"."
+  evidence-limit: "&cNão há espaço para esta evidência (255 caracteres no total). Digite \"{ready-prompt}\" para aplicar com as evidências já anexadas ou \"{cancel-prompt}\"."
   ready: "confirmar"
   cancel: "cancelar"
 status:
@@ -37,8 +38,8 @@ status:
   active: "Ativo"
   revoked: "Revogado"
 permanent: "Permanente"
-yes: "Sim"
-no: "Não"
+"yes": "Sim"
+"no": "Não"
 date-format: "dd/MM/yyyy 'às' HH:mm"
 
 punish:
@@ -221,7 +222,7 @@ usages:
   warn: "&cComando incorreto. Use: /warn (jogador) (motivo)."
   tempwarn: "&cComando incorreto. Use: /tempwarn (jogador) \"(número:dias,número:meses...)\" (motivo)."
   warnhistory: "&cComando incorreto. Use: /whistory (jogador)."
-  unwarn: "&cComando incorreto. Use: /unwarn (jogador)."
+  unwarn: "&cComando incorreto. Use: /unwarn (id)."
   warnview: "&cComando incorreto. Use: /wview (id)."
   unban: "&cComando incorreto. Use: /unban (jogador) [-s] [motivo]."
   unmute: "&cComando incorreto. Use: /unmute (jogador) [-s] [motivo]."

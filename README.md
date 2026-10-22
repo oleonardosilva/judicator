@@ -37,6 +37,8 @@ small network; a network with several Spigot/Paper servers sharing punishments n
 
 The JARs are written to `judicator-velocity/build/libs/` and `judicator-bukkit/build/libs/`.
 
+Tests: `./gradlew :judicator-common:test`.
+
 ---
 
 ## 📋 Available Commands

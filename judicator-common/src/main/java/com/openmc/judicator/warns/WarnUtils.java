@@ -10,6 +10,7 @@ import org.spongepowered.configurate.serialize.SerializationException;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 public class WarnUtils {
@@ -17,7 +18,7 @@ public class WarnUtils {
     public static List<String> applyPlaceHolders(ConfigurationNode messagesNode, List<String> messages, Warn warn) {
         final String dateFormat = messagesNode.node("date-format").getString("dd/MM/yyyy-HH:mm:ss");
         final String permanent = messagesNode.node("permanent").getString("§cPermanente.").replace("&", "§");
-        final String status = messagesNode.node("status", warn.getStatus().name().toLowerCase()).getString(warn.getStatus().name()).replace("&", "§");
+        final String status = messagesNode.node("status", warn.getStatus().name().toLowerCase(Locale.ROOT)).getString(warn.getStatus().name()).replace("&", "§");
 
         final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern(dateFormat);
         return messages.stream().map(s -> s

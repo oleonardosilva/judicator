@@ -5,6 +5,7 @@ import com.openmc.judicator.platform.JudicatorPlayer;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -53,8 +54,13 @@ public class WarnBuilder {
     }
 
     public Warn build() {
+        // warns.player_uuid is NOT NULL: a warn for a player whose UUID could not be found (never joined, Mojang
+        // unreachable) would be rejected by the database and silently lost. Use the UUID an offline-mode server
+        // gives that name; warns are looked up by name anyway.
+        final UUID uuid = playerUUID != null ? playerUUID
+                : UUID.nameUUIDFromBytes(("OfflinePlayer:" + nickname).getBytes(StandardCharsets.UTF_8));
         final Warn warn = Warn.create(
-                playerUUID,
+                uuid,
                 reason,
                 punisher,
                 nickname,

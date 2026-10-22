@@ -35,7 +35,7 @@ public class DiscordWebhookService {
         if (!eventNode.node("enabled").getBoolean(false)) return;
 
         final String webhookUrl = eventNode.node("webhook-url").getString("");
-        if (webhookUrl.isBlank()) return;
+        if (!isConfigured(webhookUrl)) return;
 
         CompletableFuture.runAsync(() -> {
             try {
@@ -55,7 +55,7 @@ public class DiscordWebhookService {
         if (!eventNode.node("enabled").getBoolean(false)) return;
 
         final String webhookUrl = eventNode.node("webhook-url").getString("");
-        if (webhookUrl.isBlank()) return;
+        if (!isConfigured(webhookUrl)) return;
 
         CompletableFuture.runAsync(() -> {
             try {
@@ -65,6 +65,13 @@ public class DiscordWebhookService {
                 plugin.getLogger().error("[Discord] Failed to send warn webhook: {}", e.getMessage(), e);
             }
         });
+    }
+
+    /**
+     * The default {@code discord.yml} ships with a placeholder URL; posting to it only fills the log with errors.
+     */
+    public static boolean isConfigured(String webhookUrl) {
+        return webhookUrl != null && !webhookUrl.isBlank() && !webhookUrl.contains("YOUR_WEBHOOK_HERE");
     }
 
     private String resolveEventKey(Punishment punishment) {

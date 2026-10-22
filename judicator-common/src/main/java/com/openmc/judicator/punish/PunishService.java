@@ -64,10 +64,9 @@ public class PunishService {
         cache.getPunishment(username)
                 .or(() -> cache.getPunishment(address))
                 .ifPresent(punishment -> {
-                    if (punishment.getIpAddress().isEmpty()) {
-                        cache.removeMutePunishment(username);
-                        return;
-                    }
+                    // The name entry goes in every case (an IP mute is restored by address at the next login).
+                    cache.removeMutePunishment(username);
+                    if (punishment.getIpAddress().isEmpty()) return;
 
                     final boolean noneMatch = judicator.getPlatform().getOnlinePlayers().stream()
                             .noneMatch(p -> {
@@ -80,9 +79,17 @@ public class PunishService {
                 });
     }
 
+    /**
+     * revoked_reason is VARCHAR(100): a longer reason would make PostgreSQL/MySQL reject the update.
+     */
+    private static String revokeReason(String reason) {
+        if (reason == null) return null;
+        return reason.length() <= 100 ? reason : reason.substring(0, 100);
+    }
+
     public void revoke(Long id, String reason, Runnable onSuccess, Runnable onFailure) {
         judicator.getPlatform().runAsync(() -> {
-            if (repository.revoke(id, reason)) onSuccess.run();
+            if (repository.revoke(id, revokeReason(reason))) onSuccess.run();
             else onFailure.run();
         });
     }
@@ -96,7 +103,7 @@ public class PunishService {
     }
 
     public boolean revokeNow(Long id, String reason) {
-        return repository.revoke(id, reason);
+        return repository.revoke(id, revokeReason(reason));
     }
 
     public Optional<Punishment> findById(Long id) {

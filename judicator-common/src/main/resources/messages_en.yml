@@ -30,6 +30,7 @@ success:
 prompt:
   write-evidences: "&7Send the evidence one by one in chat. To finish, click or type \"{ready-prompt}\" or \"{cancel-prompt}\"."
   next-link: "&aLink successfully attached. To finish, click or type \"{ready-prompt}\" or \"{cancel-prompt}\"."
+  evidence-limit: "&cThere is no room for this evidence (255 characters in total). Type \"{ready-prompt}\" to apply with the evidence already attached or \"{cancel-prompt}\"."
   ready: "confirm"
   cancel: "cancel"
 status:
@@ -37,8 +38,8 @@ status:
   active: "Active"
   revoked: "Revoked"
 permanent: "Permanent"
-yes: "Yes"
-no: "No"
+"yes": "Yes"
+"no": "No"
 date-format: "MM/dd/yyyy 'at' HH:mm"
 
 punish:
@@ -221,7 +222,7 @@ usages:
   warn: "&cIncorrect command. Use: /warn (player) (reason)."
   tempwarn: "&cIncorrect command. Use: /tempwarn (player) \"(number:days,number:months...)\" (reason)."
   warnhistory: "&cIncorrect command. Use: /whistory (player)."
-  unwarn: "&cIncorrect command. Use: /unwarn (player)."
+  unwarn: "&cIncorrect command. Use: /unwarn (id)."
   warnview: "&cIncorrect command. Use: /wview (id)."
   unban: "&cIncorrect command. Use: /unban (player) [-s] [reason]."
   unmute: "&cIncorrect command. Use: /unmute (player) [-s] [reason]."

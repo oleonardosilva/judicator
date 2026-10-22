@@ -15,7 +15,6 @@ import org.spongepowered.configurate.ConfigurationNode;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 public class UnpunishCommand extends CoreCommand {
@@ -66,7 +65,7 @@ public class UnpunishCommand extends CoreCommand {
             return;
         }
 
-        if (mute) clearMuteCache(targetName, active);
+        if (mute) clearMuteCache(active);
 
         final String nickname = active.get(0).getNickname();
         source.sendMessage(PunishUtils.format(messages, Map.of("nickname", nickname, "count", String.valueOf(revoked)),
@@ -78,22 +77,9 @@ public class UnpunishCommand extends CoreCommand {
         judicator.getStaffNotifier().notifyUnpunish(author, nickname, mute ? "MUTE" : "BAN", revoked, silent);
     }
 
-    private void clearMuteCache(String targetName, List<Punishment> revoked) {
+    private void clearMuteCache(List<Punishment> revoked) {
         final PunishCache cache = judicator.getPunishCache();
-        cache.removeMutePunishment(targetName);
-        revoked.forEach(punishment -> {
-            cache.removeMutePunishment(punishment.getNickname());
-            punishment.getIpAddress().ifPresent(address -> {
-                cache.removeMutePunishment(address);
-                // MuteHandler caches an IP mute under the name of every online account on that address.
-                judicator.getPlatform().getOnlinePlayers().stream()
-                        .filter(player -> address.equals(player.getHostAddress()))
-                        .filter(player -> cache.getPunishment(player.getName())
-                                .map(cached -> Objects.equals(cached.getId(), punishment.getId()))
-                                .orElse(false))
-                        .forEach(player -> cache.removeMutePunishment(player.getName()));
-            });
-        });
+        revoked.forEach(punishment -> cache.forgetMute(punishment.getId()));
     }
 
 }

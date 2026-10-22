@@ -12,6 +12,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.spongepowered.configurate.ConfigurationNode;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.function.BiConsumer;
 
 @Getter
@@ -19,6 +22,8 @@ import java.util.function.BiConsumer;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChatContext<T> {
+
+    static final int EVIDENCE_MAX_LENGTH = 255;
 
     private String operator;
     private T value;
@@ -43,6 +48,15 @@ public class ChatContext<T> {
             if (message.equalsIgnoreCase(cancelPrompt)) {
                 input.player().sendMessage(PunishUtils.getMessage(messages, "success", "cancel"));
                 cache.removeContext(currentBuilder.getPunisher());
+                return;
+            }
+
+            // Evidence is stored as one comma-separated VARCHAR(255): more than that and the database rejects the
+            // whole punishment. Refuse the link that does not fit instead.
+            final List<String> withNew = new ArrayList<>(currentBuilder.getEvidences());
+            withNew.addAll(Arrays.asList(message.split(" ")));
+            if (String.join(",", withNew).length() > EVIDENCE_MAX_LENGTH) {
+                input.player().sendMessage(PunishUtils.getConfirmationMessage(messages, "prompt", "evidence-limit"));
                 return;
             }
 

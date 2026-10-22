@@ -9,6 +9,7 @@ import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.PunishmentBuilder;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -45,6 +46,14 @@ public class PunishCache {
 
     public void removeMutePunishment(String key) {
         activeSilences.remove(key.toLowerCase());
+    }
+
+    /**
+     * Drops a mute from every key it is cached under (the names of the accounts it was applied to, the IP address
+     * restored at login), so all of them can talk right after it is revoked.
+     */
+    public void forgetMute(Long punishmentId) {
+        activeSilences.values().removeIf(punishment -> Objects.equals(punishment.getId(), punishmentId));
     }
 
     public Optional<Punishment> getPunishment(String key) {

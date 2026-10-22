@@ -13,6 +13,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.Map.Entry;
@@ -25,9 +26,11 @@ import java.util.Map.Entry;
  */
 public class UUIDManager {
 
+    private static final int TIMEOUT_MILLIS = 5000;
     private final Map<String, String> activeUUIDs = Maps.newConcurrentMap();
 
     private final Judicator judicator;
+    private volatile boolean remoteLookups = true;
 
     public UUIDManager(Judicator judicator) {
         this.judicator = judicator;
@@ -45,7 +48,7 @@ public class UUIDManager {
             if (activeUUIDs.containsKey(name)) return fromString(activeUUIDs.get(name.toLowerCase()));
             String uuid = "";
             try {
-                uuid = askAPI(name);
+                if (remoteLookups) uuid = askAPI(name);
             } catch (IOException | URISyntaxException ignored) {
             }
             UUID parsed = fromString(uuid);
@@ -54,6 +57,21 @@ public class UUIDManager {
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    /**
+     * Remembers the UUID of a player who joined, so punishing them after they log off needs no Mojang lookup.
+     */
+    public void remember(String name, UUID uuid) {
+        if (name != null && uuid != null) supplyInternUUID(name, uuid);
+    }
+
+    /**
+     * Turns the Mojang API lookups on or off. Off, a player who never joined has no known UUID (tests use this so
+     * they never depend on the network).
+     */
+    public void setRemoteLookups(boolean enabled) {
+        this.remoteLookups = enabled;
     }
 
     private void supplyInternUUID(String name, UUID uuid) {
@@ -94,10 +112,16 @@ public class UUIDManager {
                 return inMemoryName;
             }
         }
-        try (Scanner scanner = new Scanner(new URI("https://api.mojang.com/user/profiles/" + uuid + "/names").toURL().openStream(), StandardCharsets.UTF_8)) {
+        if (!remoteLookups) return null;
+        try {
+            final URLConnection connection = new URI("https://api.mojang.com/user/profiles/" + uuid + "/names").toURL().openConnection();
+            connection.setConnectTimeout(TIMEOUT_MILLIS);
+            connection.setReadTimeout(TIMEOUT_MILLIS);
+            try (Scanner scanner = new Scanner(connection.getInputStream(), StandardCharsets.UTF_8)) {
             String s = scanner.useDelimiter("\\A").next();
             s = s.substring(s.lastIndexOf('{'), s.lastIndexOf('}') + 1);
             return parseJSON(s);
+            }
         } catch (Exception exc) {
             return null;
         }
@@ -111,6 +135,9 @@ public class UUIDManager {
                 .replaceAll("%TIMESTAMP%", new Date().getTime() + ""))
                 .toURL()
                 .openConnection();
+        // Commands run this off the main thread, but a silent network must not hold the command forever.
+        request.setConnectTimeout(TIMEOUT_MILLIS);
+        request.setReadTimeout(TIMEOUT_MILLIS);
         request.connect();
         String uuid = parseJSON(new InputStreamReader(request.getInputStream()));
         if (uuid == null || uuid.isBlank()) {
