@@ -9,6 +9,7 @@ configurations {
 
 dependencies {
     implementation project(':judicator-common')
+    implementation 'org.bstats:bstats-velocity:3.2.1'
 
     compileOnly 'com.velocitypowered:velocity-api:3.4.0-SNAPSHOT'
     annotationProcessor 'com.velocitypowered:velocity-api:3.4.0-SNAPSHOT'
@@ -32,6 +33,8 @@ tasks {
         archiveBaseName.set('Judicator-Velocity')
         archiveClassifier.set('')
         mergeServiceFiles()
+        // Other plugins ship their own bStats: keep ours in the plugin's package.
+        relocate 'org.bstats', 'com.openmc.judicator.libs.bstats'
     }
 
     build {

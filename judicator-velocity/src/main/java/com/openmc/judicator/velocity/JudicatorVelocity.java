@@ -14,6 +14,7 @@ import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
+import org.bstats.velocity.Metrics;
 import org.slf4j.Logger;
 
 import java.nio.file.Path;
@@ -29,16 +30,22 @@ import java.util.List;
         version = BuildConstants.VERSION)
 public class JudicatorVelocity {
 
+    // https://bstats.org/what-is-my-plugin-id
+    private static final int BSTATS_PLUGIN_ID = 34894;
+
     private final Logger logger;
     private final ProxyServer server;
     private final Path dataDirectory;
+    private final Metrics.Factory metricsFactory;
     private Judicator judicator;
 
     @Inject
-    public JudicatorVelocity(Logger logger, ProxyServer server, @DataDirectory Path dataDirectory) {
+    public JudicatorVelocity(Logger logger, ProxyServer server, @DataDirectory Path dataDirectory,
+                             Metrics.Factory metricsFactory) {
         this.logger = logger;
         this.server = server;
         this.dataDirectory = dataDirectory;
+        this.metricsFactory = metricsFactory;
     }
 
     @Subscribe
@@ -84,6 +91,7 @@ public class JudicatorVelocity {
         registerCommands(core.getCommands());
         server.getEventManager().register(this, new VelocityListener(core, server, platform));
         server.getChannelRegistrar().register(VelocityPlatform.TELEPORT_CHANNEL);
+        metricsFactory.make(this, BSTATS_PLUGIN_ID);
         logger.info("Plugin has been initialized successfully!");
     }
 

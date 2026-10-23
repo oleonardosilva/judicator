@@ -5,6 +5,7 @@ import com.openmc.judicator.api.JudicatorApi;
 import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.reports.TeleportRequest;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
+import org.bstats.bukkit.Metrics;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -12,6 +13,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.logging.Level;
 
 public class JudicatorBukkit extends JavaPlugin {
+
+    // https://bstats.org/what-is-my-plugin-id
+    private static final int BSTATS_PLUGIN_ID = 34895;
 
     private BukkitAudiences audiences;
     private Judicator judicator;
@@ -52,6 +56,7 @@ public class JudicatorBukkit extends JavaPlugin {
         }
         // Also reachable through JudicatorProvider.get(), set by Judicator.enable().
         getServer().getServicesManager().register(JudicatorApi.class, core.getApi(), this, ServicePriority.Normal);
+        new Metrics(this, BSTATS_PLUGIN_ID);
         getLogger().info("Plugin has been initialized successfully!");
     }
 
