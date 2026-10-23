@@ -195,6 +195,54 @@ public class WarnRelationalDAO implements WarnRepository {
     }
 
     @Override
+    public List<Warn> findByPunisherSince(String punisher, LocalDateTime since) {
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT * FROM warns WHERE LOWER(punisher) = ? AND started_at >= ? ORDER BY started_at DESC, id DESC")) {
+            statement.setString(1, punisher.toLowerCase());
+            statement.setTimestamp(2, SqlTime.of(since));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                final List<Warn> warns = new ArrayList<>();
+                while (resultSet.next()) {
+                    warns.add(load(resultSet));
+                }
+                return warns;
+            }
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return List.of();
+        }
+    }
+
+    @Override
+    public int deleteFinishedBefore(LocalDateTime cutoff) {
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "DELETE FROM warns WHERE permanent = false AND finish_at IS NOT NULL AND finish_at < ?")) {
+            statement.setTimestamp(1, SqlTime.of(cutoff));
+            return statement.executeUpdate();
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return 0;
+        }
+    }
+
+    @Override
+    public int deleteAllOf(String username, UUID uuid) {
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(uuid == null
+                     ? "DELETE FROM warns WHERE lower_nickname = ?"
+                     : "DELETE FROM warns WHERE lower_nickname = ? OR player_uuid = ?")) {
+            statement.setString(1, username.toLowerCase());
+            if (uuid != null) statement.setString(2, uuid.toString());
+            return statement.executeUpdate();
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return 0;
+        }
+    }
+
+    @Override
     public List<Warn> findAllByUUID(UUID uuid) {
         try (Connection connection = manager.getDataSource().getConnection()) {
             final PreparedStatement statement = connection.prepareStatement("""

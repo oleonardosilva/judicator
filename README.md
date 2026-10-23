@@ -89,6 +89,23 @@ The following commands are used to apply, remove, or check punishments for playe
   Temporarily mutes all players with the same IP.
   **Permission:** `judicator.tempmute.ip`
 
+* **Online time only (`-o`)**: on `/tempmute` and `/tempsoftmute`, the time only runs while the player is online
+  (`/tempmute Steve 1:h -o spam`). When they leave — or the server stops — the time left is kept and the mute is
+  paused (still in force, shown as "… of online time left"); it runs again at their next login. Applied to an offline
+  player, it starts paused. Not available for IP mutes.
+
+### 🤐 Soft Mutes
+
+* **`/softmute (player) {reason}`** and **`/tempsoftmute (player) (duration) {-o} {reason}`**
+  The player still sees their own messages, nobody else does, and nothing tells them they are muted (no alert, no
+  public announcement — staff are notified as `SOFTMUTE`/`TEMPSOFTMUTE`). Commands in `commands-locked-when-silenced`
+  are blocked without a message. `/unmute` lifts it. On Spigot/Paper the message keeps the server's chat format; on
+  Velocity it is replaced, for the sender only, by `soft-mute-format` in `config.yml`.
+  **Permission:** `judicator.softmute`, `judicator.tempsoftmute`
+* **Velocity and 1.19.1+ clients:** Velocity disconnects a 1.19.1+ player whose signed chat message is denied, which
+  affects every chat block done on the proxy (normal and soft mutes). Install a plugin such as SignedVelocity on the
+  proxy and the backends, or run Judicator on the backend servers, if your players use signed chat.
+
 ---
 
 ### 🚫 Warnings and Kicks
@@ -136,6 +153,35 @@ The following commands are used to apply, remove, or check punishments for playe
   « Previous / Next » to change page.
   **Permission:** `judicator.banlist`, `judicator.mutelist`
 
+* **`/playerinfo (player)`** (alias `/pinfo`)
+  One screen with the ban and mute in force, history counts, warns, staff notes, alt accounts and last login, each
+  clickable to the full command. The last IP is only shown to who has `judicator.history`. (Not `/info`, which belongs
+  to EssentialsX.)
+  **Permission:** `judicator.info`
+
+---
+
+### 📝 Staff Notes
+
+* **`/note (player) (text)`** — writes a note about a player (up to 255 characters) for the rest of the staff; the
+  player never sees it. **Permission:** `judicator.note`
+* **`/notes (player) {page}`** — lists the notes, newest first; hover for the whole text, click to prepare
+  `/delnote`. **Permission:** `judicator.notes`
+* **`/delnote (id)`** — deletes a note. **Permission:** `judicator.delnote`
+* Staff with **`judicator.notes.notify`** are told when a player with notes joins (`notes.notify-on-join`).
+
+---
+
+### ✏️ Fixing a Punishment
+
+* **`/extend (id) (duration)`**
+  Adds time to a temporary ban or mute in force (to what is left, for a paused online-only mute). The result must fit
+  your `time-limits`. **Permission:** `judicator.extend`
+* **`/changereason (id) (reason)`**
+  Replaces the reason of a punishment in force (`#key` shortcuts work). **Permission:** `judicator.changereason`
+* Only the console, `judicator.admin`, the author of the punishment or a staff member above the author (hierarchy)
+  may change it, and only if they could punish the player.
+
 ---
 
 ### ✅ Punishment Removal
@@ -166,6 +212,13 @@ The following commands are used to apply, remove, or check punishments for playe
   staff member to open their `/blame` for the same period. Alias: `/staffactivity`.
   **Permission:** `judicator.activity`
 
+* **`/staffrollback (staff) (period) {confirm}`**
+  Undoes what a staff member applied in the period (a stolen account, an abusive staff member): shows what would
+  change and, with `confirm` (clickable), revokes the bans and mutes still in force — the records stay, revoked with
+  "Rollback of …" — and deletes the warns still active (warns cannot be revoked; each one is written to the console log
+  first). Punishments the console applied (e.g. the warn tree) are not included. You must be above the staff member in
+  the hierarchy. **Permission:** `judicator.staffrollback`
+
 ---
 
 ### 👥 Alt Accounts
@@ -176,6 +229,10 @@ The following commands are used to apply, remove, or check punishments for playe
 
 * Staff with **`judicator.alts.notify`** are warned when a player joins sharing an IP with a banned or muted
   account (`alts.notify-on-join` in `config.yml`).
+* **`alts.deny-if-banned: true`** (off by default) refuses an account while another account that used the same IP has
+  a ban in force (ban evasion). The screen shows the ban's id, not the other account; staff with
+  `judicator.alts.notify` are told. Addresses in `exempt-addresses` and players exempt from `alts` in `immune.yml`
+  (siblings on the same home network, for instance) are let in.
 
 ### 🌐 Shared Networks and Accounts per IP
 
@@ -209,7 +266,20 @@ The following commands are used to apply, remove, or check punishments for playe
   above the staff member, is in `immune.yml`, or is the staff member themselves.
 * A staff member's level is only known once they have joined after the update; until then they can be punished
   while offline like any player without a level.
-* Configure it under `hierarchy` in `config.yml`. `immune.yml` still works as before.
+* Configure it under `hierarchy` in `config.yml`.
+
+### 🚷 Exemptions (`immune.yml`)
+
+* `users:` — names that cannot get any punishment (the format of older versions, still read).
+* `players:` — a UUID (preferred: it survives a name change, and a name proves nothing in offline mode) or a name,
+  and what it is exempt from: `all`, `ban`, `mute`, `kick`, `warn`, `alts` (may join despite `alts.deny-if-banned`).
+
+  ```yaml
+  players:
+    "069a79f4-44e9-4726-a5be-fca90e38aaf5": [all]
+    "Builder": [mute, warn]
+  ```
+* Exemptions also apply to the console. An IP punishment is refused when any account of the address is exempt from it.
 
 ### ⏱️ Time Limits and Cooldowns
 
@@ -271,7 +341,7 @@ punishments already in Judicator (same target — IP, UUID or name — type and 
 | `libertybans` | every punishment from LibertyBans' database (`simple_history` view) | names from its `names` table; kicks and punishments limited to some servers (scopes) are skipped |
 | `banmanager` | player/IP bans and mutes (active and `*_records`) and warnings from BanManager's database | kicks, notes, name bans and IP range bans are not read; soft mutes become normal mutes; an online-only mute ends after the time it had left |
 | `vanilla` | `banned-players.json` and `banned-ips.json` (also used by Essentials) | bans only |
-| `judicator` | another Judicator database: punishments (with revocations, evidence and logged kicks), warns and the IP history used by `/alts` | to move between databases, e.g. SQLite → MySQL: point `data.yml` to the new one, restart, import the old one; staff levels are recorded again on join |
+| `judicator` | another Judicator database: punishments (with revocations, evidence, logged kicks, soft and online-only mutes), warns, staff notes and the IP history used by `/alts` | to move between databases, e.g. SQLite → MySQL: point `data.yml` to the new one, restart, import the old one; staff levels are recorded again on join |
 
 Configure the source database in `import.yml` (`jdbc-url`, `user`, `password`). MySQL/MariaDB (`jdbc:mysql://`),
 PostgreSQL and SQLite work directly. For H2 (LiteBans' and BanManager's default) or HSQLDB (AdvancedBan's and
@@ -290,6 +360,37 @@ jar in `plugins/<Judicator folder>/drivers` and set `driver-jar` and `driver-cla
 
 ---
 
+### 🗑️ Data Retention and Deletion
+
+Player names, IP addresses and histories are personal data. Judicator keeps them only as long as you tell it to:
+
+* **`retention`** in `config.yml` — days to keep each kind of old record (`0` = forever, the default). They are
+  deleted at startup and every 12 hours:
+
+  ```yaml
+  retention:
+    kicks: 30                 # logged kicks
+    finished-punishments: 365 # bans/mutes that ended (or were revoked) that long ago; nothing in force is deleted
+    finished-warns: 180       # temporary warns that ended
+    addresses: 90             # IPs no account used for that long (/alts and offline IP bans stop finding them)
+    notes: 0                  # staff notes
+  ```
+* **`/judicator clear (player) {confirm}`** (console only) — for a deletion request: shows what is stored about the
+  player and, with `confirm`, deletes their punishments (those in force are lifted), warns, staff notes, their name in
+  the IP history and their staff level. Records under an older name of the same account (same UUID) are included.
+
+---
+
+### 🌍 Messages per Player
+
+Set **`per-player-language: true`** in `config.yml` and each player gets the messages in their game language when it
+is English, Spanish or Portuguese (the three `messages_*.yml` files are created); other languages, the console,
+Discord and the login screens (the game has not told its language yet) use `language`. Announcements and staff
+notifications are built for each recipient. The evidence prompt accepts the word in the staff member's language and in
+the server language.
+
+---
+
 ### ⬆️ Upgrading from 1.0.0
 
 * New message keys are read from the plugin's bundled files when your `messages_*.yml` doesn't have them yet, so you
@@ -301,10 +402,16 @@ jar in `plugins/<Judicator folder>/drivers` and set `driver-jar` and `driver-cla
 * Velocity: every library downloaded into `plugins/judicator/libs` is checked against a SHA-256 fixed in the plugin
   and only Maven Central is used. A jar that does not match is downloaded again; if it still does not match the
   plugin does not start. Other jars in that folder are no longer loaded.
+* Database: on the first start the plugin creates the `notes` table and adds the columns `soft`, `online_only` and
+  `paused_remaining` to `punishments` (existing rows become normal mutes/bans). Going back to an older version keeps
+  working, but a paused online-only mute would look permanent there.
+* Also optional: `per-player-language`, `soft-mute-format`, `notes`, `alts.deny-if-banned`, `retention` and the
+  `players:` section of `immune.yml`. Without them nothing changes (no retention, alts are only reported).
+* `/tempmute` (and the other mute/ban commands) now read `-s` and `-o` in any order before or after the duration.
 
 ---
 
-### 📝 Reports - Coming Soon
+### 📣 Reports - Coming Soon
 
 * **`/report (player) {reason}`**
   Sends a report to the moderation team.

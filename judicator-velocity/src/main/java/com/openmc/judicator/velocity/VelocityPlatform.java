@@ -15,6 +15,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 public class VelocityPlatform implements Platform {
 
@@ -77,7 +78,9 @@ public class VelocityPlatform implements Platform {
 
     @Override
     public PlatformTask runAsyncRepeating(Runnable task, long period, TimeUnit unit) {
+        // first run after one period, as the Bukkit timer does
         final ScheduledTask scheduled = server.getScheduler().buildTask(plugin, task)
+                .delay(period, unit)
                 .repeat(period, unit)
                 .schedule();
         return scheduled::cancel;
@@ -89,10 +92,11 @@ public class VelocityPlatform implements Platform {
     }
 
     @Override
-    public void announceToServerOf(JudicatorPlayer player, Component message) {
+    public void announceToServerOf(JudicatorPlayer player, Function<JudicatorPlayer, Component> message) {
         server.getPlayer(player.getUniqueId())
                 .flatMap(Player::getCurrentServer)
-                .ifPresent(connection -> connection.getServer().sendMessage(message));
+                .ifPresent(connection -> connection.getServer().getPlayersConnected()
+                        .forEach(recipient -> recipient.sendMessage(message.apply(new VelocityPlayer(recipient)))));
     }
 
 }

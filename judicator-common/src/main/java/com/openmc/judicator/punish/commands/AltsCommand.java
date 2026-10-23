@@ -31,7 +31,7 @@ public class AltsCommand extends CoreCommand {
             return;
         }
         final String targetName = optTarget.get();
-        final ConfigurationNode messages = messages();
+        final ConfigurationNode messages = messages(source);
 
         final Set<String> alts = judicator.getAddressService().findAlts(targetName, judicator.getAddressPolicy()::isExempt);
         if (alts.isEmpty()) {

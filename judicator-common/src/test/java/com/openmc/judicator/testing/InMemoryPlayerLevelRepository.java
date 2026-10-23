@@ -22,6 +22,11 @@ public final class InMemoryPlayerLevelRepository implements PlayerLevelRepositor
     }
 
     @Override
+    public boolean delete(String nickname) {
+        return levels.remove(nickname.toLowerCase(Locale.ROOT)) != null;
+    }
+
+    @Override
     public OptionalInt findLevel(String nickname) {
         final Integer level = levels.get(nickname.toLowerCase(Locale.ROOT));
         return level == null ? OptionalInt.empty() : OptionalInt.of(level);

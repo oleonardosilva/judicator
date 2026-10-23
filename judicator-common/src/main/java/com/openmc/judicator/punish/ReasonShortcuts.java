@@ -37,7 +37,7 @@ public final class ReasonShortcuts {
             final Optional<ConfiguredReason> configured = cache.getReasonByKey(words[i].substring(PREFIX.length()));
             if (configured.isEmpty()) continue;
             if (!cache.canUse(sender, configured.get())) {
-                sender.sendMessage(PunishUtils.getMessage(judicator.getMessagesConfig(), "error", "reason-no-permission"));
+                sender.sendMessage(PunishUtils.getMessage(judicator.messagesFor(sender), "error", "reason-no-permission"));
                 return Optional.empty();
             }
             words[i] = configured.get().getReason();

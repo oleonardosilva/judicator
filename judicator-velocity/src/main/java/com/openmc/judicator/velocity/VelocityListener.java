@@ -51,16 +51,28 @@ public class VelocityListener {
     }
 
     @Subscribe
-    public void onDisconnect(DisconnectEvent event) {
+    public EventTask onDisconnect(DisconnectEvent event) {
+        // a second connection refused because the name is already online: the player who stays is not leaving
+        if (event.getLoginStatus() == DisconnectEvent.LoginStatus.CONFLICTING_LOGIN) return null;
         final Player player = event.getPlayer();
-        connectionHandler.onDisconnect(player.getUsername(), player.getRemoteAddress().getAddress().getHostAddress());
+        final String username = player.getUsername();
+        final String address = player.getRemoteAddress().getAddress().getHostAddress();
+        // pausing an online-only mute writes to the database
+        return EventTask.async(() -> connectionHandler.onDisconnect(username, address));
     }
 
     @Subscribe(priority = 10)
     public void onMutedChat(PlayerChatEvent event) {
         if (!event.getResult().isAllowed()) return;
-        if (chatHandler.shouldBlockChat(new VelocityPlayer(event.getPlayer()))) {
-            event.setResult(PlayerChatEvent.ChatResult.denied());
+        final VelocityPlayer player = new VelocityPlayer(event.getPlayer());
+        switch (chatHandler.chatDecision(player)) {
+            case BLOCK -> event.setResult(PlayerChatEvent.ChatResult.denied());
+            case SOFT -> {
+                event.setResult(PlayerChatEvent.ChatResult.denied());
+                player.sendMessage(chatHandler.softMuteEcho(player, event.getMessage()));
+            }
+            default -> {
+            }
         }
     }
 

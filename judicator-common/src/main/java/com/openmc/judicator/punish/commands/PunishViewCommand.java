@@ -27,11 +27,11 @@ public class PunishViewCommand extends CoreCommand {
 
         final Optional<Punishment> optPunishment = judicator.getPunishService().findById(optId.get());
         if (optPunishment.isEmpty()) {
-            source.sendMessage(PunishUtils.getMessage(messages(), "error", "punish-not-found"));
+            source.sendMessage(PunishUtils.getMessage(messages(source), "error", "punish-not-found"));
             return;
         }
 
-        source.sendMessage(PunishUtils.getMessageList(messages(), optPunishment.get(), "runners", "punishment-view"));
+        source.sendMessage(PunishUtils.getMessageList(messages(source), optPunishment.get(), "runners", "punishment-view"));
     }
 
     @Override

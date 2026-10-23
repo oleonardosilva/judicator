@@ -19,6 +19,7 @@ error:
   time-limit: "&cYour rank can apply a {type} for at most {limit}."
   cooldown: "&c{nickname} received a {type} {elapsed}s ago. Wait {remaining}s before punishing again."
   address-exempt: "&cThis IP address is in exempt-addresses and cannot be punished by IP. Punish the account instead (/ban, /mute)."
+  online-only-ip: "&c-o (time only counts online) works on account mutes only, not on IP mutes."
 success:
   cancel: "&aOperation successfully canceled."
   pardon: "&aThe punishment with the provided ID has been successfully revoked."
@@ -41,6 +42,7 @@ status:
   active: "Active"
   revoked: "Revoked"
 permanent: "Permanent"
+paused: "&e{remaining} of online time left"
 "yes": "Yes"
 "no": "No"
 date-format: "MM/dd/yyyy 'at' HH:mm"
@@ -108,6 +110,11 @@ announcements:
     - ""
 
 runners:
+  alt-ban-kick:
+    - "&6&lOpenMine Network\n"
+    - "&cAnother account that used your network is banned.\n"
+    - "\n"
+    - "&cUse ID &e#{id} &cto request a review on our Discord: &c&nbit.ly/openmc\n"
   too-many-accounts:
     - "&6&lOpenMine Network\n"
     - "&cToo many accounts are connecting from your network.\n"
@@ -219,7 +226,7 @@ usages:
   tempban: "&cIncorrect command. Use: /tempban (player) \"(number:days,number:months...)\" [reason]."
   tempbanip: "&cIncorrect command. Use: /tempbanip (player) \"(number:days,number:months...)\" [reason]."
   mute: "&cIncorrect command. Use: /mute (player) [reason]."
-  tempmute: "&cIncorrect command. Use: /tempmute (player) \"(number:days,number:months...)\" [reason]."
+  tempmute: "&cIncorrect command. Use: /tempmute (player) \"(number:days,number:months...)\" [-o] [reason]."
   muteip: "&cIncorrect command. Use: /muteip (player) [reason]."
   tempmuteip: "&cIncorrect command. Use: /tempmuteip (player) \"(number:days,number:months...)\" [reason]."
   revoke: "&cIncorrect command. Use: /revoke (id)."
@@ -239,10 +246,21 @@ usages:
   banlist: "&cIncorrect command. Use: /banlist [page]."
   mutelist: "&cIncorrect command. Use: /mutelist [page]."
   activity: "&cIncorrect command. Use: /activity (period, e.g. 24:h or 7:d) [page]."
+  staffrollback: "&cIncorrect command. Use: /staffrollback (staff) (period, e.g. 24:h or 7:d) [confirm]."
+  extend: "&cIncorrect command. Use: /extend (id) \"(number:days,number:hours...)\"."
+  changereason: "&cIncorrect command. Use: /changereason (id) (reason)."
+  note: "&cIncorrect command. Use: /note (player) (text)."
+  notes: "&cIncorrect command. Use: /notes (player) [page]."
+  delnote: "&cIncorrect command. Use: /delnote (id)."
+  playerinfo: "&cIncorrect command. Use: /playerinfo (player)."
+  softmute: "&cIncorrect command. Use: /softmute (player) [reason]."
+  tempsoftmute: "&cIncorrect command. Use: /tempsoftmute (player) \"(number:days,number:hours...)\" [-o] [reason]."
 
 notifications:
   punish: "&7[Staff] &f{author} &7applied &c{type} &7to &f{nickname}&7: &f{reason}"
   unpunish: "&7[Staff] &f{author} &7revoked {count} &a{type} &7of &f{nickname}"
+  edit: "&7[Staff] &f{author} &7changed &e#{id} &7of &f{nickname}&7: {change}"
+  rollback: "&7[Staff] &f{author} &7rolled back &f{staff} &7(last {period}): {punishments} punishment(s) revoked, {warns} warn(s) deleted"
   silent-prefix: "&8[silent] "
 
 alts:
@@ -251,6 +269,7 @@ alts:
   hover: "&7Click to see the punishment history of {account}"
   none: "&aNo other accounts were found for {nickname}."
   notify: "&e[Alts] &f{nickname} &7shares an IP with banned/muted account(s): &c{accounts}"
+  denied: "&e[Alts] &f{nickname} &7was refused: shares an IP with the banned account &c{account} &7(#{id})"
   status:
     banned: "&cbanned"
     muted: "&6muted"
@@ -298,3 +317,48 @@ pagination:
   page: "&7| Page {page}/{pages} |"
   next: " &eNext &e&l»"
   hover: "&7Click to open page {page}"
+
+edit:
+  extended: "&aPunishment #{id} of {nickname} now ends {finishAt}."
+  reason-changed: "&aThe reason of punishment #{id} of {nickname} is now: &f{reason}"
+  change-duration: "&fnow ends {finishAt}"
+  change-reason: "&freason is now \"{reason}\""
+  not-active: "&cOnly a punishment in force can be changed."
+  permanent: "&cOnly a temporary punishment can be extended."
+  not-allowed: "&cOnly the author of this punishment, or a staff member above them, can change it."
+
+rollback:
+  preview: "&eIn the last &f{period}&e, &f{staff} &eapplied what is still in force: &f{bans} &eban(s), &f{mutes} &emute(s) and &f{warns} &eactive warn(s). Bans and mutes will be revoked and warns deleted. "
+  confirm: "&a&l[Click to confirm]"
+  none: "&a{staff} applied nothing that is still in force in the last {period}."
+  done: "&aRollback of {staff}: {punishments} punishment(s) revoked and {warns} warn(s) deleted."
+  revoke-reason: "Rollback of {staff} by {author}"
+
+notes:
+  added: "&aNote #{id} added to {nickname}."
+  too-long: "&cA note can have at most 255 characters."
+  title: "&eStaff notes about &f{nickname} &7({count} in total, page {page}/{pages})\n\n"
+  line: "    &f&l• &e#{id} &7- &f{author} &7- &f{createdAt}&7: &f{preview}\n"
+  hover: "&f{content}\n\n&7Click to put /delnote in the chat box (Enter deletes it)."
+  none: "&a{nickname} has no staff notes."
+  deleted: "&aNote #{id} of {nickname} deleted."
+  not-found: "&cNo note was found with the provided ID."
+  notify: "&e[Notes] &f{nickname} &7joined and has &f{count} &7staff note(s). Click to read them."
+
+info:
+  title: "&eInformation about &f{nickname} &7({state}&7)\n"
+  online: "&aonline"
+  offline: "&coffline"
+  now: "now"
+  uuid: "&7 * UUID: &f{uuid}\n"
+  ban: "&7 * Ban: &c#{id} {type} &7until &f{finishAt}\n"
+  no-ban: "&7 * Ban: &anone\n"
+  mute: "&7 * Mute: &6#{id} {type} &7until &f{finishAt}\n"
+  no-mute: "&7 * Mute: &anone\n"
+  punishments: "&7 * History: &f{bans} &7ban(s), &f{mutes} &7mute(s), &f{kicks} &7kick(s) &8(click)\n"
+  warns: "&7 * Warns: &f{activeWarns} &7active of &f{warns} &8(click)\n"
+  notes: "&7 * Staff notes: &f{notes} &8(click)\n"
+  alts: "&7 * Accounts that shared an IP: &f{alts} &8(click)\n"
+  last-seen: "&7 * Last login: &f{lastSeen}"
+  ip: "\n&7 * Last IP: &f{ip}"
+  unknown: "&cNothing is known about {nickname}."

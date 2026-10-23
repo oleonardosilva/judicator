@@ -61,7 +61,7 @@ public class BlameCommand extends CoreCommand {
             return;
         }
 
-        final ConfigurationNode messages = messages();
+        final ConfigurationNode messages = messages(source);
         final LocalDateTime since = period == null ? null : DateTimeOffsetParser.since(periodMillis);
         final Map<String, String> placeholders = new HashMap<>(Map.of("staff", staff));
         if (period != null) placeholders.put("period", DateTimeOffsetParser.format(messages, periodMillis));

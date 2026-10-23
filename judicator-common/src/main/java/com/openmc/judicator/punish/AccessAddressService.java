@@ -3,6 +3,7 @@ package com.openmc.judicator.punish;
 import com.openmc.judicator.punish.data.repository.AccessAddressRepository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
@@ -29,6 +30,21 @@ public class AccessAddressService {
         // Always refresh: findByUsername picks the most recently used address for offline IP punishments.
         address.setLastUsage(LocalDateTime.now());
         repository.save(address);
+    }
+
+    /**
+     * Takes the account out of every address it used; an address left without accounts is deleted.
+     *
+     * @return how many addresses had the account
+     */
+    public int removeAccount(String username) {
+        final List<AccessAddress> addresses = repository.findAllByUsername(username);
+        for (AccessAddress address : addresses) {
+            address.removeAccount(username);
+            if (address.getAccounts().isEmpty()) repository.deleteById(String.valueOf(address.getId()));
+            else repository.save(address);
+        }
+        return addresses.size();
     }
 
     public Optional<AccessAddress> findByUsername(String username) {

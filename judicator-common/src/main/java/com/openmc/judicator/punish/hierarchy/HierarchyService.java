@@ -12,6 +12,8 @@ public class HierarchyService {
     private final Judicator judicator;
     private final PlayerLevelRepository repository;
 
+    private static final String CONSOLE = "Console";
+
     public HierarchyService(Judicator judicator, PlayerLevelRepository repository) {
         this.judicator = judicator;
         this.repository = repository;
@@ -41,6 +43,21 @@ public class HierarchyService {
         if (!isEnabled() || !source.isPlayer()) return true;
         final int targetLevel = targetLevel(targetName);
         return targetLevel <= 0 || levelOf(source) > targetLevel;
+    }
+
+    /**
+     * Whether the source may act on what a staff member applied (change or roll back their punishments): the console,
+     * {@code judicator.admin}, the staff member themselves, or, with the hierarchy on, someone of a higher level. What
+     * the console applied is only for the console and admins.
+     */
+    public boolean canActOnStaff(JudicatorSender source, String staff) {
+        if (!source.isPlayer() || source.hasPermission(PunishPermissions.ADMIN.getPermission())) return true;
+        // what the console applied (warn tree, anticheat, imports) has no level: only the console or an admin changes it
+        if (CONSOLE.equalsIgnoreCase(staff)) return false;
+        if (source.getName().equalsIgnoreCase(staff)) return true;
+        if (!isEnabled()) return true;
+        final int staffLevel = targetLevel(staff);
+        return staffLevel <= 0 || levelOf(source) > staffLevel;
     }
 
     public void recordLevel(JudicatorPlayer player) {

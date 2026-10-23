@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 public class PunishmentRelationalDAO implements PunishmentRepository {
 
     private static final LocalDateTime EPOCH = LocalDateTime.of(1970, 1, 1, 0, 0);
+    private static final int NAMES_PER_QUERY = 200;
 
     private final RelationalDBManager manager;
     private final Logger logger;
@@ -34,15 +35,16 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                         UPDATE punishments SET
                             player_uuid = ?, reason = ?, punisher = ?, nickname = ?, ip_address = ?,
                             lower_nickname = ?, started_at = ?, finish_at = ?, revoked = ?, evidences = ?,
-                            type = ?, permanent = ?, revoked_reason = ?
+                            type = ?, permanent = ?, revoked_reason = ?, soft = ?, online_only = ?, paused_remaining = ?
                         WHERE id = ?
                     """;
         } else {
             sql = """
                         INSERT INTO punishments (
                             player_uuid, reason, punisher, nickname, ip_address, lower_nickname,
-                            started_at, finish_at, revoked, evidences, type, permanent, revoked_reason
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            started_at, finish_at, revoked, evidences, type, permanent, revoked_reason,
+                            soft, online_only, paused_remaining
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """;
         }
         return sql;
@@ -70,7 +72,10 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                                     evidences VARCHAR(255),
                                     type VARCHAR(20) NOT NULL,
                                     permanent BOOLEAN NOT NULL,
-                                    revoked_reason VARCHAR(100)
+                                    revoked_reason VARCHAR(100),
+                                    soft BOOLEAN NOT NULL DEFAULT FALSE,
+                                    online_only BOOLEAN NOT NULL DEFAULT FALSE,
+                                    paused_remaining BIGINT
                                 );
                                 """
                 );
@@ -90,7 +95,10 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                             evidences VARCHAR(255),
                             type VARCHAR(20) NOT NULL,
                             permanent BOOLEAN NOT NULL,
-                            revoked_reason VARCHAR(100)
+                            revoked_reason VARCHAR(100),
+                            soft BOOLEAN NOT NULL DEFAULT FALSE,
+                            online_only BOOLEAN NOT NULL DEFAULT FALSE,
+                            paused_remaining BIGINT
                         );
                         """);
             } else {
@@ -109,11 +117,18 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                             evidences VARCHAR(255),
                             type VARCHAR(20) NOT NULL,
                             permanent BOOLEAN NOT NULL,
-                            revoked_reason VARCHAR(100)
+                            revoked_reason VARCHAR(100),
+                            soft BOOLEAN NOT NULL DEFAULT FALSE,
+                            online_only BOOLEAN NOT NULL DEFAULT FALSE,
+                            paused_remaining BIGINT
                         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                         """);
             }
             statement.execute();
+            // Tables created before soft and online-only mutes existed.
+            SchemaUtil.ensureColumnExists(connection, "punishments", "soft", "BOOLEAN NOT NULL DEFAULT FALSE");
+            SchemaUtil.ensureColumnExists(connection, "punishments", "online_only", "BOOLEAN NOT NULL DEFAULT FALSE");
+            SchemaUtil.ensureColumnExists(connection, "punishments", "paused_remaining", "BIGINT");
 
             SchemaUtil.ensureIndexExists(
                     connection,
@@ -238,6 +253,32 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
     }
 
     @Override
+    public List<Punishment> findAllActiveByUsernamesAndTypes(Collection<String> usernames, PunishType... types) {
+        if (usernames.isEmpty() || types.length == 0) return List.of();
+        final List<String> names = usernames.stream().map(String::toLowerCase).distinct().toList();
+        final List<Punishment> punishments = new ArrayList<>();
+        try (Connection connection = manager.getDataSource().getConnection()) {
+            // A bounded number of placeholders per statement, whatever the number of accounts on the address.
+            for (int from = 0; from < names.size(); from += NAMES_PER_QUERY) {
+                final List<String> chunk = names.subList(from, Math.min(from + NAMES_PER_QUERY, names.size()));
+                final String sql = activeByTypes("SELECT *", types) + " AND lower_nickname IN ("
+                        + chunk.stream().map(n -> "?").collect(Collectors.joining(", ")) + ")";
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    int next = bindActive(statement, types);
+                    for (String name : chunk) statement.setString(next++, name);
+                    try (ResultSet resultSet = statement.executeQuery()) {
+                        while (resultSet.next()) punishments.add(load(resultSet));
+                    }
+                }
+            }
+            return punishments;
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return List.of();
+        }
+    }
+
+    @Override
     public List<Punishment> findAllByUUID(UUID uuid) {
         try (Connection connection = manager.getDataSource().getConnection()) {
             final PreparedStatement statement = connection.prepareStatement("""
@@ -299,7 +340,7 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
 
             try (PreparedStatement stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 bind(stmt, punishment);
-                if (isUpdate) stmt.setLong(14, punishment.getId());
+                if (isUpdate) stmt.setLong(17, punishment.getId());
                 stmt.executeUpdate();
 
                 if (!isUpdate) {
@@ -335,6 +376,66 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
     }
 
     @Override
+    public boolean changeEnd(Long id, LocalDateTime finishAt, Long pausedRemaining) {
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "UPDATE punishments SET finish_at = ?, paused_remaining = ? WHERE id = ? AND revoked = false")) {
+            statement.setTimestamp(1, SqlTime.of(finishAt));
+            if (pausedRemaining == null) statement.setNull(2, Types.BIGINT);
+            else statement.setLong(2, pausedRemaining);
+            statement.setLong(3, id);
+            return statement.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return false;
+        }
+    }
+
+    @Override
+    public boolean changeReason(Long id, String reason) {
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "UPDATE punishments SET reason = ? WHERE id = ? AND revoked = false")) {
+            statement.setString(1, reason);
+            statement.setLong(2, id);
+            return statement.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return false;
+        }
+    }
+
+    @Override
+    public int deleteKicksBefore(LocalDateTime cutoff) {
+        return delete("DELETE FROM punishments WHERE type = 'KICK' AND started_at < ?", SqlTime.of(cutoff));
+    }
+
+    @Override
+    public int deleteFinishedBefore(LocalDateTime cutoff) {
+        final Timestamp time = SqlTime.of(cutoff);
+        // kicks have their own retention (retention.kicks): a logged kick ends when it starts
+        return delete("DELETE FROM punishments WHERE type <> 'KICK' AND ((finish_at IS NOT NULL AND finish_at < ?) OR (revoked = true AND started_at < ?))",
+                time, time);
+    }
+
+    @Override
+    public int deleteAllOf(String username, UUID uuid) {
+        if (uuid == null) return delete("DELETE FROM punishments WHERE lower_nickname = ?", username.toLowerCase());
+        return delete("DELETE FROM punishments WHERE lower_nickname = ? OR player_uuid = ?", username.toLowerCase(), uuid.toString());
+    }
+
+    private int delete(String sql, Object... parameters) {
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            for (int i = 0; i < parameters.length; i++) statement.setObject(i + 1, parameters[i]);
+            return statement.executeUpdate();
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return 0;
+        }
+    }
+
+    @Override
     public void deleteById(Long id) {
         try (Connection connection = manager.getDataSource().getConnection()) {
             final PreparedStatement statement = connection.prepareStatement(
@@ -363,6 +464,10 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
         stmt.setString(11, punishment.getType().name());
         stmt.setBoolean(12, punishment.isPermanent());
         stmt.setString(13, punishment.getRevokedReason().orElse(null));
+        stmt.setBoolean(14, punishment.isSoft());
+        stmt.setBoolean(15, punishment.isOnlineOnly());
+        if (punishment.getPausedRemaining() == null) stmt.setNull(16, Types.BIGINT);
+        else stmt.setLong(16, punishment.getPausedRemaining());
     }
 
     @Override
@@ -551,6 +656,10 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
         punishment.setEvidences(evidences == null ? new ArrayList<>()
                 : new ArrayList<>(Arrays.stream(evidences.split(",")).filter(s -> !s.isBlank()).toList()));
         punishment.setType(PunishType.valueOf(rs.getString("type")));
+        punishment.setSoft(rs.getBoolean("soft"));
+        punishment.setOnlineOnly(rs.getBoolean("online_only"));
+        final long paused = rs.getLong("paused_remaining");
+        punishment.setPausedRemaining(rs.wasNull() ? null : paused);
         return punishment;
     }
 

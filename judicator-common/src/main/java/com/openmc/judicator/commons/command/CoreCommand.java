@@ -39,8 +39,11 @@ public abstract class CoreCommand {
         return List.of();
     }
 
-    protected ConfigurationNode messages() {
-        return judicator.getMessagesConfig();
+    /**
+     * @param recipient who the messages are for (their language with {@code per-player-language})
+     */
+    protected ConfigurationNode messages(JudicatorSender recipient) {
+        return judicator.messagesFor(recipient);
     }
 
     protected boolean silentAllowed(JudicatorSender sender) {
@@ -48,12 +51,12 @@ public abstract class CoreCommand {
                 || sender.hasPermission(PunishPermissions.ADMIN.getPermission())) {
             return true;
         }
-        sender.sendMessage(PunishUtils.getMessage(messages(), "error", "silent-not-allowed"));
+        sender.sendMessage(PunishUtils.getMessage(messages(sender), "error", "silent-not-allowed"));
         return false;
     }
 
     protected void sendUsage(JudicatorSender sender, String usageKey) {
-        sender.sendMessage(PunishUtils.getMessage(messages(), "usages", usageKey));
+        sender.sendMessage(PunishUtils.getMessage(messages(sender), "usages", usageKey));
     }
 
 }

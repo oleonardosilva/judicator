@@ -19,6 +19,7 @@ error:
   time-limit: "&cTu rango puede aplicar un {type} de como máximo {limit}."
   cooldown: "&c{nickname} recibió un {type} hace {elapsed}s. Espera {remaining}s antes de castigar de nuevo."
   address-exempt: "&cEsta dirección IP está en exempt-addresses y no puede castigarse por IP. Castiga la cuenta (/ban, /mute)."
+  online-only-ip: "&c-o (el tiempo solo cuenta conectado) solo funciona en mutes de cuenta, no por IP."
 success:
   cancel: "&aOperación cancelada con éxito."
   pardon: "&aEl castigo con el ID proporcionado ha sido revocado con éxito."
@@ -41,6 +42,7 @@ status:
   active: "Activo"
   revoked: "Revocado"
 permanent: "Permanente"
+paused: "&equedan {remaining} de tiempo conectado"
 "yes": "Sí"
 "no": "No"
 date-format: "dd/MM/yyyy 'a las' HH:mm"
@@ -108,6 +110,11 @@ announcements:
     - ""
 
 runners:
+  alt-ban-kick:
+    - "&6&lOpenMine Network\n"
+    - "&cOtra cuenta que usó tu red está baneada.\n"
+    - "\n"
+    - "&cUsa el ID &e#{id} &cpara solicitar una revisión en nuestro Discord: &c&nbit.ly/openmc\n"
   too-many-accounts:
     - "&6&lOpenMine Network\n"
     - "&cDemasiadas cuentas se están conectando desde tu red.\n"
@@ -219,7 +226,7 @@ usages:
   tempban: "&cComando incorrecto. Usa: /tempban (jugador) \"(número:días,número:meses...)\" [motivo]."
   tempbanip: "&cComando incorrecto. Usa: /tempbanip (jugador) \"(número:días,número:meses...)\" [motivo]."
   mute: "&cComando incorrecto. Usa: /mute (jugador) [motivo]."
-  tempmute: "&cComando incorrecto. Usa: /tempmute (jugador) \"(número:días,número:meses...)\" [motivo]."
+  tempmute: "&cComando incorrecto. Usa: /tempmute (jugador) \"(número:días,número:meses...)\" [-o] [motivo]."
   muteip: "&cComando incorrecto. Usa: /muteip (jugador) [motivo]."
   tempmuteip: "&cComando incorrecto. Usa: /tempmuteip (jugador) \"(número:días,número:meses...)\" [motivo]."
   revoke: "&cComando incorrecto. Usa: /revoke (id)."
@@ -239,10 +246,21 @@ usages:
   banlist: "&cComando incorrecto. Usa: /banlist [página]."
   mutelist: "&cComando incorrecto. Usa: /mutelist [página]."
   activity: "&cComando incorrecto. Usa: /activity (período, ej. 24:h o 7:d) [página]."
+  staffrollback: "&cComando incorrecto. Usa: /staffrollback (staff) (periodo, ej. 24:h o 7:d) [confirm]."
+  extend: "&cComando incorrecto. Usa: /extend (id) \"(número:días,número:horas...)\"."
+  changereason: "&cComando incorrecto. Usa: /changereason (id) (motivo)."
+  note: "&cComando incorrecto. Usa: /note (jugador) (texto)."
+  notes: "&cComando incorrecto. Usa: /notes (jugador) [página]."
+  delnote: "&cComando incorrecto. Usa: /delnote (id)."
+  playerinfo: "&cComando incorrecto. Usa: /playerinfo (jugador)."
+  softmute: "&cComando incorrecto. Usa: /softmute (jugador) [motivo]."
+  tempsoftmute: "&cComando incorrecto. Usa: /tempsoftmute (jugador) \"(número:días,número:horas...)\" [-o] [motivo]."
 
 notifications:
   punish: "&7[Staff] &f{author} &7aplicó &c{type} &7a &f{nickname}&7: &f{reason}"
   unpunish: "&7[Staff] &f{author} &7revocó {count} &a{type} &7de &f{nickname}"
+  edit: "&7[Staff] &f{author} &7modificó &e#{id} &7de &f{nickname}&7: {change}"
+  rollback: "&7[Staff] &f{author} &7deshizo lo aplicado por &f{staff} &7(últimos {period}): {punishments} castigo(s) revocado(s), {warns} advertencia(s) eliminada(s)"
   silent-prefix: "&8[silencioso] "
 
 alts:
@@ -251,6 +269,7 @@ alts:
   hover: "&7Haz clic para ver el historial de castigos de {account}"
   none: "&aNo se encontraron otras cuentas para {nickname}."
   notify: "&e[Alts] &f{nickname} &7comparte IP con cuenta(s) baneada(s)/silenciada(s): &c{accounts}"
+  denied: "&e[Alts] &f{nickname} &7fue rechazado: comparte IP con la cuenta baneada &c{account} &7(#{id})"
   status:
     banned: "&cbaneado"
     muted: "&6silenciado"
@@ -298,3 +317,48 @@ pagination:
   page: "&7| Página {page}/{pages} |"
   next: " &eSiguiente &e&l»"
   hover: "&7Haz clic para abrir la página {page}"
+
+edit:
+  extended: "&aEl castigo #{id} de {nickname} ahora termina {finishAt}."
+  reason-changed: "&aEl motivo del castigo #{id} de {nickname} ahora es: &f{reason}"
+  change-duration: "&fahora termina {finishAt}"
+  change-reason: "&fel motivo ahora es \"{reason}\""
+  not-active: "&cSolo se puede modificar un castigo vigente."
+  permanent: "&cSolo se puede extender un castigo temporal."
+  not-allowed: "&cSolo el autor de este castigo, o un staff de rango superior, puede modificarlo."
+
+rollback:
+  preview: "&eEn los últimos &f{period}&e, &f{staff} &eaplicó lo siguiente, aún vigente: &f{bans} &eban(es), &f{mutes} &emute(s) y &f{warns} &eadvertencia(s) activa(s). Los bans y mutes serán revocados y las advertencias eliminadas. "
+  confirm: "&a&l[Haz clic para confirmar]"
+  none: "&a{staff} no aplicó nada que siga vigente en los últimos {period}."
+  done: "&aDeshecho lo aplicado por {staff}: {punishments} castigo(s) revocado(s) y {warns} advertencia(s) eliminada(s)."
+  revoke-reason: "Rollback de {staff} por {author}"
+
+notes:
+  added: "&aNota #{id} añadida a {nickname}."
+  too-long: "&cUna nota puede tener como máximo 255 caracteres."
+  title: "&eNotas del staff sobre &f{nickname} &7({count} en total, página {page}/{pages})\n\n"
+  line: "    &f&l• &e#{id} &7- &f{author} &7- &f{createdAt}&7: &f{preview}\n"
+  hover: "&f{content}\n\n&7Haz clic para escribir /delnote en el chat (Enter la elimina)."
+  none: "&a{nickname} no tiene notas del staff."
+  deleted: "&aNota #{id} de {nickname} eliminada."
+  not-found: "&cNo se encontró ninguna nota con el ID indicado."
+  notify: "&e[Notas] &f{nickname} &7entró y tiene &f{count} &7nota(s) del staff. Haz clic para leerlas."
+
+info:
+  title: "&eInformación sobre &f{nickname} &7({state}&7)\n"
+  online: "&aconectado"
+  offline: "&cdesconectado"
+  now: "ahora"
+  uuid: "&7 * UUID: &f{uuid}\n"
+  ban: "&7 * Ban: &c#{id} {type} &7hasta &f{finishAt}\n"
+  no-ban: "&7 * Ban: &aninguno\n"
+  mute: "&7 * Mute: &6#{id} {type} &7hasta &f{finishAt}\n"
+  no-mute: "&7 * Mute: &aninguno\n"
+  punishments: "&7 * Historial: &f{bans} &7ban(es), &f{mutes} &7mute(s), &f{kicks} &7expulsión(es) &8(clic)\n"
+  warns: "&7 * Advertencias: &f{activeWarns} &7activa(s) de &f{warns} &8(clic)\n"
+  notes: "&7 * Notas del staff: &f{notes} &8(clic)\n"
+  alts: "&7 * Cuentas que compartieron IP: &f{alts} &8(clic)\n"
+  last-seen: "&7 * Última conexión: &f{lastSeen}"
+  ip: "\n&7 * Última IP: &f{ip}"
+  unknown: "&cNo se sabe nada de {nickname}."

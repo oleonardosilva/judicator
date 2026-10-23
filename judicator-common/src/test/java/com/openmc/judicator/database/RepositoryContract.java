@@ -1,5 +1,8 @@
 package com.openmc.judicator.database;
 
+import com.openmc.judicator.notes.Note;
+import com.openmc.judicator.notes.repository.NoteRepository;
+import com.openmc.judicator.notes.repository.dao.NoteRelationalDAO;
 import com.openmc.judicator.punish.AccessAddress;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.data.repository.AccessAddressRepository;
@@ -39,7 +42,7 @@ abstract class RepositoryContract {
      * The four repositories of one fresh, empty store.
      */
     protected record Store(PunishmentRepository punishments, WarnRepository warns, AccessAddressRepository addresses,
-                           PlayerLevelRepository levels, Runnable close) {
+                           PlayerLevelRepository levels, NoteRepository notes, Runnable close) {
     }
 
     @TempDir
@@ -57,6 +60,7 @@ abstract class RepositoryContract {
         store.warns().initialize();
         store.addresses().initialize();
         store.levels().initialize();
+        store.notes().initialize();
     }
 
     @AfterEach
@@ -107,6 +111,143 @@ abstract class RepositoryContract {
     }
 
     @Test
+    void softAndOnlineOnlyMutesReadBackWithWhatIsLeftWhilePaused() {
+        final LocalDateTime start = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final Punishment mute = punishment("Steve", null, PunishType.TEMPMUTE, start, null, "Mod");
+        mute.setSoft(true);
+        mute.setOnlineOnly(true);
+        mute.setPausedRemaining(3_600_000L);
+        store.punishments().save(mute);
+
+        final Punishment read = store.punishments().findById(mute.getId()).orElseThrow();
+        assertTrue(read.isSoft());
+        assertTrue(read.isOnlineOnly());
+        assertEquals(3_600_000L, read.getPausedRemaining());
+        assertEquals(1, store.punishments().findAllActiveByUsernameAndTypes("steve", PunishType.TEMPMUTE).size(),
+                "paused: no end, still in force");
+
+        read.setPausedRemaining(null);
+        read.setFinishAt(start.plusHours(1));
+        store.punishments().save(read);
+        final Punishment resumed = store.punishments().findById(mute.getId()).orElseThrow();
+        assertEquals(null, resumed.getPausedRemaining());
+        assertEquals(start.plusHours(1), resumed.getFinishAt().orElseThrow());
+
+        final Punishment plain = store.punishments().save(punishment("Alex", null, PunishType.MUTE, start, null, "Mod"));
+        final Punishment plainRead = store.punishments().findById(plain.getId()).orElseThrow();
+        assertFalse(plainRead.isSoft());
+        assertFalse(plainRead.isOnlineOnly());
+        assertEquals(null, plainRead.getPausedRemaining());
+    }
+
+    @Test
+    void endAndReasonChangesLeaveRevokedPunishmentsAlone() {
+        final LocalDateTime start = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final Punishment mute = store.punishments().save(punishment("Steve", null, PunishType.TEMPMUTE, start, start.plusHours(1), "Mod"));
+
+        assertTrue(store.punishments().changeEnd(mute.getId(), start.plusHours(3), null));
+        assertTrue(store.punishments().changeReason(mute.getId(), "flood"));
+        final Punishment changed = store.punishments().findById(mute.getId()).orElseThrow();
+        assertEquals(start.plusHours(3), changed.getFinishAt().orElseThrow());
+        assertEquals("flood", changed.getReason().orElseThrow());
+        assertTrue(store.punishments().changeEnd(mute.getId(), null, 60_000L));
+        assertEquals(60_000L, store.punishments().findById(mute.getId()).orElseThrow().getPausedRemaining());
+
+        store.punishments().revoke(mute.getId(), "appeal");
+        assertFalse(store.punishments().changeEnd(mute.getId(), start.plusDays(9), null));
+        assertFalse(store.punishments().changeReason(mute.getId(), "other"));
+        assertFalse(store.punishments().changeEnd(999_999L, start, null));
+        final Punishment revoked = store.punishments().findById(mute.getId()).orElseThrow();
+        assertTrue(revoked.isRevoked());
+        assertEquals("flood", revoked.getReason().orElseThrow());
+    }
+
+    @Test
+    void retentionDeletesOnlyWhatIsOverAndOld() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final LocalDateTime cutoff = now.minusDays(30);
+        final Punishment oldKick = punishment("A", null, PunishType.KICK, now.minusDays(40), now.minusDays(40), "Mod");
+        oldKick.setPermanent(false);
+        store.punishments().save(oldKick);
+        final Punishment newKick = punishment("A", null, PunishType.KICK, now.minusDays(1), now.minusDays(1), "Mod");
+        newKick.setPermanent(false);
+        store.punishments().save(newKick);
+        final Punishment oldEnded = store.punishments().save(punishment("B", null, PunishType.TEMPBAN, now.minusDays(50), now.minusDays(40), "Mod"));
+        final Punishment recentEnded = store.punishments().save(punishment("B", null, PunishType.TEMPBAN, now.minusDays(50), now.minusDays(10), "Mod"));
+        final Punishment oldPermanent = store.punishments().save(punishment("C", null, PunishType.BAN, now.minusDays(400), null, "Mod"));
+        final Punishment oldRevoked = store.punishments().save(punishment("C", null, PunishType.BAN, now.minusDays(400), null, "Mod"));
+        store.punishments().revoke(oldRevoked.getId(), "x");
+        final Punishment paused = punishment("D", null, PunishType.TEMPMUTE, now.minusDays(400), null, "Mod");
+        paused.setOnlineOnly(true);
+        paused.setPausedRemaining(1000L);
+        store.punishments().save(paused);
+
+        assertEquals(2, store.punishments().deleteFinishedBefore(cutoff), "the ended tempban and the revoked ban, not the kick");
+        assertTrue(store.punishments().findById(oldKick.getId()).isPresent(), "kicks have their own retention");
+        assertEquals(1, store.punishments().deleteKicksBefore(cutoff));
+        assertTrue(store.punishments().findById(newKick.getId()).isPresent());
+        assertTrue(store.punishments().findById(oldEnded.getId()).isEmpty());
+        assertTrue(store.punishments().findById(oldRevoked.getId()).isEmpty());
+        assertTrue(store.punishments().findById(recentEnded.getId()).isPresent());
+        assertTrue(store.punishments().findById(oldPermanent.getId()).isPresent(), "in force");
+        assertTrue(store.punishments().findById(paused.getId()).isPresent(), "paused: in force");
+
+        final UUID uuid = UUID.randomUUID();
+        store.warns().save(Warn.create(uuid, "old", "Mod", "Steve", now.minusDays(50), now.minusDays(40)));
+        final Warn permanent = store.warns().save(Warn.create(uuid, "permanent", "Mod", "Steve", now.minusDays(400), null));
+        final Warn recent = store.warns().save(Warn.create(uuid, "recent", "Mod", "Steve", now.minusDays(50), now.minusDays(1)));
+        assertEquals(1, store.warns().deleteFinishedBefore(cutoff));
+        assertEquals(2, store.warns().findAllByUsername("steve").size());
+        assertTrue(store.warns().findById(permanent.getId()).isPresent() && store.warns().findById(recent.getId()).isPresent());
+
+        final AccessAddress stale = AccessAddress.create("10.0.0.1", "Steve");
+        stale.setLastUsage(now.minusDays(40));
+        store.addresses().save(stale);
+        store.addresses().save(AccessAddress.create("10.0.0.2", "Steve"));
+        assertEquals(1, store.addresses().deleteUnusedBefore(cutoff));
+        assertTrue(store.addresses().findByIp("10.0.0.1").isEmpty());
+        assertTrue(store.addresses().findByIp("10.0.0.2").isPresent());
+
+        store.notes().save(new Note(null, null, "Steve", "Mod", "old", now.minusDays(40)));
+        store.notes().save(new Note(null, null, "Steve", "Mod", "new", now.minusDays(1)));
+        assertEquals(1, store.notes().deleteBefore(cutoff));
+        assertEquals(1, store.notes().countByUsername("Steve"));
+    }
+
+    @Test
+    void everythingOfOnePlayerIsDeletedByNameOrUuid() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final UUID steve = UUID.randomUUID();
+        final Punishment current = punishment("Steve", null, PunishType.BAN, now.minusDays(1), null, "Mod");
+        current.setPlayerUUID(steve);
+        store.punishments().save(current);
+        final Punishment oldName = punishment("Steve_Old", null, PunishType.MUTE, now.minusDays(9), null, "Mod");
+        oldName.setPlayerUUID(steve);
+        store.punishments().save(oldName);
+        final Punishment other = store.punishments().save(punishment("Alex", null, PunishType.BAN, now.minusDays(1), null, "Mod"));
+        store.warns().save(Warn.create(steve, "a", "Mod", "Steve_Old", now.minusDays(2), null));
+        store.warns().save(Warn.create(UUID.randomUUID(), "b", "Mod", "Alex", now.minusDays(2), null));
+        store.notes().save(new Note(null, steve, "Steve_Old", "Mod", "x", now));
+        store.notes().save(new Note(null, null, "steve", "Mod", "y", now));
+        store.notes().save(new Note(null, null, "Alex", "Mod", "z", now));
+        store.levels().saveLevel("Steve", steve, 10);
+
+        assertEquals(2, store.notes().countAllOf("Steve", steve));
+        assertEquals(1, store.notes().countAllOf("Steve", null));
+        assertEquals(2, store.punishments().deleteAllOf("STEVE", steve));
+        assertEquals(1, store.warns().deleteAllOf("steve", steve));
+        assertEquals(2, store.notes().deleteAllOf("Steve", steve));
+        assertTrue(store.levels().delete("steve"));
+        assertFalse(store.levels().delete("steve"));
+
+        assertTrue(store.punishments().findById(other.getId()).isPresent());
+        assertEquals(1, store.warns().findAllByUsername("Alex").size());
+        assertEquals(1, store.notes().countByUsername("Alex"));
+        assertTrue(store.levels().findLevel("Steve").isEmpty());
+        assertEquals(0, store.punishments().deleteAllOf("Alex_Typo", null));
+    }
+
+    @Test
     void evidenceIsStoredAsCommaSeparatedText() {
         final Punishment saved = store.punishments().save(Punishment.create(null, "r", "Admin", "Steve", null,
                 LocalDateTime.now(), null, List.of("https://x.example/a,b", " "), PunishType.BAN));
@@ -141,6 +282,28 @@ abstract class RepositoryContract {
         assertTrue(store.punishments().findAllActiveByUsernameAndTypes("steve", PunishType.values()).isEmpty());
         assertEquals("appeal", store.punishments().findById(ban.getId()).orElseThrow().getRevokedReason().orElseThrow());
         assertEquals(2, store.punishments().findAllByUsername("steve").size());
+    }
+
+    @Test
+    void activePunishmentsOfSeveralAccountsInOneQuery() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final Punishment steve = store.punishments().save(punishment("Steve", null, PunishType.BAN, now.minusDays(1), null, "Mod"));
+        final Punishment alex = store.punishments().save(punishment("Alex", null, PunishType.TEMPBAN, now.minusDays(1), now.plusDays(1), "Mod"));
+        store.punishments().save(punishment("Alex", null, PunishType.TEMPBAN, now.minusDays(3), now.minusDays(2), "Mod"));
+        store.punishments().save(punishment("Alex", null, PunishType.MUTE, now.minusDays(1), null, "Mod"));
+        store.punishments().save(punishment("Other", null, PunishType.BAN, now.minusDays(1), null, "Mod"));
+        final Punishment revoked = store.punishments().save(punishment("Bob", null, PunishType.BAN, now.minusDays(1), null, "Mod"));
+        store.punishments().revoke(revoked.getId(), "x");
+
+        final List<String> names = new java.util.ArrayList<>();
+        for (int i = 0; i < 450; i++) names.add("account" + i); // more names than one statement takes
+        names.addAll(List.of("STEVE", "alex", "bob"));
+
+        final Set<Long> found = new java.util.HashSet<>();
+        store.punishments().findAllActiveByUsernamesAndTypes(names, PunishType.BAN, PunishType.TEMPBAN).forEach(p -> found.add(p.getId()));
+
+        assertEquals(Set.of(steve.getId(), alex.getId()), found);
+        assertTrue(store.punishments().findAllActiveByUsernamesAndTypes(List.of(), PunishType.BAN).isEmpty());
     }
 
     @Test
@@ -251,6 +414,45 @@ abstract class RepositoryContract {
 
         store.warns().deleteById(expired.getId());
         assertTrue(store.warns().findById(expired.getId()).isEmpty());
+    }
+
+    @Test
+    void warnsOfAStaffMemberSinceAMomentNewestFirst() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final Warn older = store.warns().save(Warn.create(UUID.randomUUID(), "a", "Mod", "A", now.minusHours(3), null));
+        final Warn newer = store.warns().save(Warn.create(UUID.randomUUID(), "b", "mod", "B", now.minusHours(1), null));
+        store.warns().save(Warn.create(UUID.randomUUID(), "c", "Mod", "C", now.minusDays(3), null));
+        store.warns().save(Warn.create(UUID.randomUUID(), "d", "Other", "D", now.minusHours(1), null));
+
+        final List<Warn> found = store.warns().findByPunisherSince("MOD", now.minusDays(1));
+
+        assertEquals(List.of(newer.getId(), older.getId()), found.stream().map(Warn::getId).toList());
+    }
+
+    @Test
+    void notesArePagedNewestFirstPerPlayer() throws Exception {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final Note older = store.notes().save(new Note(null, UUID.randomUUID(), "Steve", "Mod", "first", now.minusHours(2)));
+        final Note newer = store.notes().save(new Note(null, null, "steve", "Helper", "second", now.minusHours(1)));
+        store.notes().save(new Note(null, null, "Alex", "Mod", "other", now));
+
+        assertEquals(2, store.notes().countByUsername("STEVE"));
+        assertEquals(List.of(newer.getId(), older.getId()),
+                store.notes().findByUsername("Steve", 10, 0).stream().map(Note::getId).toList());
+        assertEquals(List.of(older.getId()), store.notes().findByUsername("Steve", 1, 1).stream().map(Note::getId).toList());
+        final Note read = store.notes().findById(older.getId()).orElseThrow();
+        assertEquals("first", read.getContent());
+        assertEquals("Mod", read.getAuthor());
+        assertEquals(older.getCreatedAt(), read.getCreatedAt());
+        assertTrue(read.getPlayerUUID().isPresent());
+
+        assertEquals(Set.of(NoteRelationalDAO.importKey(older), NoteRelationalDAO.importKey(newer),
+                NoteRelationalDAO.importKey("alex", "mod", now)), store.notes().findAllImportKeys());
+        assertEquals(1, store.notes().insertAll(List.of(new Note(null, null, "Steve", "Mod", "imported", now.minusDays(1)))));
+        assertEquals(3, store.notes().countByUsername("steve"));
+
+        store.notes().deleteById(older.getId());
+        assertTrue(store.notes().findById(older.getId()).isEmpty());
     }
 
     @Test

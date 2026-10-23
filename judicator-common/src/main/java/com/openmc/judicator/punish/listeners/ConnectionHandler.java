@@ -3,9 +3,12 @@ package com.openmc.judicator.punish.listeners;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.punish.PunishUtils;
+import com.openmc.judicator.punish.Punishment;
+import com.openmc.judicator.punish.data.cache.ImmuneCache;
 import com.openmc.judicator.punish.types.PunishPermissions;
-import org.spongepowered.configurate.ConfigurationNode;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 
 import java.util.Map;
 import java.util.Optional;
@@ -28,10 +31,36 @@ public class ConnectionHandler {
         return judicator.getAddressPolicy().checkLogin(username, address);
     }
 
+    /**
+     * Runs after authentication (Velocity {@code LoginEvent}; Bukkit pre-login): the UUID ban check in online mode
+     * and, with {@code alts.deny-if-banned}, the ban-evasion check.
+     */
     public Optional<Component> checkLogin(UUID uuid, String username, String address) {
-        if (!judicator.getPlatform().isOnlineMode()) return Optional.empty();
-        return judicator.getPunishService().searchOnLogin(uuid, username, address)
-                .map(punishment -> PunishUtils.getMessageList(judicator.getMessagesConfig(), punishment, "runners", "ban-kick"));
+        if (judicator.getPlatform().isOnlineMode()) {
+            final Optional<Component> ban = judicator.getPunishService().searchOnLogin(uuid, username, address)
+                    .map(punishment -> PunishUtils.getMessageList(judicator.getMessagesConfig(), punishment, "runners", "ban-kick"));
+            if (ban.isPresent()) return ban;
+        }
+        return checkBannedAlts(uuid, username, address);
+    }
+
+    /**
+     * With {@code alts.deny-if-banned: true}, refuses an account when another account that used the same IP has a ban
+     * in force (evading a ban with an alt). Exempt addresses and players exempt from {@code alts} pass. The screen shows
+     * the ban's id, not the other account's name.
+     */
+    private Optional<Component> checkBannedAlts(UUID uuid, String username, String address) {
+        if (!judicator.getConfig().node("alts", "deny-if-banned").getBoolean(false)) return Optional.empty();
+        if (judicator.getAddressPolicy().isExempt(address)) return Optional.empty();
+        if (judicator.getImmuneCache().isExempt(username, uuid, ImmuneCache.ALTS)) return Optional.empty();
+        final Set<String> others = judicator.getAddressService().findAccountsByIp(address, username);
+        if (others.isEmpty()) return Optional.empty();
+        final Optional<Punishment> ban = judicator.getPunishService().findActiveBans(others).stream().findFirst();
+        if (ban.isEmpty()) return Optional.empty();
+        judicator.getStaffNotifier().sendToPermission(PunishPermissions.ALTS_NOTIFY.getPermission(),
+                messages -> PunishUtils.format(messages, Map.of("nickname", username, "account", ban.get().getNickname(),
+                        "id", String.valueOf(ban.get().getId())), "alts", "denied"));
+        return Optional.of(PunishUtils.getMessageList(judicator.getMessagesConfig(), ban.get(), "runners", "alt-ban-kick"));
     }
 
     public void onLoginAllowed(String username, String address) {
@@ -40,9 +69,32 @@ public class ConnectionHandler {
         notifyAlts(username, address);
     }
 
+    /**
+     * The player is in the game (Velocity: login allowed; Bukkit: {@code PlayerJoinEvent}, after whitelist and full
+     * server checks): paused online-only mutes run again from now.
+     */
     public void onJoin(JudicatorPlayer player) {
+        judicator.getPunishService().resumeOnlineOnlyMutes(player.getName());
         judicator.getUuidManager().remember(player.getName(), player.getUniqueId());
         judicator.getHierarchyService().recordLevel(player);
+        notifyNotes(player);
+    }
+
+    /**
+     * Tells the staff with {@code judicator.notes.notify} (other than the player) that someone with notes joined.
+     */
+    private void notifyNotes(JudicatorPlayer joined) {
+        if (!judicator.getConfig().node("notes", "notify-on-join").getBoolean(true)) return;
+        final int count = judicator.getNoteService().countByUsername(joined.getName());
+        if (count == 0) return;
+        final String command = "/notes " + joined.getName();
+        judicator.getPlatform().getOnlinePlayers().stream()
+                .filter(staff -> !staff.getName().equalsIgnoreCase(joined.getName()))
+                .filter(staff -> staff.hasPermission(PunishPermissions.NOTES_NOTIFY.getPermission()))
+                .forEach(staff -> staff.sendMessage(PunishUtils.format(judicator.messagesFor(staff),
+                                Map.of("nickname", joined.getName(), "count", String.valueOf(count)), "notes", "notify")
+                        .hoverEvent(HoverEvent.showText(Component.text(command)))
+                        .clickEvent(ClickEvent.runCommand(command))));
     }
 
     private void notifyAlts(String username, String address) {
@@ -53,12 +105,12 @@ public class ConnectionHandler {
             if (!"clean".equals(judicator.getPunishService().statusOf(account))) flagged.add(account);
         }
         if (flagged.isEmpty()) return;
-        final ConfigurationNode messages = judicator.getMessagesConfig();
         judicator.getStaffNotifier().sendToPermission(PunishPermissions.ALTS_NOTIFY.getPermission(),
-                PunishUtils.format(messages, Map.of("nickname", username, "accounts", String.join(", ", flagged)), "alts", "notify"));
+                messages -> PunishUtils.format(messages, Map.of("nickname", username, "accounts", String.join(", ", flagged)), "alts", "notify"));
     }
 
     public void onDisconnect(String username, String address) {
+        judicator.getPunishService().pauseOnlineOnlyMutes(username);
         judicator.getPunishService().cleanupMutePunishmentCache(username, address);
     }
 

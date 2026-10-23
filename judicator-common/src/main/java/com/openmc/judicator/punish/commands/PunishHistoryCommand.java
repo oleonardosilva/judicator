@@ -28,11 +28,11 @@ public class PunishHistoryCommand extends CoreCommand {
 
         final List<Punishment> punishments = judicator.getPunishService().findAllByUsername(targetName);
         if (punishments.isEmpty()) {
-            source.sendMessage(PunishUtils.getMessage(messages(), "error", "angel"));
+            source.sendMessage(PunishUtils.getMessage(messages(source), "error", "angel"));
             return;
         }
 
-        source.sendMessage(PunishUtils.getPunishmentHistoryMessage(messages(), targetName, punishments));
+        source.sendMessage(PunishUtils.getPunishmentHistoryMessage(messages(source), targetName, punishments));
     }
 
 }

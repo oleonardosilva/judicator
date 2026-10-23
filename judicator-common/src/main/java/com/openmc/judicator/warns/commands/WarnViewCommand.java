@@ -28,11 +28,11 @@ public class WarnViewCommand extends CoreCommand {
 
         final Optional<Warn> optWarn = judicator.getWarnService().findById(optId.get());
         if (optWarn.isEmpty()) {
-            source.sendMessage(WarnUtils.getMessage(messages(), "error", "warn-not-found"));
+            source.sendMessage(WarnUtils.getMessage(messages(source), "error", "warn-not-found"));
             return;
         }
 
-        source.sendMessage(WarnUtils.getMessageList(messages(), optWarn.get(), "runners", "warn-view"));
+        source.sendMessage(WarnUtils.getMessageList(messages(source), optWarn.get(), "runners", "warn-view"));
     }
 
     @Override

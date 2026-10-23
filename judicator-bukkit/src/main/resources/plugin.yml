@@ -98,6 +98,34 @@ commands:
     description: Shows how many punishments each staff member applied in a period.
     permission: judicator.command.activity
     aliases: [staffactivity]
+  staffrollback:
+    description: Revokes the punishments and deletes the warns a staff member applied in a period.
+    permission: judicator.command.staffrollback
+  extend:
+    description: Adds time to a temporary punishment in force.
+    permission: judicator.command.extend
+  changereason:
+    description: Changes the reason of a punishment in force.
+    permission: judicator.command.changereason
+  note:
+    description: Writes a staff note about a player.
+    permission: judicator.command.note
+  notes:
+    description: Lists the staff notes about a player.
+    permission: judicator.command.notes
+  delnote:
+    description: Deletes a staff note.
+    permission: judicator.command.delnote
+  playerinfo:
+    description: Shows a summary of a player (punishments, warns, notes, alts, last login).
+    permission: judicator.command.playerinfo
+    aliases: [pinfo]
+  softmute:
+    description: Mutes a player without them noticing (they still see their own messages).
+    permission: judicator.command.softmute
+  tempsoftmute:
+    description: Temporarily mutes a player without them noticing.
+    permission: judicator.command.tempsoftmute
 permissions:
   judicator.admin:
     description: Full access to every Judicator command.
@@ -127,6 +155,16 @@ permissions:
       judicator.command.banlist: true
       judicator.command.mutelist: true
       judicator.command.activity: true
+      judicator.command.staffrollback: true
+      judicator.command.extend: true
+      judicator.command.changereason: true
+      judicator.command.note: true
+      judicator.command.notes: true
+      judicator.command.delnote: true
+      judicator.command.playerinfo: true
+      judicator.notes.notify: true
+      judicator.command.softmute: true
+      judicator.command.tempsoftmute: true
       judicator.alts.notify: true
       judicator.notify: true
       judicator.notify.silent: true
@@ -272,6 +310,18 @@ permissions:
     default: op
     children:
       judicator.command.activity: true
+  judicator.staffrollback:
+    default: op
+    children:
+      judicator.command.staffrollback: true
+  judicator.extend:
+    default: op
+    children:
+      judicator.command.extend: true
+  judicator.changereason:
+    default: op
+    children:
+      judicator.command.changereason: true
   judicator.alts.notify:
     description: Warned when someone shares an IP with a banned or muted account.
     default: op
@@ -298,4 +348,49 @@ permissions:
   judicator.command.mutelist:
     default: false
   judicator.command.activity:
+    default: false
+  judicator.command.staffrollback:
+    default: false
+  judicator.command.extend:
+    default: false
+  judicator.command.changereason:
+    default: false
+  judicator.note:
+    default: op
+    children:
+      judicator.command.note: true
+  judicator.command.note:
+    default: false
+  judicator.notes:
+    default: op
+    children:
+      judicator.command.notes: true
+  judicator.command.notes:
+    default: false
+  judicator.delnote:
+    default: op
+    children:
+      judicator.command.delnote: true
+  judicator.command.delnote:
+    default: false
+  judicator.info:
+    default: op
+    children:
+      judicator.command.playerinfo: true
+  judicator.command.playerinfo:
+    default: false
+  judicator.notes.notify:
+    description: Told when a player with staff notes joins.
+    default: op
+  judicator.softmute:
+    default: op
+    children:
+      judicator.command.softmute: true
+  judicator.command.softmute:
+    default: false
+  judicator.tempsoftmute:
+    default: op
+    children:
+      judicator.command.tempsoftmute: true
+  judicator.command.tempsoftmute:
     default: false

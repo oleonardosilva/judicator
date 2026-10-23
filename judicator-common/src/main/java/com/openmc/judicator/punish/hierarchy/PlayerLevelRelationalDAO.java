@@ -86,6 +86,18 @@ public class PlayerLevelRelationalDAO implements PlayerLevelRepository {
     }
 
     @Override
+    public boolean delete(String nickname) {
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement("DELETE FROM player_levels WHERE lower_nickname = ?")) {
+            statement.setString(1, nickname.toLowerCase());
+            return statement.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return false;
+        }
+    }
+
+    @Override
     public OptionalInt findLevel(String nickname) {
         try (Connection connection = manager.getDataSource().getConnection();
              PreparedStatement statement = connection.prepareStatement(

@@ -32,6 +32,7 @@ public final class TestServer implements AutoCloseable {
     public final InMemoryWarnRepository warns = new InMemoryWarnRepository();
     public final InMemoryAccessAddressRepository addresses = new InMemoryAccessAddressRepository();
     public final InMemoryPlayerLevelRepository levels = new InMemoryPlayerLevelRepository();
+    public final InMemoryNoteRepository notes = new InMemoryNoteRepository();
 
     private TestServer(Path folder, boolean onlineMode) {
         this.platform = new FakePlatform(folder, onlineMode);
@@ -39,7 +40,7 @@ public final class TestServer implements AutoCloseable {
     }
 
     private Judicator boot() {
-        final Judicator core = new Judicator(platform, new Judicator.Repositories(punishments, warns, addresses, levels));
+        final Judicator core = new Judicator(platform, new Judicator.Repositories(punishments, warns, addresses, levels, notes));
         core.enable();
         // A test never talks to the Mojang API: unknown names simply have no UUID.
         core.getUuidManager().setRemoteLookups(false);
@@ -55,6 +56,14 @@ public final class TestServer implements AutoCloseable {
         judicator = boot();
     }
 
+    /**
+     * Plugin reload (Bukkit /reload): the plugin is disabled and enabled again while the players stay online.
+     */
+    public void reloadPlugin() {
+        judicator.disable();
+        judicator = boot();
+    }
+
     public static Builder in(Path folder) {
         return new Builder(folder);
     }
@@ -65,6 +74,8 @@ public final class TestServer implements AutoCloseable {
     public enum Outcome {
         /** blocked because the player is muted */
         BLOCKED_MUTED,
+        /** soft mute: only the sender sees it, nothing tells them */
+        SOFT_MUTED,
         /** taken by the staff evidence prompt (confirm/cancel/evidence) */
         TAKEN_BY_PROMPT,
         /** went through */
@@ -126,7 +137,16 @@ public final class TestServer implements AutoCloseable {
      * Player types in chat (mute check first, then the evidence prompt, like the listeners' priorities).
      */
     public Outcome chat(FakePlayer player, String message) {
-        if (judicator.getChatHandler().shouldBlockChat(player)) return Outcome.BLOCKED_MUTED;
+        switch (judicator.getChatHandler().chatDecision(player)) {
+            case BLOCK -> {
+                return Outcome.BLOCKED_MUTED;
+            }
+            case SOFT -> {
+                return Outcome.SOFT_MUTED;
+            }
+            default -> {
+            }
+        }
         if (judicator.getChatHandler().handlePromptChat(player, message)) return Outcome.TAKEN_BY_PROMPT;
         return Outcome.ALLOWED;
     }
@@ -159,6 +179,7 @@ public final class TestServer implements AutoCloseable {
         private boolean onlineMode = true;
         private final Map<String, String> configChanges = new LinkedHashMap<>();
         private List<String> immune = List.of();
+        private String immunePlayers = "";
 
         private Builder(Path folder) {
             this.folder = folder;
@@ -183,6 +204,14 @@ public final class TestServer implements AutoCloseable {
             return this;
         }
 
+        /**
+         * Entries of the {@code players:} section of {@code immune.yml}, e.g. {@code "  Steve: [mute]\n"}.
+         */
+        public Builder immunePlayers(String yaml) {
+            this.immunePlayers = yaml;
+            return this;
+        }
+
         public TestServer start() {
             try {
                 Files.createDirectories(folder);
@@ -197,7 +226,8 @@ public final class TestServer implements AutoCloseable {
                 final StringBuilder immuneYml = new StringBuilder("users:\n");
                 immune.forEach(name -> immuneYml.append("  - \"").append(name).append("\"\n"));
                 if (immune.isEmpty()) immuneYml.setLength(0);
-                Files.writeString(folder.resolve("immune.yml"), immune.isEmpty() ? "users: []\n" : immuneYml.toString(), StandardCharsets.UTF_8);
+                final String players = immunePlayers.isEmpty() ? "" : "players:\n" + immunePlayers;
+                Files.writeString(folder.resolve("immune.yml"), (immune.isEmpty() ? "users: []\n" : immuneYml.toString()) + players, StandardCharsets.UTF_8);
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }

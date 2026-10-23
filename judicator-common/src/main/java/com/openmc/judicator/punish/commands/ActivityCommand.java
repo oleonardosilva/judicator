@@ -50,7 +50,7 @@ public class ActivityCommand extends CoreCommand {
             return;
         }
         final String period = optPeriod.get();
-        final ConfigurationNode messages = messages();
+        final ConfigurationNode messages = messages(source);
         final String periodText = DateTimeOffsetParser.format(messages, millis.getAsLong());
         final LocalDateTime since = DateTimeOffsetParser.since(millis.getAsLong());
 

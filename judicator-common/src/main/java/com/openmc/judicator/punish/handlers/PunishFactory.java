@@ -38,7 +38,7 @@ public class PunishFactory {
 
             judicator.getPlatform().getPlayer(punishmentBuilder.getPunisher()).ifPresent(
                     player -> player
-                            .sendMessage(PunishUtils.getMessage(judicator.getMessagesConfig(), "success", "punish-applied"))
+                            .sendMessage(PunishUtils.getMessage(judicator.messagesFor(player), "success", "punish-applied"))
             );
 
             return Optional.of(punishment);
@@ -47,7 +47,7 @@ public class PunishFactory {
             judicator.getLogger().error("Failed to handle ban punishment", e);
             judicator.getPlatform().getPlayer(punishmentBuilder.getPunisher()).ifPresent(
                     player -> player
-                            .sendMessage(PunishUtils.getMessage(judicator.getMessagesConfig(), "error", "unknown"))
+                            .sendMessage(PunishUtils.getMessage(judicator.messagesFor(player), "error", "unknown"))
             );
             return Optional.empty();
         }

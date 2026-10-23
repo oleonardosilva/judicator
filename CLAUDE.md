@@ -61,27 +61,41 @@ There is no lint task.
   `execute` asynchronously on both platforms. New commands must be added to `Judicator#createCommands` and, for
   Bukkit, to `judicator-bukkit/src/main/resources/plugin.yml`.
 - Login/chat logic lives in `ConnectionHandler` and `ChatHandler`; each platform listener only translates its events.
+  `ChatHandler.chatDecision` returns `ALLOW`/`BLOCK`/`SOFT` (soft mute: Bukkit keeps the message for the sender only,
+  in a HIGHEST listener; Velocity denies it and echoes `softMuteEcho` to the sender).
+- Messages for someone: `Judicator.messagesFor(recipient)` (their client language with `per-player-language`, else
+  the server's); messages to several players are built per recipient (`Platform.announceToServerOf(player,
+  Function)`, `StaffNotifier.sendToPermission(permission, Function)`). Login screens, Discord and the console use
+  `getMessagesConfig()`.
 
 ### Punishment Flow
 
-1. **Pre-login** — `ConnectionHandler.checkPreLogin` (name/IP) and, in online mode, `checkLogin` (UUID); a ban
-   denies the connection, then `AddressPolicy.checkLogin` applies `ip-limits` (accounts per IP).
-2. **Login** — active mutes go into `PunishCache`; the last IP is stored by `AccessAddressService`.
+1. **Pre-login** — `ConnectionHandler.checkPreLogin` (name/IP), then `AddressPolicy.checkLogin` (`ip-limits`); after
+   authentication `checkLogin` (UUID ban in online mode; `alts.deny-if-banned` in both modes).
+2. **Login** — active mutes go into `PunishCache`; `onLoginAllowed` resumes paused online-only mutes and stores the IP
+   (`AccessAddressService`); `onJoin` records the staff level and tells `judicator.notes.notify` about staff notes.
+   `onDisconnect` (and `Judicator.disable`) pauses online-only mutes.
 3. **Chat/Command** — `ChatHandler` blocks muted players and handles the evidence prompt of staff members.
-4. **Command** → staff rules (`ImmuneCache.canPunish`: self, `immune.yml`, hierarchy; `punish/rules/`:
+4. **Command** → staff rules (`ImmuneCache.canPunish(source, target, type)`: self, `immune.yml` `users`/`players`, hierarchy; `punish/rules/`:
    `TimeLimitService` and `PunishCooldown`; `AddressPolicy.isExempt` for IP punishments) → `PunishFactory` (checks the
    cooldown again at confirmation) → `BanHandler`/`MuteHandler` → `PunishService.save()` → DB → Discord webhook.
    `ReasonShortcuts` expands `#key` reasons; list commands page with `commons/Pagination` (clickable footer).
+   Changes to a stored punishment go through `PunishService.changeEnd`/`changeReason` (an `UPDATE` that leaves revoked
+   rows alone and refreshes the mute cache), never a full `save` that could undo a revocation.
 
 ### Database
 
 Configured in `data.yml`. PostgreSQL (default), MySQL and SQLite (`commons/db/Dialect`). HikariCP pool in
-`RelationalDBManager`; DDL for the three dialects lives in each `*RelationalDAO.initialize()`. Dates go through
+`RelationalDBManager`; DDL for the three dialects lives in each `*RelationalDAO.initialize()`. A column added after
+1.0.0 goes in the `CREATE TABLE` **and** in `SchemaUtil.ensureColumnExists` (for tables created by older versions).
+A paused online-only mute has `finish_at` NULL and `paused_remaining` set, so "in force" queries stay the same.
+`commons/DataRetentionService` deletes old records (`retention.*`, at startup and every 12 hours) and runs
+`/judicator clear`. Dates go through
 `commons/db/SqlTime` (a `LocalDateTime` is stored as that time in UTC and read back the same way; "now" is a
 parameter, never `CURRENT_TIMESTAMP`, which follows the database time zone and does not work in SQLite).
 
 `/judicator import` (console only) lives in `importer/`: one `ImportSource` per plugin (LiteBans, AdvancedBan,
-LibertyBans, BanManager, vanilla ban lists, another Judicator database), `ImportContext` for the shared conversions and
+LibertyBans, BanManager, vanilla ban lists, another Judicator database — including its staff notes), `ImportContext` for the shared conversions and
 `ImportService` for dry-run, de-duplication, batch inserts and merging of IP history. Sources are read-only; their connection settings are in `import.yml`.
 
 ### Localization

@@ -27,6 +27,19 @@ public class Punishment {
     private PunishType type;
     private boolean permanent;
     private transient boolean silent;
+    /**
+     * Soft mute: the player still sees their own messages, nobody else does.
+     */
+    private boolean soft;
+    /**
+     * The time of this temporary mute only runs while the player is online.
+     */
+    private boolean onlineOnly;
+    /**
+     * Milliseconds left of an online-only mute while the player is offline (then {@code finishAt} is null); null
+     * while it runs.
+     */
+    private Long pausedRemaining;
 
     public Punishment(Long id, UUID playerUUID, String reason, String punisher, String nickname, String ipAddress, LocalDateTime startedAt, LocalDateTime finishAt, boolean revoked, String revokedReason, List<String> evidences, PunishType type, boolean permanent) {
         this.id = id;
@@ -75,9 +88,22 @@ public class Punishment {
         final LocalDateTime now = LocalDateTime.now();
         if (revoked) return PunishStatus.REVOKED;
         if (type == PunishType.KICK) return PunishStatus.FINISHED;
-        if (type.isTemp() && finishAt.isBefore(now))
+        // a paused online-only mute has no end yet: it is still in force
+        if (type.isTemp() && finishAt != null && finishAt.isBefore(now))
             return PunishStatus.FINISHED;
         return PunishStatus.ACTIVE;
+    }
+
+    public boolean isPaused() {
+        return pausedRemaining != null;
+    }
+
+    /**
+     * The type as staff screens show it: {@code SOFTMUTE}/{@code TEMPSOFTMUTE} for soft mutes, else the type name.
+     */
+    public String getDisplayType() {
+        if (!soft) return type.name();
+        return type == PunishType.TEMPMUTE ? "TEMPSOFTMUTE" : "SOFTMUTE";
     }
 
     public Optional<UUID> getPlayerUUID() {

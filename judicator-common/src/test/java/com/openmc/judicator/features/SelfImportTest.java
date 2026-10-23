@@ -1,6 +1,8 @@
 package com.openmc.judicator.features;
 
 import com.openmc.judicator.commons.db.RelationalDBManager;
+import com.openmc.judicator.notes.Note;
+import com.openmc.judicator.notes.repository.dao.NoteRelationalDAO;
 import com.openmc.judicator.punish.AccessAddress;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.data.repository.dao.AccessAddressRelationalDAO;
@@ -158,6 +160,29 @@ class SelfImportTest {
         assertTrue(server.console.received("0 punishments and 0 warns to import, 5 already in Judicator."), server.console.messages().toString());
         assertTrue(server.console.received("0 new, 0 to merge with accounts already known, 2 already up to date."), server.console.messages().toString());
         assertEquals(4, server.punishments.all().size());
+    }
+
+    @Test
+    void staffNotesAreCopiedOnce() {
+        final RelationalDBManager manager = new RelationalDBManager();
+        manager.initialize(of(map("database", map("type", "sqlite", "file", "old.db"))), oldServer, NOPLogger.NOP_LOGGER);
+        try {
+            final NoteRelationalDAO notes = new NoteRelationalDAO(manager, NOPLogger.NOP_LOGGER);
+            notes.initialize();
+            notes.save(new Note(null, steve, "Steve", "Mod", "talked to him about the x-ray", start.plusDays(7)));
+        } finally {
+            manager.shutdown();
+        }
+
+        server.command(server.console, "judicator import judicator confirm");
+        server.command(server.console, "judicator import judicator confirm");
+
+        assertEquals(1, server.notes.all().size());
+        final Note note = server.notes.all().get(0);
+        assertEquals("talked to him about the x-ray", note.getContent());
+        assertEquals("Mod", note.getAuthor());
+        assertEquals(start.plusDays(7), note.getCreatedAt());
+        assertTrue(server.console.received("Imported 4 punishments, 1 warns and 1 staff notes from judicator"), server.console.messages().toString());
     }
 
     @Test

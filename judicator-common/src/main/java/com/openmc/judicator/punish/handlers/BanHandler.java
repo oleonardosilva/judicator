@@ -6,8 +6,6 @@ import com.openmc.judicator.platform.Platform;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.PunishmentBuilder;
-import net.kyori.adventure.text.TextComponent;
-import org.spongepowered.configurate.ConfigurationNode;
 
 import java.util.stream.Stream;
 
@@ -30,24 +28,18 @@ public class BanHandler implements PunishHandler {
 
     private void kick(Punishment punishment) {
         final Platform platform = judicator.getPlatform();
-        final ConfigurationNode messagesNode = judicator.getMessagesConfig();
-        platform.runSync(() -> {
-            final TextComponent kickMessage = PunishUtils.getMessageList(messagesNode, punishment, "runners", "ban-kick");
-            affectedPlayers(platform, punishment).forEach(player -> player.disconnect(kickMessage));
-        });
+        platform.runSync(() -> affectedPlayers(platform, punishment).forEach(player -> player.disconnect(
+                PunishUtils.getMessageList(judicator.messagesFor(player), punishment, "runners", "ban-kick"))));
     }
 
     private void announce(Punishment punishment) {
         judicator.getDiscordWebhookService().sendPunishment(punishment);
 
-        final ConfigurationNode messagesNode = judicator.getMessagesConfig();
         judicator.getStaffNotifier().notifyPunishment(punishment);
         if (!punishment.isSilent() && judicator.getConfig().node("announce").getBoolean(true)) {
             final Platform platform = judicator.getPlatform();
-            platform.getPlayer(punishment.getNickname()).ifPresent(player -> {
-                final TextComponent announcement = PunishUtils.getMessageList(messagesNode, punishment, "announcements", "ban");
-                platform.announceToServerOf(player, announcement);
-            });
+            platform.getPlayer(punishment.getNickname()).ifPresent(player -> platform.announceToServerOf(player,
+                    recipient -> PunishUtils.getMessageList(judicator.messagesFor(recipient), punishment, "announcements", "ban")));
         }
     }
 

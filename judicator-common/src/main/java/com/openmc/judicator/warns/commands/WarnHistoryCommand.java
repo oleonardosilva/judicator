@@ -28,11 +28,11 @@ public class WarnHistoryCommand extends CoreCommand {
 
         final List<Warn> warns = judicator.getWarnService().findAllByUsername(targetName);
         if (warns.isEmpty()) {
-            source.sendMessage(WarnUtils.getMessage(messages(), "error", "angel"));
+            source.sendMessage(WarnUtils.getMessage(messages(source), "error", "angel"));
             return;
         }
 
-        source.sendMessage(WarnUtils.getWarnHistoryMessage(messages(), targetName, warns));
+        source.sendMessage(WarnUtils.getWarnHistoryMessage(messages(source), targetName, warns));
     }
 
 }

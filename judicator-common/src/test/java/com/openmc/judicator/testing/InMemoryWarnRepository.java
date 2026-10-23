@@ -7,6 +7,7 @@ import com.openmc.judicator.warns.repository.dao.WarnRelationalDAO;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -67,6 +68,28 @@ public final class InMemoryWarnRepository implements WarnRepository {
         final LocalDateTime now = LocalDateTime.now();
         return (long) find(w -> w.getNickname().equalsIgnoreCase(username)
                 && (w.isPermanent() || w.getFinishAt().map(end -> end.isAfter(now)).orElse(false))).size();
+    }
+
+    @Override
+    public List<Warn> findByPunisherSince(String punisher, LocalDateTime since) {
+        return find(w -> w.getPunisher().equalsIgnoreCase(punisher) && !w.getStartedAt().isBefore(since)).stream()
+                .sorted(Comparator.comparing(Warn::getStartedAt).thenComparing(Warn::getId).reversed())
+                .toList();
+    }
+
+    @Override
+    public synchronized int deleteFinishedBefore(LocalDateTime cutoff) {
+        final int before = rows.size();
+        rows.values().removeIf(w -> !w.isPermanent() && w.getFinishAt().map(end -> end.isBefore(cutoff)).orElse(false));
+        return before - rows.size();
+    }
+
+    @Override
+    public synchronized int deleteAllOf(String username, UUID uuid) {
+        final int before = rows.size();
+        rows.values().removeIf(w -> w.getNickname().equalsIgnoreCase(username)
+                || (uuid != null && w.getPlayerUUID().map(uuid::equals).orElse(false)));
+        return before - rows.size();
     }
 
     @Override

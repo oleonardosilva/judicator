@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 public interface Platform {
 
@@ -29,10 +30,20 @@ public interface Platform {
 
     void runSync(Runnable task);
 
+    /**
+     * Runs the task every period off the game thread; the first run is one period from now.
+     */
     PlatformTask runAsyncRepeating(Runnable task, long period, TimeUnit unit);
 
     void dispatchConsoleCommand(String command);
 
-    void announceToServerOf(JudicatorPlayer player, Component message);
+    default void announceToServerOf(JudicatorPlayer player, Component message) {
+        announceToServerOf(player, recipient -> message);
+    }
+
+    /**
+     * Sends a message to the players of the server the player is on, built for each recipient (in their language).
+     */
+    void announceToServerOf(JudicatorPlayer player, Function<JudicatorPlayer, Component> message);
 
 }

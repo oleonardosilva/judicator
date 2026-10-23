@@ -3,6 +3,7 @@ package com.openmc.judicator.testing;
 import com.openmc.judicator.punish.AccessAddress;
 import com.openmc.judicator.punish.data.repository.AccessAddressRepository;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -57,6 +58,13 @@ public final class InMemoryAccessAddressRepository implements AccessAddressRepos
                 .filter(a -> a.contains(username))
                 .sorted(Comparator.comparing(AccessAddress::getLastUsage).reversed())
                 .map(InMemoryAccessAddressRepository::copy).toList());
+    }
+
+    @Override
+    public synchronized int deleteUnusedBefore(LocalDateTime cutoff) {
+        final int before = rows.size();
+        rows.values().removeIf(a -> a.getLastUsage().isBefore(cutoff));
+        return before - rows.size();
     }
 
     private static AccessAddress copy(AccessAddress a) {

@@ -4,8 +4,10 @@ import com.openmc.judicator.Judicator;
 import com.openmc.judicator.commons.command.CommandArgs;
 import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.platform.JudicatorSender;
+import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.PunishmentBuilder;
 import com.openmc.judicator.punish.ReasonShortcuts;
+import com.openmc.judicator.punish.rules.PunishCooldown;
 import com.openmc.judicator.punish.types.PunishPermissions;
 import com.openmc.judicator.punish.types.PunishType;
 
@@ -15,14 +17,24 @@ import java.util.Optional;
 public class PunishTypeCommand extends CoreCommand {
 
     static final String SILENT_FLAG = "-s";
+    /**
+     * Temporary mutes: the time only runs while the player is online.
+     */
+    static final String ONLINE_ONLY_FLAG = "-o";
 
     private final PunishType type;
     private final boolean byAddress;
+    private final boolean soft;
 
     private PunishTypeCommand(Judicator judicator, String name, PunishType type, boolean byAddress, PunishPermissions permission) {
+        this(judicator, name, type, byAddress, false, permission);
+    }
+
+    private PunishTypeCommand(Judicator judicator, String name, PunishType type, boolean byAddress, boolean soft, PunishPermissions permission) {
         super(judicator, name, List.of(), permission.getPermission(), PunishPermissions.ADMIN.getPermission());
         this.type = type;
         this.byAddress = byAddress;
+        this.soft = soft;
     }
 
     public static List<CoreCommand> all(Judicator judicator) {
@@ -34,7 +46,9 @@ public class PunishTypeCommand extends CoreCommand {
                 new PunishTypeCommand(judicator, "mute", PunishType.MUTE, false, PunishPermissions.MUTE),
                 new PunishTypeCommand(judicator, "muteip", PunishType.MUTE, true, PunishPermissions.MUTEIP),
                 new PunishTypeCommand(judicator, "tempmute", PunishType.TEMPMUTE, false, PunishPermissions.TEMPMUTE),
-                new PunishTypeCommand(judicator, "tempmuteip", PunishType.TEMPMUTE, true, PunishPermissions.TEMPMUTEIP)
+                new PunishTypeCommand(judicator, "tempmuteip", PunishType.TEMPMUTE, true, PunishPermissions.TEMPMUTEIP),
+                new PunishTypeCommand(judicator, "softmute", PunishType.MUTE, false, true, PunishPermissions.SOFTMUTE),
+                new PunishTypeCommand(judicator, "tempsoftmute", PunishType.TEMPMUTE, false, true, PunishPermissions.TEMPSOFTMUTE)
         );
     }
 
@@ -46,7 +60,8 @@ public class PunishTypeCommand extends CoreCommand {
             return;
         }
         final String targetName = optTarget.get();
-        boolean silent = args.consumeFlag(SILENT_FLAG);
+        final Flags flags = new Flags();
+        flags.read(args);
 
         String duration = null;
         if (type.isTemp()) {
@@ -56,18 +71,26 @@ public class PunishTypeCommand extends CoreCommand {
                 return;
             }
             duration = optDuration.get();
-            silent |= args.consumeFlag(SILENT_FLAG);
+            flags.read(args);
+        }
+        final boolean silent = flags.silent;
+        final boolean onlineOnly = flags.onlineOnly;
+        if (onlineOnly && byAddress) {
+            source.sendMessage(PunishUtils.getMessage(messages(source), "error", "online-only-ip"));
+            return;
         }
         final Optional<String> reason = ReasonShortcuts.expand(judicator, source, args.remaining());
         if (reason.isEmpty()) return;
 
         if (silent && !silentAllowed(source)) return;
-        if (!judicator.getImmuneCache().canPunish(source, targetName)) return;
+        if (!judicator.getImmuneCache().canPunish(source, targetName, PunishCooldown.categoryOf(type))) return;
 
         final PunishmentBuilder builder = new PunishmentBuilder()
                 .type(type)
                 .reason(reason.get())
-                .silent(silent);
+                .silent(silent)
+                .soft(soft)
+                .onlineOnly(onlineOnly);
 
         if (duration != null) {
             try {
@@ -81,6 +104,22 @@ public class PunishTypeCommand extends CoreCommand {
         if (!PunishmentCommandSupport.passesStaffRules(judicator, source, builder, targetName)) return;
         if (!PunishmentCommandSupport.resolveTarget(judicator, source, builder, targetName, byAddress)) return;
         PunishmentCommandSupport.submit(judicator, source, builder);
+    }
+
+    /**
+     * {@code -s} and, on temporary mutes, {@code -o}, in any order, before or after the duration.
+     */
+    private final class Flags {
+        private boolean silent;
+        private boolean onlineOnly;
+
+        private void read(CommandArgs args) {
+            while (true) {
+                if (args.consumeFlag(SILENT_FLAG)) silent = true;
+                else if (type == PunishType.TEMPMUTE && args.consumeFlag(ONLINE_ONLY_FLAG)) onlineOnly = true;
+                else return;
+            }
+        }
     }
 
     @Override

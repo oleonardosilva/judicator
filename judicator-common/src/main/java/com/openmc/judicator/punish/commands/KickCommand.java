@@ -8,6 +8,7 @@ import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.ReasonShortcuts;
+import com.openmc.judicator.punish.data.cache.ImmuneCache;
 import com.openmc.judicator.punish.rules.PunishCooldown;
 import com.openmc.judicator.punish.types.PunishPermissions;
 import com.openmc.judicator.punish.types.PunishType;
@@ -35,9 +36,9 @@ public class KickCommand extends CoreCommand {
         }
         final String targetName = optTarget.get();
         final boolean silent = args.consumeFlag(PunishTypeCommand.SILENT_FLAG);
-        final ConfigurationNode messages = messages();
+        final ConfigurationNode messages = messages(source);
         if (silent && !silentAllowed(source)) return;
-        if (!judicator.getImmuneCache().canPunish(source, targetName)) return;
+        if (!judicator.getImmuneCache().canPunish(source, targetName, ImmuneCache.KICK)) return;
         final Optional<String> remaining = ReasonShortcuts.expand(judicator, source, args.remaining());
         if (remaining.isEmpty()) return;
         final String reason = remaining.get().isEmpty() ? "None" : remaining.get();
@@ -53,22 +54,22 @@ public class KickCommand extends CoreCommand {
         final JudicatorPlayer player = optPlayer.get();
 
         judicator.getPlatform().runSync(() -> {
-            final TextComponent kickMessage = Component.text(PunishUtils.getMessageList(messages, "runners", "kick").content()
-                    .replace("{nickname}", targetName)
-                    .replace("{author}", punisher)
-                    .replace("{reason}", reason));
-
+            final TextComponent kickMessage = kickText(judicator.messagesFor(player), "runners", targetName, punisher, reason);
             if (!silent && judicator.getConfig().node("announce").getBoolean(true)) {
-                final TextComponent announcement = Component.text(PunishUtils.getMessageList(messages, "announcements", "kick").content()
-                        .replace("{nickname}", targetName)
-                        .replace("{author}", punisher)
-                        .replace("{reason}", reason));
-                judicator.getPlatform().announceToServerOf(player, announcement);
+                judicator.getPlatform().announceToServerOf(player,
+                        recipient -> kickText(judicator.messagesFor(recipient), "announcements", targetName, punisher, reason));
             }
             player.disconnect(kickMessage);
         });
         judicator.getStaffNotifier().notifyKick(punisher, targetName, reason, silent);
         if (judicator.getConfig().node("log-kicks").getBoolean(false)) record(player, punisher, reason);
+    }
+
+    private static TextComponent kickText(ConfigurationNode messages, String section, String nickname, String author, String reason) {
+        return Component.text(PunishUtils.getMessageList(messages, section, "kick").content()
+                .replace("{nickname}", nickname)
+                .replace("{author}", author)
+                .replace("{reason}", reason));
     }
 
     /**

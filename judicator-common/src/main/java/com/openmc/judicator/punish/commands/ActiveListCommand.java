@@ -45,7 +45,7 @@ public class ActiveListCommand extends CoreCommand {
             return;
         }
 
-        final ConfigurationNode messages = messages();
+        final ConfigurationNode messages = messages(source);
         final int total = judicator.getPunishService().countActive(types);
         if (total == 0) {
             source.sendMessage(PunishUtils.getMessage(messages, getName(), "none"));

@@ -1,6 +1,9 @@
 package com.openmc.judicator.importer;
 
 import com.openmc.judicator.Judicator;
+import com.openmc.judicator.notes.Note;
+import com.openmc.judicator.notes.repository.NoteRepository;
+import com.openmc.judicator.notes.repository.dao.NoteRelationalDAO;
 import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.punish.AccessAddress;
 import com.openmc.judicator.punish.Punishment;
@@ -14,6 +17,7 @@ import net.kyori.adventure.text.Component;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -37,15 +41,17 @@ public class ImportService {
     private final PunishmentRepository punishments;
     private final WarnRepository warns;
     private final AccessAddressRepository addresses;
+    private final NoteRepository notes;
     private final Map<String, ImportSource> sources;
     private final AtomicBoolean running = new AtomicBoolean();
 
     public ImportService(Judicator judicator, PunishmentRepository punishments, WarnRepository warns,
-                         AccessAddressRepository addresses) {
+                         AccessAddressRepository addresses, NoteRepository notes) {
         this.judicator = judicator;
         this.punishments = punishments;
         this.warns = warns;
         this.addresses = addresses;
+        this.notes = notes;
         this.sources = List.of(new LiteBansImporter(), new AdvancedBanImporter(), new LibertyBansImporter(),
                         new BanManagerImporter(), new VanillaImporter(), new JudicatorImporter()).stream()
                 .collect(Collectors.toUnmodifiableMap(ImportSource::name, Function.identity()));
@@ -104,8 +110,16 @@ public class ImportService {
             else duplicates++;
         }
 
+        final Set<String> noteKeys = result.getNotes().isEmpty() ? new HashSet<>() : notes.findAllImportKeys();
+        final List<Note> newNotes = new ArrayList<>();
+        for (Note note : result.getNotes()) {
+            if (noteKeys.add(NoteRelationalDAO.importKey(note))) newNotes.add(note);
+            else duplicates++;
+        }
+
         send(sender, "§e" + source.name() + ": §f" + newPunishments.size() + "§e punishments and §f" + newWarns.size()
-                + "§e warns to import, §f" + duplicates + "§e already in Judicator.");
+                + "§e warns to import" + (result.getNotes().isEmpty() ? "" : ", §f" + newNotes.size() + "§e staff notes")
+                + ", §f" + duplicates + "§e already in Judicator.");
         final List<AccessAddress> addressChanges = new ArrayList<>();
         int newAddresses = 0;
         for (AccessAddress address : result.getAddresses()) {
@@ -128,6 +142,7 @@ public class ImportService {
 
         int written = 0;
         int writtenWarns = 0;
+        int writtenNotes = 0;
         try {
             for (int from = 0; from < newPunishments.size(); from += BATCH) {
                 written += punishments.insertAll(newPunishments.subList(from, Math.min(from + BATCH, newPunishments.size())));
@@ -135,14 +150,19 @@ public class ImportService {
             for (int from = 0; from < newWarns.size(); from += BATCH) {
                 writtenWarns += warns.insertAll(newWarns.subList(from, Math.min(from + BATCH, newWarns.size())));
             }
+            for (int from = 0; from < newNotes.size(); from += BATCH) {
+                writtenNotes += notes.insertAll(newNotes.subList(from, Math.min(from + BATCH, newNotes.size())));
+            }
         } catch (SQLException e) {
             judicator.getLogger().error("Import from {} stopped while writing", source.name(), e);
-            send(sender, "§cImport stopped after " + written + " punishments and " + writtenWarns + " warns: "
+            send(sender, "§cImport stopped after " + written + " punishments, " + writtenWarns + " warns and " + writtenNotes + " notes: "
                     + e.getMessage() + ". Running the same command again continues where it stopped.");
             return;
         }
         addressChanges.forEach(addresses::save);
-        send(sender, "§aImported " + written + " punishments and " + writtenWarns + " warns from " + source.name()
+        send(sender, "§aImported " + written + " punishments"
+                + (writtenNotes == 0 ? " and " + writtenWarns + " warns" : ", " + writtenWarns + " warns and " + writtenNotes + " staff notes")
+                + " from " + source.name()
                 + (addressChanges.isEmpty() ? "" : " and updated " + addressChanges.size() + " IP addresses")
                 + ". Online players pick up imported mutes when they rejoin.");
     }

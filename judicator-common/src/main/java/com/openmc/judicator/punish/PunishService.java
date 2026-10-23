@@ -6,7 +6,9 @@ import com.openmc.judicator.punish.data.cache.PunishCache;
 import com.openmc.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.judicator.punish.types.PunishType;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -17,13 +19,22 @@ public class PunishService {
     private final Judicator judicator;
     private final PunishmentRepository repository;
     private final PunishCache cache;
-    private final Comparator<Punishment> heavyFirst = (o1, o2) -> {
-        final Optional<LocalDateTime> f1 = o1.getFinishAt();
-        final Optional<LocalDateTime> f2 = o2.getFinishAt();
-        if (f1.isEmpty() && f2.isPresent()) return -1;
-        if (f1.isPresent() && f2.isEmpty()) return 1;
-        return f1.map(localDateTime -> f2.get().compareTo(localDateTime)).orElse(0);
-    };
+
+    /**
+     * The punishment that weighs most first: a normal mute before a soft one (it is the one the player must notice),
+     * then the one that ends last — permanent first, a paused online-only mute by the time it has left (it is not
+     * permanent even though it has no end).
+     */
+    public static Comparator<Punishment> heavyFirst() {
+        final LocalDateTime now = LocalDateTime.now();
+        return Comparator.comparing(Punishment::isSoft)
+                .thenComparing((Punishment punishment) -> effectiveEnd(punishment, now), Comparator.reverseOrder());
+    }
+
+    private static LocalDateTime effectiveEnd(Punishment punishment, LocalDateTime now) {
+        if (punishment.isPaused()) return now.plus(Duration.ofMillis(punishment.getPausedRemaining()));
+        return punishment.getFinishAt().orElse(LocalDateTime.MAX);
+    }
 
     public PunishService(Judicator judicator, PunishmentRepository repository) {
         this.judicator = judicator;
@@ -39,7 +50,7 @@ public class PunishService {
         final Optional<Punishment> ban = punishments.stream().filter(Punishment::isBanType).findFirst();
         if (ban.isPresent()) return ban;
 
-        punishments.stream().filter(Punishment::isMuteType).min(heavyFirst).ifPresent(punishment -> {
+        punishments.stream().filter(Punishment::isMuteType).min(heavyFirst()).ifPresent(punishment -> {
             final String key = punishment.getIpAddress().orElseGet(punishment::getNickname);
             cache.putMutePunishment(key, punishment);
         });
@@ -55,7 +66,7 @@ public class PunishService {
 
         if (cache.getPunishment(username).or(() -> cache.getPunishment(address)).isPresent()) return Optional.empty();
 
-        punishments.stream().filter(Punishment::isMuteType).min(heavyFirst)
+        punishments.stream().filter(Punishment::isMuteType).min(heavyFirst())
                 .ifPresent(punishment -> cache.putMutePunishment(username, punishment));
         return Optional.empty();
     }
@@ -141,8 +152,62 @@ public class PunishService {
         return repository.findAllActiveByUsernameAndTypes(username, types);
     }
 
+    /**
+     * Bans in force on any of these accounts.
+     */
+    public List<Punishment> findActiveBans(Collection<String> usernames) {
+        return repository.findAllActiveByUsernamesAndTypes(usernames, PunishType.BAN, PunishType.TEMPBAN);
+    }
+
     public Punishment save(Punishment punishment) {
         return repository.save(punishment);
+    }
+
+    /**
+     * Stores a new end (or what is left of a paused online-only mute) and makes a cached mute follow it right away.
+     *
+     * @return false when the punishment was revoked meanwhile
+     */
+    public boolean changeEnd(Punishment punishment, LocalDateTime finishAt, Long pausedRemaining) {
+        if (!repository.changeEnd(punishment.getId(), finishAt, pausedRemaining)) return false;
+        punishment.setFinishAt(finishAt);
+        punishment.setPausedRemaining(pausedRemaining);
+        cache.refreshMute(punishment);
+        return true;
+    }
+
+    /**
+     * @return false when the punishment was revoked meanwhile
+     */
+    public boolean changeReason(Punishment punishment, String reason) {
+        if (!repository.changeReason(punishment.getId(), reason)) return false;
+        punishment.setReason(reason);
+        cache.refreshMute(punishment);
+        return true;
+    }
+
+    /**
+     * The player left (or the server is stopping with them online): their online-only mutes stop running and keep
+     * what is left until they join again.
+     */
+    public void pauseOnlineOnlyMutes(String username) {
+        final LocalDateTime now = LocalDateTime.now();
+        for (Punishment mute : repository.findAllActiveByUsernameAndTypes(username, PunishType.TEMPMUTE)) {
+            if (!mute.isOnlineOnly() || mute.isPaused() || mute.getFinishAt().isEmpty()) continue;
+            final long left = Duration.between(now, mute.getFinishAt().get()).toMillis();
+            if (left > 0) changeEnd(mute, null, left);
+        }
+    }
+
+    /**
+     * The player joined (in the game, after authentication: a name typed at the login screen, or a login refused by a
+     * whitelist or a full server, must not make the mute run): their paused online-only mutes run again from now.
+     */
+    public void resumeOnlineOnlyMutes(String username) {
+        final LocalDateTime now = LocalDateTime.now();
+        for (Punishment mute : repository.findAllActiveByUsernameAndTypes(username, PunishType.TEMPMUTE)) {
+            if (mute.isPaused()) changeEnd(mute, now.plus(Duration.ofMillis(mute.getPausedRemaining())), null);
+        }
     }
 
     public void deleteById(Long id) {

@@ -57,7 +57,7 @@ public class TimeLimitService {
     public boolean allows(JudicatorSender sender, PunishType type, LocalDateTime startedAt, LocalDateTime finishAt) {
         final Optional<String> limit = exceededLimit(sender, type, startedAt, finishAt);
         if (limit.isEmpty()) return true;
-        sender.sendMessage(PunishUtils.format(judicator.getMessagesConfig(),
+        sender.sendMessage(PunishUtils.format(judicator.messagesFor(sender),
                 Map.of("type", category(type), "limit", limit.get()), "error", "time-limit"));
         return false;
     }
@@ -82,7 +82,7 @@ public class TimeLimitService {
         if (finishAt != null && !finishAt.isAfter(latestEnd)) return Optional.empty();
 
         final long millis = Duration.between(startedAt, latestEnd).toMillis();
-        return Optional.of(DateTimeOffsetParser.format(judicator.getMessagesConfig(), millis));
+        return Optional.of(DateTimeOffsetParser.format(judicator.messagesFor(sender), millis));
     }
 
     static String category(PunishType type) {

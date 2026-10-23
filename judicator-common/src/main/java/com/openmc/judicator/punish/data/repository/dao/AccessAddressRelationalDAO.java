@@ -9,6 +9,7 @@ import com.openmc.judicator.punish.data.repository.AccessAddressRepository;
 import org.slf4j.Logger;
 
 import java.sql.*;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -104,7 +105,8 @@ public class AccessAddressRelationalDAO implements AccessAddressRepository {
             final PreparedStatement statement = connection.prepareStatement("""
                     SELECT * FROM access_addresses WHERE id = ?
                     """);
-            statement.setString(1, id);
+            // id is BIGINT: PostgreSQL does not compare it with a text parameter
+            statement.setLong(1, Long.parseLong(id));
             final ResultSet resultSet = statement.executeQuery();
             if (resultSet.next()) {
                 return Optional.of(load(resultSet));
@@ -119,10 +121,22 @@ public class AccessAddressRelationalDAO implements AccessAddressRepository {
     public void deleteById(String id) {
         try (Connection connection = manager.getDataSource().getConnection()) {
             final PreparedStatement st = connection.prepareStatement("DELETE FROM access_addresses WHERE id = ?");
-            st.setString(1, id);
+            st.setLong(1, Long.parseLong(id));
             st.execute();
         } catch (SQLException e) {
             logger.error(e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public int deleteUnusedBefore(LocalDateTime cutoff) {
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement("DELETE FROM access_addresses WHERE last_usage < ?")) {
+            statement.setTimestamp(1, SqlTime.of(cutoff));
+            return statement.executeUpdate();
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return 0;
         }
     }
 

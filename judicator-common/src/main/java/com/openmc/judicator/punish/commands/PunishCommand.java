@@ -9,6 +9,7 @@ import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.PunishmentBuilder;
 import com.openmc.judicator.punish.data.cache.ReasonCache;
+import com.openmc.judicator.punish.rules.PunishCooldown;
 import com.openmc.judicator.punish.types.PunishPermissions;
 import com.openmc.judicator.punish.types.PunishType;
 
@@ -32,7 +33,7 @@ public class PunishCommand extends CoreCommand {
         final String targetName = optTarget.get();
         final boolean silent = args.consumeFlag(PunishTypeCommand.SILENT_FLAG);
         if (silent && !silentAllowed(source)) return;
-        if (!judicator.getImmuneCache().canPunish(source, targetName)) return;
+        if (!judicator.getImmuneCache().canPunish(source, targetName, null)) return;
         final String reason = args.remaining();
         final ReasonCache reasonCache = judicator.getReasonCache();
 
@@ -42,7 +43,7 @@ public class PunishCommand extends CoreCommand {
                 final List<ConfiguredReason> usable = reasonCache.getReasons().stream()
                         .filter(configured -> canUseReason(source, configured))
                         .toList();
-                source.sendMessage(PunishUtils.getPunishmentsMessage(messages(), targetName, usable,
+                source.sendMessage(PunishUtils.getPunishmentsMessage(messages(source), targetName, usable,
                         configured -> configured.stepFor(countPrevious(history, configured))));
             }
             return;
@@ -50,19 +51,21 @@ public class PunishCommand extends CoreCommand {
 
         final Optional<ConfiguredReason> optReason = reasonCache.getReason(reason);
         if (optReason.isEmpty()) {
-            source.sendMessage(PunishUtils.getMessage(messages(), "error", "reason-not-found"));
+            source.sendMessage(PunishUtils.getMessage(messages(source), "error", "reason-not-found"));
             return;
         }
 
         final ConfiguredReason configuredReason = optReason.get();
         if (!canUseReason(source, configuredReason)) {
-            source.sendMessage(PunishUtils.getMessage(messages(), "error", "reason-no-permission"));
+            source.sendMessage(PunishUtils.getMessage(messages(source), "error", "reason-no-permission"));
             return;
         }
 
         final ConfiguredReason.Step step = configuredReason.isProgressive()
                 ? configuredReason.stepFor(countPrevious(judicator.getPunishService().findAllByUsername(targetName), configuredReason))
                 : configuredReason.stepFor(0);
+
+        if (!judicator.getImmuneCache().canPunish(source, targetName, PunishCooldown.categoryOf(step.type()))) return;
 
         final PunishmentBuilder builder = new PunishmentBuilder()
                 .type(step.type())

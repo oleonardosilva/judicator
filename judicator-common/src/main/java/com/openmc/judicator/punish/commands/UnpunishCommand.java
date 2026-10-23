@@ -47,7 +47,7 @@ public class UnpunishCommand extends CoreCommand {
         final String reason = args.remaining();
         if (silent && !silentAllowed(source)) return;
 
-        final ConfigurationNode messages = messages();
+        final ConfigurationNode messages = messages(source);
         final PunishService punishService = judicator.getPunishService();
         final List<Punishment> active = punishService.findAllActiveByUsernameAndTypes(targetName, types);
         if (active.isEmpty()) {
@@ -70,8 +70,11 @@ public class UnpunishCommand extends CoreCommand {
         final String nickname = active.get(0).getNickname();
         source.sendMessage(PunishUtils.format(messages, Map.of("nickname", nickname, "count", String.valueOf(revoked)),
                 "success", getName()));
-        judicator.getPlatform().getPlayer(targetName)
-                .ifPresent(player -> player.sendMessage(PunishUtils.getMessage(messages, "success", "got-pardon")));
+        // a player who only had soft mutes never knew about them
+        if (!active.stream().allMatch(Punishment::isSoft)) {
+            judicator.getPlatform().getPlayer(targetName)
+                    .ifPresent(player -> player.sendMessage(PunishUtils.getMessage(judicator.messagesFor(player), "success", "got-pardon")));
+        }
 
         final String author = source.asPlayer().map(JudicatorPlayer::getName).orElse("Console");
         judicator.getStaffNotifier().notifyUnpunish(author, nickname, mute ? "MUTE" : "BAN", revoked, silent);

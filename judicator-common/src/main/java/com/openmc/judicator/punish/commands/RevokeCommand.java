@@ -28,7 +28,7 @@ public class RevokeCommand extends CoreCommand {
         }
         final Long id = optId.get();
         final String reason = args.remaining();
-        final ConfigurationNode messages = messages();
+        final ConfigurationNode messages = messages(source);
         final PunishService punishService = judicator.getPunishService();
 
         final Optional<Punishment> optPunishment = punishService.findById(id);
@@ -47,8 +47,11 @@ public class RevokeCommand extends CoreCommand {
             source.sendMessage(PunishUtils.getMessage(messages, "success", "pardon"));
             judicator.getPunishCache().forgetMute(id);
 
-            judicator.getPlatform().getPlayer(punishment.getNickname()).ifPresent(player ->
-                    player.sendMessage(PunishUtils.getMessage(messages, "success", "got-pardon")));
+            // a soft-muted player never knew about it
+            if (!punishment.isSoft()) {
+                judicator.getPlatform().getPlayer(punishment.getNickname()).ifPresent(player ->
+                        player.sendMessage(PunishUtils.getMessage(judicator.messagesFor(player), "success", "got-pardon")));
+            }
         }, () -> source.sendMessage(PunishUtils.getMessage(messages, "error", "unknown")));
     }
 

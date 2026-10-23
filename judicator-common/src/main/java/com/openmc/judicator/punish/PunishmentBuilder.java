@@ -24,6 +24,8 @@ public class PunishmentBuilder {
     private LocalDateTime finishAt;
     private PunishType type;
     private boolean silent;
+    private boolean soft;
+    private boolean onlineOnly;
     private JudicatorPlayer staff;
 
     /**
@@ -41,6 +43,16 @@ public class PunishmentBuilder {
 
     public PunishmentBuilder silent(boolean silent) {
         this.silent = silent;
+        return this;
+    }
+
+    public PunishmentBuilder soft(boolean soft) {
+        this.soft = soft;
+        return this;
+    }
+
+    public PunishmentBuilder onlineOnly(boolean onlineOnly) {
+        this.onlineOnly = onlineOnly;
         return this;
     }
 
@@ -105,6 +117,8 @@ public class PunishmentBuilder {
                 type
         );
         punishment.setSilent(silent);
+        punishment.setSoft(soft);
+        punishment.setOnlineOnly(onlineOnly);
         return punishment;
     }
 

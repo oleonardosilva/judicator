@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 public class BukkitPlatform implements Platform {
 
@@ -124,8 +125,8 @@ public class BukkitPlatform implements Platform {
     }
 
     @Override
-    public void announceToServerOf(JudicatorPlayer player, Component message) {
-        audiences.players().sendMessage(message);
+    public void announceToServerOf(JudicatorPlayer player, Function<JudicatorPlayer, Component> message) {
+        getOnlinePlayers().forEach(recipient -> recipient.sendMessage(message.apply(recipient)));
     }
 
 }

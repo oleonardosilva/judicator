@@ -2,6 +2,7 @@ package com.openmc.judicator.platform;
 
 import net.kyori.adventure.text.Component;
 
+import java.util.Locale;
 import java.util.Optional;
 
 public interface JudicatorSender {
@@ -19,6 +20,14 @@ public interface JudicatorSender {
     }
 
     void sendMessage(Component message);
+
+    /**
+     * The language of the game client (e.g. {@code pt_BR}); empty for the console, or while the client has not sent
+     * its settings yet.
+     */
+    default Optional<Locale> getLocale() {
+        return Optional.empty();
+    }
 
     Optional<JudicatorPlayer> asPlayer();
 

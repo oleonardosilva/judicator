@@ -44,15 +44,19 @@ public class PunishUtils {
         final String status = messagesNode.node("status", punishment.getStatus().name().toLowerCase(Locale.ROOT)).getString(punishment.getStatus().name()).replace("&", "§");
 
         final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern(dateFormat);
+        final String end = punishment.isPaused()
+                ? messagesNode.node("paused").getString("&e{remaining} of online time left").replace("&", "§")
+                .replace("{remaining}", DateTimeOffsetParser.format(messagesNode, punishment.getPausedRemaining()))
+                : punishment.getFinishAt().map(timeFormatter::format).orElse(permanent);
         return messages.stream().map(s -> s
                         .replace("&", "§")
-                        .replace("{finishAt}", punishment.getFinishAt().map(timeFormatter::format).orElse(permanent))
+                        .replace("{finishAt}", end)
                         .replace("{author}", punishment.getPunisher())
                         .replace("{status}", status)
                         .replace("{id}", punishment.getId().toString())
                         .replace("{evidence}", punishment.getEvidences().isEmpty() ? "None" : String.join(", ", punishment.getEvidences()))
                         .replace("{nickname}", punishment.getNickname())
-                        .replace("{type}", punishment.getType().name())
+                        .replace("{type}", punishment.getDisplayType())
                         .replace("{startedAt}", timeFormatter.format(punishment.getStartedAt()))
                         .replace("{revoked}", punishment.isRevoked() ? yes : no)
                         .replace("{revokedReason}", punishment.getRevokedReason().orElse("None"))

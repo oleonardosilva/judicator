@@ -8,6 +8,8 @@ import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.PunishmentBuilder;
 import com.openmc.judicator.punish.data.cache.PunishCache;
 import com.openmc.judicator.punish.types.PunishStatus;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.spongepowered.configurate.serialize.SerializationException;
 
 import java.util.List;
@@ -15,6 +17,16 @@ import java.util.Locale;
 import java.util.Optional;
 
 public final class ChatHandler {
+
+    /**
+     * What happens to a chat message: it goes through, it is blocked (the player is told why), or — soft mute — only
+     * the sender sees it and nothing tells them so.
+     */
+    public enum ChatDecision {
+        ALLOW,
+        BLOCK,
+        SOFT
+    }
 
     private final Judicator judicator;
     private volatile List<String> blockedCommands = List.of();
@@ -36,12 +48,23 @@ public final class ChatHandler {
         this.blockGlobalChat = judicator.getConfig().node("block-global-chat").getBoolean();
     }
 
-    public boolean shouldBlockChat(JudicatorPlayer player) {
-        if (!blockGlobalChat) return false;
+    public ChatDecision chatDecision(JudicatorPlayer player) {
+        if (!blockGlobalChat) return ChatDecision.ALLOW;
         final Optional<Punishment> punishment = activeMute(player);
-        if (punishment.isEmpty()) return false;
-        player.sendMessage(PunishUtils.getMessageList(judicator.getMessagesConfig(), punishment.get(), "runners", "mute-status"));
-        return true;
+        if (punishment.isEmpty()) return ChatDecision.ALLOW;
+        if (punishment.get().isSoft()) return ChatDecision.SOFT;
+        player.sendMessage(PunishUtils.getMessageList(judicator.messagesFor(player), punishment.get(), "runners", "mute-status"));
+        return ChatDecision.BLOCK;
+    }
+
+    /**
+     * The message a soft-muted player sees instead of the real chat line, where the platform cannot keep it for the
+     * sender only (Velocity): {@code soft-mute-format} with the player's text as plain text (no colour codes).
+     */
+    public Component softMuteEcho(JudicatorPlayer player, String message) {
+        final String format = judicator.getConfig().node("soft-mute-format").getString("<{player}> {message}");
+        return LegacyComponentSerializer.legacyAmpersand().deserialize(format.replace("{player}", player.getName()))
+                .replaceText(builder -> builder.matchLiteral("{message}").replacement(Component.text(message)));
     }
 
     public boolean shouldBlockCommand(JudicatorPlayer player, String commandLine) {
@@ -50,8 +73,9 @@ public final class ChatHandler {
 
         final Optional<Punishment> punishment = activeMute(player);
         if (punishment.isEmpty()) return false;
+        if (punishment.get().isSoft()) return true;
 
-        player.sendMessage(PunishUtils.getMessageList(judicator.getMessagesConfig(), punishment.get(), "runners", "mute-status"));
+        player.sendMessage(PunishUtils.getMessageList(judicator.messagesFor(player), punishment.get(), "runners", "mute-status"));
         return true;
     }
 

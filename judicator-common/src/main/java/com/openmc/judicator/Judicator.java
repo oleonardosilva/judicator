@@ -1,5 +1,6 @@
 package com.openmc.judicator;
 
+import com.openmc.judicator.commons.DataRetentionService;
 import com.openmc.judicator.commons.JudicatorCommand;
 import com.openmc.judicator.commons.StaffNotifier;
 import com.openmc.judicator.commons.UUIDManager;
@@ -7,6 +8,14 @@ import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.commons.db.RelationalDBManager;
 import com.openmc.judicator.discord.DiscordWebhookService;
 import com.openmc.judicator.importer.ImportService;
+import com.openmc.judicator.notes.NoteService;
+import com.openmc.judicator.notes.commands.DelNoteCommand;
+import com.openmc.judicator.notes.commands.NoteCommand;
+import com.openmc.judicator.notes.commands.NotesCommand;
+import com.openmc.judicator.notes.repository.NoteRepository;
+import com.openmc.judicator.notes.repository.dao.NoteRelationalDAO;
+import com.openmc.judicator.platform.JudicatorPlayer;
+import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.platform.Platform;
 import com.openmc.judicator.punish.AccessAddressService;
 import com.openmc.judicator.punish.AddressPolicy;
@@ -44,16 +53,26 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 
 @Getter
 public class Judicator {
+
+    /**
+     * Languages with a bundled {@code messages_<language>.yml}, offered per player with {@code per-player-language}.
+     */
+    public static final List<String> LANGUAGES = List.of("en", "es", "pt");
 
     private final Platform platform;
     private final Logger logger;
     private final Path dataDirectory;
     private UUIDManager uuidManager;
     private ConfigurationNode messagesConfig;
+    private volatile Map<String, ConfigurationNode> messagesByLanguage = Map.of();
     private ConfigurationNode immuneConfig;
     private ConfigurationNode dbConfig;
     private ConfigurationNode config;
@@ -66,6 +85,7 @@ public class Judicator {
     private RelationalDBManager relationalDBManager;
     private PunishService punishService;
     private WarnService warnService;
+    private NoteService noteService;
     private AccessAddressService addressService;
     private AddressPolicy addressPolicy;
     private HierarchyService hierarchyService;
@@ -73,6 +93,7 @@ public class Judicator {
     private PunishCooldown punishCooldown;
     private StaffNotifier staffNotifier;
     private ImportService importService;
+    private DataRetentionService dataRetentionService;
     private ConnectionHandler connectionHandler;
     private ChatHandler chatHandler;
     private List<CoreCommand> commands;
@@ -82,7 +103,7 @@ public class Judicator {
      * in-memory repositories so commands and listeners can be exercised without a database.
      */
     public record Repositories(PunishmentRepository punishments, WarnRepository warns,
-                               AccessAddressRepository addresses, PlayerLevelRepository levels) {
+                               AccessAddressRepository addresses, PlayerLevelRepository levels, NoteRepository notes) {
     }
 
     private final Repositories providedRepositories;
@@ -104,7 +125,7 @@ public class Judicator {
 
     public void enable() {
         this.config = loadConfig("config.yml");
-        this.messagesConfig = loadConfig("messages_" + config.node("language").getString("en") + ".yml");
+        loadMessages();
         this.immuneConfig = loadConfig("immune.yml");
         this.dbConfig = loadConfig("data.yml");
         this.discordConfig = loadConfig("discord.yml");
@@ -131,7 +152,8 @@ public class Judicator {
                     new PunishmentRelationalDAO(relationalDBManager, logger),
                     new WarnRelationalDAO(relationalDBManager, logger),
                     new AccessAddressRelationalDAO(relationalDBManager, logger),
-                    new PlayerLevelRelationalDAO(relationalDBManager, logger));
+                    new PlayerLevelRelationalDAO(relationalDBManager, logger),
+                    new NoteRelationalDAO(relationalDBManager, logger));
         } else {
             repositories = providedRepositories;
         }
@@ -140,9 +162,24 @@ public class Judicator {
         this.connectionHandler = new ConnectionHandler(this);
         this.chatHandler = new ChatHandler(this);
         this.commands = createCommands();
+        this.dataRetentionService.start();
+        // A plugin reload (Bukkit /reload) paused the online-only mutes of the players still online in disable().
+        final List<String> online = platform.getOnlinePlayers().stream().map(JudicatorPlayer::getName).toList();
+        if (!online.isEmpty()) platform.runAsync(() -> online.forEach(punishService::resumeOnlineOnlyMutes));
     }
 
     public void disable() {
+        // Players still online when the server stops never send a disconnect to the plugin: stop their online-only mutes here.
+        if (punishService != null) {
+            platform.getOnlinePlayers().forEach(player -> {
+                try {
+                    punishService.pauseOnlineOnlyMutes(player.getName());
+                } catch (RuntimeException e) {
+                    logger.warn("Could not pause the online-only mutes of {}", player.getName(), e);
+                }
+            });
+        }
+        if (dataRetentionService != null) dataRetentionService.stop();
         if (punishCache != null) punishCache.shutdown();
         if (relationalDBManager != null) relationalDBManager.shutdown();
     }
@@ -150,7 +187,7 @@ public class Judicator {
     public void reloadConfigs() {
         this.config = loadConfig("config.yml");
         this.discordConfig = loadConfig("discord.yml");
-        this.messagesConfig = loadConfig("messages_" + config.node("language").getString("en") + ".yml");
+        loadMessages();
         this.immuneConfig = loadConfig("immune.yml");
         this.dbConfig = loadConfig("data.yml");
         logger.info("Configuration files have been reloaded successfully!");
@@ -168,11 +205,44 @@ public class Judicator {
         this.addressService = new AccessAddressService(repositories.addresses());
         this.addressPolicy = new AddressPolicy(this);
         this.warnService = new WarnService(repositories.warns());
+        this.noteService = new NoteService(repositories.notes());
         this.hierarchyService = new HierarchyService(this, repositories.levels());
         this.timeLimitService = new TimeLimitService(this);
         this.punishCooldown = new PunishCooldown(this);
         this.staffNotifier = new StaffNotifier(this);
-        this.importService = new ImportService(this, repositories.punishments(), repositories.warns(), repositories.addresses());
+        this.importService = new ImportService(this, repositories.punishments(), repositories.warns(), repositories.addresses(),
+                repositories.notes());
+        this.dataRetentionService = new DataRetentionService(this, repositories);
+    }
+
+    /**
+     * Messages in the server language ({@code language}); with {@code per-player-language: true}, also the bundled
+     * languages, so each player can get theirs.
+     */
+    private void loadMessages() {
+        final String language = config.node("language").getString("en").toLowerCase(Locale.ROOT);
+        this.messagesConfig = loadConfig("messages_" + language + ".yml");
+        if (!config.node("per-player-language").getBoolean(false)) {
+            this.messagesByLanguage = Map.of();
+            return;
+        }
+        final Map<String, ConfigurationNode> bundles = new HashMap<>();
+        for (String other : LANGUAGES) {
+            bundles.put(other, other.equals(language) ? messagesConfig : loadConfig("messages_" + other + ".yml"));
+        }
+        this.messagesByLanguage = Map.copyOf(bundles);
+    }
+
+    /**
+     * The messages to send to someone: in the language of their game client with {@code per-player-language: true}
+     * (when it is one of {@link #LANGUAGES}), otherwise in the server language. The console, and a player whose client
+     * has not told its language yet, get the server language.
+     */
+    public ConfigurationNode messagesFor(JudicatorSender recipient) {
+        if (recipient == null || messagesByLanguage.isEmpty()) return messagesConfig;
+        final Optional<ConfigurationNode> own = recipient.getLocale()
+                .map(locale -> messagesByLanguage.get(locale.getLanguage().toLowerCase(Locale.ROOT)));
+        return own.orElse(messagesConfig);
     }
 
     /**
@@ -192,6 +262,8 @@ public class Judicator {
         list.addAll(UnpunishCommand.all(this));
         list.add(new AltsCommand(this));
         list.add(new BlameCommand(this));
+        list.add(new StaffRollbackCommand(this));
+        list.addAll(EditPunishmentCommand.all(this));
         list.addAll(ActiveListCommand.all(this));
         list.add(new ActivityCommand(this));
         list.add(new WarnCommand(this));
@@ -199,6 +271,10 @@ public class Judicator {
         list.add(new UnwarnCommand(this));
         list.add(new WarnHistoryCommand(this));
         list.add(new WarnViewCommand(this));
+        list.add(new NoteCommand(this));
+        list.add(new NotesCommand(this));
+        list.add(new DelNoteCommand(this));
+        list.add(new PlayerInfoCommand(this));
         list.add(new JudicatorCommand(this));
         return List.copyOf(list);
     }

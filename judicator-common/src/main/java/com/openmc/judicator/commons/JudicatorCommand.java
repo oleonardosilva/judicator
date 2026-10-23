@@ -28,7 +28,9 @@ public class JudicatorCommand extends CoreCommand {
             new HelpEntry("/tempbanip <player> <duration> [reason]", "Temporarily bans a player by IP for the specified duration with an optional reason.", "/tempbanip "),
             new HelpEntry("/mute <player> [reason]", "Mutes a player with the specified reason.", "/mute "),
             new HelpEntry("/muteip <player> [reason]", "Mutes a player by IP with the specified reason.", "/muteip "),
-            new HelpEntry("/tempmute <player> <duration> [reason]", "Temporarily mutes a player for the specified duration with an optional reason.", "/tempmute "),
+            new HelpEntry("/tempmute <player> <duration> [-o] [reason]", "Temporarily mutes a player for the specified duration with an optional reason (-o: the time only counts while they are online).", "/tempmute "),
+            new HelpEntry("/softmute <player> [reason]", "Mutes a player without them noticing: they still see their own messages, nobody else does.", "/softmute "),
+            new HelpEntry("/tempsoftmute <player> <duration> [-o] [reason]", "Temporarily soft-mutes a player (-o: the time only counts while they are online).", "/tempsoftmute "),
             new HelpEntry("/tempmuteip <player> <duration> [reason]", "Temporarily mutes a player by IP for the specified duration with an optional reason.", "/tempmuteip "),
             new HelpEntry("/warn <player> <reason>", "Warns a player with the specified reason.", "/warn "),
             new HelpEntry("/tempwarn <player> <duration> <reason>", "Temporarily warns a player for the specified duration with an optional reason.", "/tempwarn "),
@@ -43,9 +45,17 @@ public class JudicatorCommand extends CoreCommand {
             new HelpEntry("/alts <player>", "Lists accounts that shared an IP with a player.", "/alts "),
             new HelpEntry("/blame <staff> [period] [page]", "Lists the punishments applied by a staff member, optionally only in the last period (e.g. 7:d).", "/blame "),
             new HelpEntry("/activity <period> [page]", "Shows how many punishments each staff member applied in the last period (e.g. 24:h).", "/activity "),
+            new HelpEntry("/staffrollback <staff> <period> [confirm]", "Revokes the bans/mutes in force and deletes the active warns a staff member applied in the last period.", "/staffrollback "),
+            new HelpEntry("/extend <id> <duration>", "Adds time to a temporary punishment in force.", "/extend "),
+            new HelpEntry("/changereason <id> <reason>", "Changes the reason of a punishment in force.", "/changereason "),
+            new HelpEntry("/note <player> <text>", "Writes a staff note about a player.", "/note "),
+            new HelpEntry("/notes <player> [page]", "Lists the staff notes about a player.", "/notes "),
+            new HelpEntry("/delnote <id>", "Deletes a staff note.", "/delnote "),
+            new HelpEntry("/playerinfo <player>", "Shows punishments in force, history, warns, notes, alts and last login of a player.", "/playerinfo "),
             new HelpEntry("/banlist [page]", "Lists the bans in force.", "/banlist"),
             new HelpEntry("/mutelist [page]", "Lists the mutes in force.", "/mutelist"),
-            new HelpEntry("/judicator import <source> [confirm]", "Imports punishments from another plugin (console only).", "/judicator import ")
+            new HelpEntry("/judicator import <source> [confirm]", "Imports punishments from another plugin (console only).", "/judicator import "),
+            new HelpEntry("/judicator clear <player> [confirm]", "Deletes everything stored about a player: punishments, warns, notes, IP records (console only).", "/judicator clear ")
     );
 
     public JudicatorCommand(Judicator judicator) {
@@ -60,6 +70,7 @@ public class JudicatorCommand extends CoreCommand {
             case "help" -> help(source);
             case "version" -> source.sendMessage(Component.text("§aJudicator Version: " + BuildConstants.VERSION));
             case "import" -> importPunishments(source, args);
+            case "clear" -> clear(source, args);
             default -> source.sendMessage(Component.text("§cType /judicator help for a list of commands."));
         }
     }
@@ -74,13 +85,17 @@ public class JudicatorCommand extends CoreCommand {
         if (args.length == 3 && args[0].equalsIgnoreCase("import")) {
             return Stream.of("confirm").filter(s -> s.startsWith(args[2].toLowerCase())).toList();
         }
+        if (args.length == 3 && args[0].equalsIgnoreCase("clear")) {
+            return Stream.of("confirm").filter(s -> s.startsWith(args[2].toLowerCase())).toList();
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("clear")) return super.suggest(sender, new String[]{args[1]});
         if (args.length > 1) return List.of();
-        return Stream.of("reload", "help", "version", "import").filter(s -> s.startsWith(prefix)).toList();
+        return Stream.of("reload", "help", "version", "import", "clear").filter(s -> s.startsWith(prefix)).toList();
     }
 
     private void reload(JudicatorSender source) {
         judicator.reloadConfigs();
-        source.sendMessage(PunishUtils.getMessage(messages(), "success", "reloaded"));
+        source.sendMessage(PunishUtils.getMessage(messages(source), "success", "reloaded"));
     }
 
     private void importPunishments(JudicatorSender source, CommandArgs args) {
@@ -97,6 +112,23 @@ public class JudicatorCommand extends CoreCommand {
         }
         final boolean confirm = args.word().map(word -> word.equalsIgnoreCase("confirm")).orElse(false);
         judicator.getImportService().run(source, name.get(), confirm);
+    }
+
+    /**
+     * Deletes everything stored about a player (a data deletion request). Console only, like the import.
+     */
+    private void clear(JudicatorSender source, CommandArgs args) {
+        if (source.isPlayer()) {
+            source.sendMessage(Component.text("§cRun /judicator clear from the server console."));
+            return;
+        }
+        final Optional<String> name = args.word();
+        if (name.isEmpty()) {
+            source.sendMessage(Component.text("§cUse: /judicator clear <player> [confirm]"));
+            return;
+        }
+        final boolean confirm = args.word().map(word -> word.equalsIgnoreCase("confirm")).orElse(false);
+        judicator.getDataRetentionService().clear(source, name.get(), confirm);
     }
 
     private void help(JudicatorSender source) {

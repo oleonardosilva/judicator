@@ -25,6 +25,25 @@ public interface WarnRepository extends Repository<Warn, Long> {
     List<Warn> findAllByUUID(UUID uuid);
 
     /**
+     * Warns a staff member applied ({@code punisher}, case-insensitive) since a moment, newest first.
+     */
+    List<Warn> findByPunisherSince(String punisher, LocalDateTime since);
+
+    /**
+     * Deletes temporary warns that ended before a moment.
+     *
+     * @return how many were deleted
+     */
+    int deleteFinishedBefore(LocalDateTime cutoff);
+
+    /**
+     * Deletes every warn of a player, by name and, when known, by UUID.
+     *
+     * @return how many were deleted
+     */
+    int deleteAllOf(String username, UUID uuid);
+
+    /**
      * Import keys of every stored warn ({@code WarnRelationalDAO#importKey}), used to skip duplicates. Throws instead
      * of returning a partial set.
      */

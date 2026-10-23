@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -69,6 +70,12 @@ public final class InMemoryPunishmentRepository implements PunishmentRepository 
     }
 
     @Override
+    public List<Punishment> findAllActiveByUsernamesAndTypes(Collection<String> usernames, PunishType... types) {
+        final Set<String> names = usernames.stream().map(n -> n.toLowerCase(Locale.ROOT)).collect(Collectors.toSet());
+        return find(active(types).and(p -> names.contains(p.getNickname().toLowerCase(Locale.ROOT))));
+    }
+
+    @Override
     public List<Punishment> findAllByUUID(UUID uuid) {
         return find(p -> p.getPlayerUUID().map(uuid::equals).orElse(false));
     }
@@ -86,6 +93,48 @@ public final class InMemoryPunishmentRepository implements PunishmentRepository 
         row.setRevoked(true);
         row.setRevokedReason(reason);
         return true;
+    }
+
+    @Override
+    public synchronized boolean changeEnd(Long id, LocalDateTime finishAt, Long pausedRemaining) {
+        final Punishment row = rows.get(id);
+        if (row == null || row.isRevoked()) return false;
+        row.setFinishAt(trim(finishAt));
+        row.setPausedRemaining(pausedRemaining);
+        return true;
+    }
+
+    @Override
+    public synchronized boolean changeReason(Long id, String reason) {
+        final Punishment row = rows.get(id);
+        if (row == null || row.isRevoked()) return false;
+        Columns.notNull(reason, "reason");
+        Columns.maxLength(reason, 255, "reason");
+        row.setReason(reason);
+        return true;
+    }
+
+    @Override
+    public synchronized int deleteKicksBefore(LocalDateTime cutoff) {
+        return removeIf(p -> p.getType() == PunishType.KICK && p.getStartedAt().isBefore(cutoff));
+    }
+
+    @Override
+    public synchronized int deleteFinishedBefore(LocalDateTime cutoff) {
+        return removeIf(p -> p.getType() != PunishType.KICK && (p.getFinishAt().map(end -> end.isBefore(cutoff)).orElse(false)
+                || (p.isRevoked() && p.getStartedAt().isBefore(cutoff))));
+    }
+
+    @Override
+    public synchronized int deleteAllOf(String username, UUID uuid) {
+        return removeIf(p -> p.getNickname().equalsIgnoreCase(username)
+                || (uuid != null && p.getPlayerUUID().map(uuid::equals).orElse(false)));
+    }
+
+    private int removeIf(Predicate<Punishment> filter) {
+        final int before = rows.size();
+        rows.values().removeIf(filter);
+        return before - rows.size();
     }
 
     @Override
@@ -182,10 +231,14 @@ public final class InMemoryPunishmentRepository implements PunishmentRepository 
      * a link splits it, and blank parts are dropped, as the DAO does), no transient flags.
      */
     private static Punishment copy(Punishment p) {
-        return new Punishment(p.getId(), p.getPlayerUUID().orElse(null), p.getReason().orElse(null), p.getPunisher(),
+        final Punishment row = new Punishment(p.getId(), p.getPlayerUUID().orElse(null), p.getReason().orElse(null), p.getPunisher(),
                 p.getNickname(), p.getIpAddress().orElse(null), trim(p.getStartedAt()), trim(p.getFinishAt().orElse(null)),
                 p.isRevoked(), p.getRevokedReason().orElse(null), evidences(p.getEvidences()), p.getType(),
                 p.isPermanent());
+        row.setSoft(p.isSoft());
+        row.setOnlineOnly(p.isOnlineOnly());
+        row.setPausedRemaining(p.getPausedRemaining());
+        return row;
     }
 
     private static List<String> evidences(List<String> evidences) {

@@ -56,6 +56,13 @@ public class PunishCache {
         activeSilences.values().removeIf(punishment -> Objects.equals(punishment.getId(), punishmentId));
     }
 
+    /**
+     * Puts the changed version of a cached mute (new end, reason, paused) wherever the old one is cached.
+     */
+    public void refreshMute(Punishment updated) {
+        activeSilences.replaceAll((key, punishment) -> Objects.equals(punishment.getId(), updated.getId()) ? updated : punishment);
+    }
+
     public Optional<Punishment> getPunishment(String key) {
         return Optional.ofNullable(activeSilences.get(key.toLowerCase()));
     }

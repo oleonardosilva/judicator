@@ -87,7 +87,7 @@ public class DiscordWebhookService {
 
         final String finishAt = punishment.getFinishAt()
                 .map(dt -> dt.format(FORMATTER))
-                .orElse("Permanent");
+                .orElse(punishment.isPaused() ? "Paused (online time only)" : "Permanent");
 
         final String reason = punishment.getReason().orElse("No reason provided");
         final String avatarUrl = "https://i.imgur.com/TMpUuSu.png";
@@ -120,7 +120,7 @@ public class DiscordWebhookService {
                 skinUrl,
                 escape(punishment.getNickname()),
                 escape(punishment.getPunisher()),
-                punishment.getType().name(),
+                punishment.getDisplayType(),
                 escape(reason),
                 punishment.getStartedAt().format(FORMATTER),
                 escape(finishAt),
@@ -181,7 +181,7 @@ public class DiscordWebhookService {
                     .replace("{player}", punishment.getNickname())
                     .replace("{punisher}", punishment.getPunisher())
                     .replace("{reason}", punishment.getReason().orElse("N/A"))
-                    .replace("{type}", punishment.getType().name())
+                    .replace("{type}", punishment.getDisplayType())
                     .replace("{id}", String.valueOf(punishment.getId() != null ? punishment.getId() : 0));
         }
         if (warn != null) {

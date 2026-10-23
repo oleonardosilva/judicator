@@ -5,6 +5,7 @@ import com.openmc.judicator.commons.command.CommandArgs;
 import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.punish.ReasonShortcuts;
+import com.openmc.judicator.punish.data.cache.ImmuneCache;
 import com.openmc.judicator.punish.rules.PunishCooldown;
 import com.openmc.judicator.punish.types.PunishPermissions;
 import com.openmc.judicator.warns.WarnBuilder;
@@ -56,7 +57,7 @@ public class WarnCommand extends CoreCommand {
         if (reason.isEmpty()) return;
 
         if (silent && !silentAllowed(source)) return;
-        if (!judicator.getImmuneCache().canPunish(source, targetName)) return;
+        if (!judicator.getImmuneCache().canPunish(source, targetName, ImmuneCache.WARN)) return;
 
         final WarnBuilder builder = new WarnBuilder()
                 .reason(reason.get())

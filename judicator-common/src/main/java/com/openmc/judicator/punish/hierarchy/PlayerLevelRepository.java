@@ -11,4 +11,9 @@ public interface PlayerLevelRepository {
 
     OptionalInt findLevel(String nickname);
 
+    /**
+     * @return whether there was a level to delete
+     */
+    boolean delete(String nickname);
+
 }

@@ -6,6 +6,8 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.entity.Player;
 
 import java.net.InetSocketAddress;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 
 public class BukkitPlayer implements JudicatorPlayer {
@@ -43,6 +45,14 @@ public class BukkitPlayer implements JudicatorPlayer {
     @Override
     public void sendMessage(Component message) {
         platform.audiences().player(handle).sendMessage(message);
+    }
+
+    @Override
+    public Optional<Locale> getLocale() {
+        // "pt_br" (vanilla) or whatever a resource pack uses
+        final String locale = handle.getLocale();
+        if (locale == null || locale.isBlank()) return Optional.empty();
+        return Optional.of(Locale.forLanguageTag(locale.replace('_', '-')));
     }
 
     @Override

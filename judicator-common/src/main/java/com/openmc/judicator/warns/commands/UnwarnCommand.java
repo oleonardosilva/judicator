@@ -28,7 +28,7 @@ public class UnwarnCommand extends CoreCommand {
             return;
         }
         final Long id = optId.get();
-        final ConfigurationNode messages = messages();
+        final ConfigurationNode messages = messages(source);
         final WarnService warnService = judicator.getWarnService();
 
         final Optional<Warn> optWarn = warnService.findById(id);
@@ -43,7 +43,7 @@ public class UnwarnCommand extends CoreCommand {
         source.sendMessage(WarnUtils.getMessage(messages, "success", "unwarn"));
 
         judicator.getPlatform().getPlayer(warn.getNickname())
-                .ifPresent(player -> player.sendMessage(WarnUtils.getMessage(messages, "success", "got-unwarn")));
+                .ifPresent(player -> player.sendMessage(WarnUtils.getMessage(judicator.messagesFor(player), "success", "got-unwarn")));
     }
 
     @Override

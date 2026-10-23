@@ -1,2 +1,6 @@
-users:
+users: # names that cannot get any punishment (the format of older versions; prefer 'players' below)
   - "oleonardosilva"
+players: # UUID (keeps working after a name change; a name proves nothing in offline mode) or name -> what it is exempt from
+  # types: all, ban, mute, kick, warn, alts (alts: may join even when alts.deny-if-banned would refuse the account)
+  # "069a79f4-44e9-4726-a5be-fca90e38aaf5": [all]
+  # "Builder": [mute, warn]

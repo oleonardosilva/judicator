@@ -1,5 +1,6 @@
 package com.openmc.judicator.importer;
 
+import com.openmc.judicator.notes.Note;
 import com.openmc.judicator.punish.AccessAddress;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.warns.Warn;
@@ -17,6 +18,7 @@ public final class ImportResult {
     private final List<Punishment> punishments = new ArrayList<>();
     private final List<Warn> warns = new ArrayList<>();
     private final List<AccessAddress> addresses = new ArrayList<>();
+    private final List<Note> notes = new ArrayList<>();
     private final Map<String, Integer> skipped = new TreeMap<>();
 
     public void add(Punishment punishment) {
@@ -29,6 +31,10 @@ public final class ImportResult {
 
     public void add(AccessAddress address) {
         addresses.add(address);
+    }
+
+    public void add(Note note) {
+        notes.add(note);
     }
 
     public void skip(String reason) {
@@ -45,6 +51,10 @@ public final class ImportResult {
 
     public List<AccessAddress> getAddresses() {
         return addresses;
+    }
+
+    public List<Note> getNotes() {
+        return notes;
     }
 
     public Map<String, Integer> getSkipped() {

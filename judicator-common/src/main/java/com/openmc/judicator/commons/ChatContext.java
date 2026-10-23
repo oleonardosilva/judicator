@@ -36,16 +36,14 @@ public class ChatContext<T> {
         chatContext.setOperator(punisher);
         chatContext.setValue(builder);
         chatContext.setCallbackChat((currentBuilder, input) -> {
-            final ConfigurationNode messages = judicator.getMessagesConfig();
+            final ConfigurationNode messages = judicator.messagesFor(input.player());
             final String message = input.message();
-            final String readyPrompt = messages.node("prompt", "ready").getString("");
-            final String cancelPrompt = messages.node("prompt", "cancel").getString("");
-            if (message.equalsIgnoreCase(readyPrompt)) {
+            if (isPromptWord(judicator, messages, "ready", message)) {
                 cache.removeContext(currentBuilder.getPunisher());
                 judicator.getPlatform().runAsync(() -> new PunishFactory(judicator, currentBuilder).factory());
                 return;
             }
-            if (message.equalsIgnoreCase(cancelPrompt)) {
+            if (isPromptWord(judicator, messages, "cancel", message)) {
                 input.player().sendMessage(PunishUtils.getMessage(messages, "success", "cancel"));
                 cache.removeContext(currentBuilder.getPunisher());
                 return;
@@ -65,11 +63,19 @@ public class ChatContext<T> {
         });
 
         chatContext.setCallbackCommand((currentBuilder, input) -> {
-            input.player().sendMessage(PunishUtils.getMessage(judicator.getMessagesConfig(), "success", "cancel"));
+            input.player().sendMessage(PunishUtils.getMessage(judicator.messagesFor(input.player()), "success", "cancel"));
             cache.removeContext(currentBuilder.getPunisher());
         });
 
         return chatContext;
+    }
+
+    /**
+     * The word in the staff member's language, or in the server language (what they may have learned to type).
+     */
+    private static boolean isPromptWord(Judicator judicator, ConfigurationNode own, String key, String message) {
+        return message.equalsIgnoreCase(own.node("prompt", key).getString(""))
+                || message.equalsIgnoreCase(judicator.getMessagesConfig().node("prompt", key).getString(""));
     }
 
     public void acceptChat(JudicatorPlayer player, String message) {

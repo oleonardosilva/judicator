@@ -74,7 +74,17 @@ public class BukkitListener implements Listener {
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onMutedChat(AsyncPlayerChatEvent event) {
         platform.getPlayer(event.getPlayer().getName()).ifPresent(player -> {
-            if (chatHandler.shouldBlockChat(player)) event.setCancelled(true);
+            if (chatHandler.chatDecision(player) == ChatHandler.ChatDecision.BLOCK) event.setCancelled(true);
+        });
+    }
+
+    /**
+     * Soft mute, as late as possible: chat-channel plugins often rebuild the recipients after LOW.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onSoftMutedChat(AsyncPlayerChatEvent event) {
+        platform.getPlayer(event.getPlayer().getName()).ifPresent(player -> {
+            if (chatHandler.chatDecision(player) == ChatHandler.ChatDecision.SOFT) keepForSenderOnly(event, player);
         });
     }
 
@@ -97,6 +107,19 @@ public class BukkitListener implements Listener {
         platform.getPlayer(event.getPlayer().getName()).ifPresent(player -> {
             if (chatHandler.handlePromptCommand(player, stripSlash(event.getMessage()))) event.setCancelled(true);
         });
+    }
+
+    /**
+     * Soft mute: the message keeps the server's chat format but only the sender receives it. When another plugin made
+     * the recipients unchangeable, the message is cancelled and echoed to the sender instead.
+     */
+    private void keepForSenderOnly(AsyncPlayerChatEvent event, JudicatorPlayer player) {
+        try {
+            event.getRecipients().removeIf(recipient -> !recipient.equals(event.getPlayer()));
+        } catch (UnsupportedOperationException e) {
+            event.setCancelled(true);
+            player.sendMessage(chatHandler.softMuteEcho(player, event.getMessage()));
+        }
     }
 
     private static String stripSlash(String message) {

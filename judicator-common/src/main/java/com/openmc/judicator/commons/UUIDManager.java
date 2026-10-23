@@ -91,6 +91,16 @@ public class UUIDManager {
 
     }
 
+    /**
+     * The UUID of a player online or seen joining since startup (any letter case), without asking the Mojang API.
+     */
+    public UUID getKnownUUID(String name) {
+        final Optional<JudicatorPlayer> online = judicator.getPlatform().getPlayer(name);
+        if (online.isPresent()) return online.get().getUniqueId();
+        final String known = activeUUIDs.get(name.toLowerCase());
+        return known == null ? null : fromString(known);
+    }
+
     public UUID getUUID(String name) {
         UUID inMemoryUuid = fromString(activeUUIDs.get(name.toLowerCase()));
         return (inMemoryUuid != null) ? inMemoryUuid : getOriginalUUID(name);

@@ -105,7 +105,7 @@ public class PunishCooldown {
         final long cooldownMillis = seconds(category) * 1000L;
         final long elapsed = now - last;
         if (elapsed >= cooldownMillis) return false;
-        sender.sendMessage(PunishUtils.format(judicator.getMessagesConfig(), Map.of(
+        sender.sendMessage(PunishUtils.format(judicator.messagesFor(sender), Map.of(
                 "nickname", target,
                 "type", category,
                 "elapsed", String.valueOf(elapsed / 1000),

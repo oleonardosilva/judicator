@@ -32,6 +32,22 @@ public final class Texts {
     }
 
     /**
+     * Commands a click puts in the chat box (not run) in the component tree, in order.
+     */
+    public static List<String> suggestions(Component component) {
+        final List<String> commands = new ArrayList<>();
+        collectSuggestions(component, commands);
+        return commands;
+    }
+
+    private static void collectSuggestions(Component component, List<String> commands) {
+        if (component == null) return;
+        final ClickEvent click = component.clickEvent();
+        if (click != null && click.action() == ClickEvent.Action.SUGGEST_COMMAND) commands.add(click.value());
+        for (Component child : component.children()) collectSuggestions(child, commands);
+    }
+
+    /**
      * Plain hover texts of the component tree, in order.
      */
     public static List<String> hovers(Component component) {

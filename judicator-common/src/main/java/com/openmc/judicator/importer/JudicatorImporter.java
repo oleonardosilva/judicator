@@ -1,6 +1,7 @@
 package com.openmc.judicator.importer;
 
 import com.openmc.judicator.commons.db.SqlTime;
+import com.openmc.judicator.notes.Note;
 import com.openmc.judicator.punish.AccessAddress;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.types.PunishType;
@@ -8,18 +9,21 @@ import com.openmc.judicator.warns.Warn;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
  * Another Judicator database (e.g. the SQLite file of a server moving to MySQL): {@code punishments} with their
- * revocation, evidence and kicks, {@code warns} and the {@code access_addresses} used by {@code /alts} and offline IP
+ * revocation, evidence and kicks, {@code warns}, staff {@code notes} and the {@code access_addresses} used by {@code /alts} and offline IP
  * punishments. Staff levels are not copied: they are recorded again when each staff member joins.
  */
 final class JudicatorImporter implements ImportSource {
@@ -35,13 +39,21 @@ final class JudicatorImporter implements ImportSource {
         try (SourceConnection source = SourceConnection.open(context.config(name()), context.judicator().getPlatform().getDataDirectory())) {
             try (PreparedStatement statement = source.connection().prepareStatement("SELECT * FROM " + source.table("punishments"));
                  ResultSet rs = statement.executeQuery()) {
-                while (rs.next()) punishment(rs, result);
+                final Set<String> columns = columns(rs);
+                while (rs.next()) punishment(rs, columns, result);
             }
             final Optional<String> warns = source.findTable("warns");
             if (warns.isPresent()) {
                 try (PreparedStatement statement = source.connection().prepareStatement("SELECT * FROM " + warns.get());
                      ResultSet rs = statement.executeQuery()) {
                     while (rs.next()) warn(rs, result);
+                }
+            }
+            final Optional<String> notes = source.findTable("notes");
+            if (notes.isPresent()) {
+                try (PreparedStatement statement = source.connection().prepareStatement("SELECT * FROM " + notes.get());
+                     ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) note(rs, result);
                 }
             }
             final Optional<String> addresses = source.findTable("access_addresses");
@@ -55,7 +67,17 @@ final class JudicatorImporter implements ImportSource {
         return result;
     }
 
-    private static void punishment(ResultSet rs, ImportResult result) throws SQLException {
+    /**
+     * Column names of the result, lower-cased: a database of an older version lacks the newer ones.
+     */
+    private static Set<String> columns(ResultSet rs) throws SQLException {
+        final ResultSetMetaData meta = rs.getMetaData();
+        final Set<String> columns = new HashSet<>();
+        for (int i = 1; i <= meta.getColumnCount(); i++) columns.add(meta.getColumnLabel(i).toLowerCase(Locale.ROOT));
+        return columns;
+    }
+
+    private static void punishment(ResultSet rs, Set<String> columns, ImportResult result) throws SQLException {
         final PunishType type;
         try {
             type = PunishType.valueOf(String.valueOf(rs.getString("type")).toUpperCase(Locale.ROOT));
@@ -76,6 +98,12 @@ final class JudicatorImporter implements ImportSource {
                 SqlTime.read(rs, "finish_at"), rs.getBoolean("revoked"), rs.getString("revoked_reason"),
                 evidences == null ? new ArrayList<>() : new ArrayList<>(Arrays.stream(evidences.split(",")).filter(s -> !s.isBlank()).toList()),
                 type, rs.getBoolean("permanent"));
+        if (columns.contains("soft")) punishment.setSoft(rs.getBoolean("soft"));
+        if (columns.contains("online_only")) punishment.setOnlineOnly(rs.getBoolean("online_only"));
+        if (columns.contains("paused_remaining")) {
+            final long paused = rs.getLong("paused_remaining");
+            punishment.setPausedRemaining(rs.wasNull() ? null : paused);
+        }
         result.add(punishment);
     }
 
@@ -88,6 +116,18 @@ final class JudicatorImporter implements ImportSource {
         }
         result.add(new Warn(null, uuid(rs.getString("player_uuid")), rs.getString("reason"), rs.getString("punisher"),
                 nickname, startedAt, SqlTime.read(rs, "finish_at"), rs.getBoolean("permanent")));
+    }
+
+    private static void note(ResultSet rs, ImportResult result) throws SQLException {
+        final String nickname = rs.getString("nickname");
+        final String content = rs.getString("content");
+        final LocalDateTime createdAt = SqlTime.read(rs, "created_at");
+        if (nickname == null || nickname.isBlank() || content == null || createdAt == null) {
+            result.skip("note without a player name, text or date");
+            return;
+        }
+        final String author = rs.getString("author");
+        result.add(new Note(null, uuid(rs.getString("player_uuid")), nickname, author == null ? "Console" : author, content, createdAt));
     }
 
     private static void address(ResultSet rs, ImportResult result) throws SQLException {

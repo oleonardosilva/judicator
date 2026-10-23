@@ -4,6 +4,8 @@ import com.openmc.judicator.platform.JudicatorPlayer;
 import com.velocitypowered.api.proxy.Player;
 import net.kyori.adventure.text.Component;
 
+import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 
 public record VelocityPlayer(Player handle) implements JudicatorPlayer {
@@ -21,6 +23,11 @@ public record VelocityPlayer(Player handle) implements JudicatorPlayer {
     @Override
     public void sendMessage(Component message) {
         handle.sendMessage(message);
+    }
+
+    @Override
+    public Optional<Locale> getLocale() {
+        return Optional.ofNullable(handle.getEffectiveLocale());
     }
 
     @Override

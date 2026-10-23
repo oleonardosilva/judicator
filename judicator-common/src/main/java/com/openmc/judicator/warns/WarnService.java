@@ -36,6 +36,10 @@ public class WarnService {
         return repository.countByStaffSince(since);
     }
 
+    public List<Warn> findByPunisherSince(String punisher, LocalDateTime since) {
+        return repository.findByPunisherSince(punisher, since);
+    }
+
     public void deleteById(Long id) {
         repository.deleteById(id);
     }

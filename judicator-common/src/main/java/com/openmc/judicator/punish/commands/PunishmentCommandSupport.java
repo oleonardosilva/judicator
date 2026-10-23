@@ -48,17 +48,17 @@ final class PunishmentCommandSupport {
                         .map(accessAddress -> accessAddress.getHostAddress())
                         .orElse(null);
                 if (address == null) {
-                    source.sendMessage(PunishUtils.getMessage(judicator.getMessagesConfig(), "error", "player-ip-not-found"));
+                    source.sendMessage(PunishUtils.getMessage(judicator.messagesFor(source), "error", "player-ip-not-found"));
                 }
             }
         }
 
         if (address == null) return true;
         if (judicator.getAddressPolicy().isExempt(address)) {
-            source.sendMessage(PunishUtils.getMessage(judicator.getMessagesConfig(), "error", "address-exempt"));
+            source.sendMessage(PunishUtils.getMessage(judicator.messagesFor(source), "error", "address-exempt"));
             return false;
         }
-        if (!judicator.getImmuneCache().canPunishAddress(source, address)) return false;
+        if (!judicator.getImmuneCache().canPunishAddress(source, address, PunishCooldown.categoryOf(builder.getType()))) return false;
         builder.ipAddress(address);
         return true;
     }
@@ -73,7 +73,7 @@ final class PunishmentCommandSupport {
         final JudicatorPlayer player = optPlayer.get();
         final String punisher = player.getName();
         builder.punisher(player);
-        player.sendMessage(PunishUtils.getConfirmationMessage(judicator.getMessagesConfig()));
+        player.sendMessage(PunishUtils.getConfirmationMessage(judicator.messagesFor(player)));
 
         final ChatContext<PunishmentBuilder> chatContext = ChatContext.buildPunishmentContext(punisher, builder, judicator);
         judicator.getPunishCache().putContext(punisher, chatContext);

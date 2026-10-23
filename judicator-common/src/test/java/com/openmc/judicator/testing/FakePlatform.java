@@ -17,6 +17,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 /**
  * {@link Platform} for tests: online players are whatever the test adds, tasks run immediately on the calling
@@ -29,6 +30,7 @@ public final class FakePlatform implements Platform {
     private final Map<String, FakePlayer> players = new LinkedHashMap<>();
     private final List<String> consoleCommands = new ArrayList<>();
     private final List<Component> announcements = new ArrayList<>();
+    private final List<Runnable> repeating = new ArrayList<>();
 
     public FakePlatform(Path dataDirectory, boolean onlineMode) {
         this.dataDirectory = dataDirectory;
@@ -103,8 +105,15 @@ public final class FakePlatform implements Platform {
 
     @Override
     public PlatformTask runAsyncRepeating(Runnable task, long period, TimeUnit unit) {
-        return () -> {
-        };
+        repeating.add(task);
+        return () -> repeating.remove(task);
+    }
+
+    /**
+     * Runs once every repeating task still scheduled (as if their period went by).
+     */
+    public void runRepeatingTasks() {
+        List.copyOf(repeating).forEach(Runnable::run);
     }
 
     @Override
@@ -113,8 +122,8 @@ public final class FakePlatform implements Platform {
     }
 
     @Override
-    public void announceToServerOf(JudicatorPlayer player, Component message) {
-        announcements.add(message);
-        players.values().forEach(online -> online.sendMessage(message));
+    public void announceToServerOf(JudicatorPlayer player, Function<JudicatorPlayer, Component> message) {
+        announcements.add(message.apply(player));
+        List.copyOf(players.values()).forEach(online -> online.sendMessage(message.apply(online)));
     }
 }

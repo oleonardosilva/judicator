@@ -7,6 +7,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -21,6 +23,7 @@ public final class FakePlayer implements JudicatorPlayer {
     private final Set<String> permissions = new HashSet<>();
     private final List<Component> received = new ArrayList<>();
     private Component kickMessage;
+    private Locale locale;
 
     public FakePlayer(String name, String hostAddress, String... permissions) {
         this(name, UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8)), hostAddress, permissions);
@@ -34,6 +37,19 @@ public final class FakePlayer implements JudicatorPlayer {
         this.uniqueId = uniqueId;
         this.hostAddress = hostAddress;
         this.permissions.addAll(List.of(permissions));
+    }
+
+    /**
+     * The language of the game client, e.g. {@code "pt_BR"} (none by default, like a client that has not sent it).
+     */
+    public FakePlayer locale(String tag) {
+        this.locale = Locale.forLanguageTag(tag.replace('_', '-'));
+        return this;
+    }
+
+    @Override
+    public Optional<Locale> getLocale() {
+        return Optional.ofNullable(locale);
     }
 
     public FakePlayer grant(String... permissions) {
@@ -76,6 +92,13 @@ public final class FakePlayer implements JudicatorPlayer {
      */
     public List<String> messages() {
         return received.stream().map(Texts::plain).toList();
+    }
+
+    /**
+     * Commands behind the clickable parts of every message received.
+     */
+    public List<String> clicks() {
+        return received.stream().flatMap(message -> Texts.clicks(message).stream()).toList();
     }
 
     public boolean received(String fragment) {

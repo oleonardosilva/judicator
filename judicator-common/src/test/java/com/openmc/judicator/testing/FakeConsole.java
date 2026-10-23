@@ -50,6 +50,13 @@ public final class FakeConsole implements JudicatorSender {
         return received.stream().flatMap(message -> Texts.hovers(message).stream()).toList();
     }
 
+    /**
+     * Commands put in the chat box by clicking parts of the messages received.
+     */
+    public List<String> suggestions() {
+        return received.stream().flatMap(message -> Texts.suggestions(message).stream()).toList();
+    }
+
     public boolean received(String fragment) {
         return messages().stream().anyMatch(message -> message.contains(fragment));
     }
