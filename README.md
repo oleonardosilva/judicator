@@ -592,6 +592,28 @@ does not find the tables once a 2.0 server has renamed them.
 
 ---
 
+### 🏷️ PlaceholderAPI
+
+On Spigot/Paper with [PlaceholderAPI](https://www.spigotmc.org/resources/6245/) installed, Judicator registers
+`%judicator_<placeholder>%` (nothing to download with `/papi ecloud`). They work for players who are offline too, so
+scoreboards, menus and leaderboards can show them.
+
+| Placeholder | Value |
+|---|---|
+| `banned`, `muted` | whether a ban / mute is in force (PlaceholderAPI's `boolean` texts) |
+| `ban_reason`, `ban_punisher`, `ban_id`, `ban_scope` | the ban in force; empty without one |
+| `ban_expires`, `ban_remaining` | its end (`date-format`) and the time left, or `permanent` from the messages |
+| `mute_reason`, `mute_punisher`, `mute_id`, `mute_scope`, `mute_expires`, `mute_remaining` | the same for the mute in force (soft mutes too; a paused online-only mute shows the online time left) |
+| `warns`, `warns_total` | warns in force / all warns |
+| `bans_total`, `mutes_total`, `kicks_total`, `punishments_total` | the player's history (logged kicks only) |
+
+A placeholder never waits for the database: each player is looked up in the background the first time one of their
+placeholders is asked for (until then the value is empty) and again every 30 seconds while they are used. What this
+server changes shows up at once; what another server of the network changes, within those 30 seconds. Texts come from
+the player's messages file (their language with `per-player-language`).
+
+---
+
 ### ⚙️ Other
 
 * **`/punish (player) {reason}`**

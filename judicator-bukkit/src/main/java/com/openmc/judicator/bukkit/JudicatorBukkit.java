@@ -19,6 +19,7 @@ public class JudicatorBukkit extends JavaPlugin {
 
     private BukkitAudiences audiences;
     private Judicator judicator;
+    private Runnable unhookPlaceholders;
 
     @Override
     public void onEnable() {
@@ -56,6 +57,9 @@ public class JudicatorBukkit extends JavaPlugin {
         }
         // Also reachable through JudicatorProvider.get(), set by Judicator.enable().
         getServer().getServicesManager().register(JudicatorApi.class, core.getApi(), this, ServicePriority.Normal);
+        if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            unhookPlaceholders = JudicatorExpansion.register(this, core);
+        }
         new Metrics(this, BSTATS_PLUGIN_ID);
         getLogger().info("Plugin has been initialized successfully!");
     }
@@ -63,6 +67,10 @@ public class JudicatorBukkit extends JavaPlugin {
     @Override
     public void onDisable() {
         getServer().getServicesManager().unregisterAll(this);
+        if (unhookPlaceholders != null) {
+            unhookPlaceholders.run();
+            unhookPlaceholders = null;
+        }
         if (judicator != null) {
             judicator.disable();
             judicator = null;

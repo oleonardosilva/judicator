@@ -5,6 +5,7 @@ api-version: '1.18'
 author: oleonardosilva
 website: https://github.com/oleonardosilva
 description: A moderation plugin
+softdepend: [PlaceholderAPI]
 libraries:
   - com.zaxxer:HikariCP:6.3.0
   - com.mysql:mysql-connector-j:9.3.0

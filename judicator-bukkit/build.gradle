@@ -3,12 +3,17 @@ plugins {
     id 'xyz.jpenilla.run-paper'
 }
 
+repositories {
+    maven { name = "placeholderapi"; url = "https://repo.extendedclip.com/releases/" }
+}
+
 dependencies {
     implementation project(':judicator-common')
 
     compileOnly 'org.spigotmc:spigot-api:1.18.2-R0.1-SNAPSHOT'
     compileOnly 'com.zaxxer:HikariCP:6.3.0'
     compileOnly 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+    compileOnly 'me.clip:placeholderapi:2.11.6'
 
     implementation 'net.kyori:adventure-api:4.17.0'
     implementation 'net.kyori:adventure-text-serializer-legacy:4.17.0'

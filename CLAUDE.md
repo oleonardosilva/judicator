@@ -96,6 +96,12 @@ and `ApiViews` (core model → API views, `LocalDateTime` → `Instant`). `Judic
 that made it (never from `SyncService`), by `PunishFactory`, `KickHandler`, `WarnHandler`, `RevokeHandler`,
 `UnwarnHandler` and `EditPunishmentCommand`: a new way of applying or revoking must go through those handlers.
 
+`placeholders/PlaceholderService` builds `%judicator_...%` from the API alone: a Caffeine cache of each player's ban,
+mute, history and warns, loaded on the first request and refreshed every 30 s and on the API events, so a placeholder
+never blocks on the database. On Spigot/Paper `JudicatorExpansion` (the only class importing PlaceholderAPI, loaded
+only when it is installed) hands it to PlaceholderAPI. A new placeholder goes in `PlaceholderService` and in
+`features/PlaceholdersTest`.
+
 ### Identity
 
 `players/`: a player is a `PlayerRef` — identified by UUID when `Judicator.trustsUuids()` (online mode or
