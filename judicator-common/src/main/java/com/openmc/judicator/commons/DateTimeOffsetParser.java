@@ -151,13 +151,19 @@ public class DateTimeOffsetParser {
 
         final long totalSeconds = TimeUnit.MILLISECONDS.toSeconds(tempo);
 
-        final long anos = totalSeconds / (365 * 24 * 60 * 60);
-        final long meses = (totalSeconds % (365 * 24 * 60 * 60)) / (30 * 24 * 60 * 60);
-        final long semanas = (totalSeconds % (30 * 24 * 60 * 60)) / (7 * 24 * 60 * 60);
-        final long dias = (totalSeconds % (7 * 24 * 60 * 60)) / (24 * 60 * 60);
-        final long horas = (totalSeconds % (24 * 60 * 60)) / (60 * 60);
-        final long minutos = (totalSeconds % (60 * 60)) / 60;
-        final long segundos = totalSeconds % 60;
+        // each unit from what the larger ones left (45 days = 1 month, 2 weeks, 1 day)
+        long resto = totalSeconds;
+        final long anos = resto / (365 * 24 * 60 * 60);
+        resto %= 365 * 24 * 60 * 60;
+        final long meses = resto / (30 * 24 * 60 * 60);
+        resto %= 30 * 24 * 60 * 60;
+        final long semanas = resto / (7 * 24 * 60 * 60);
+        resto %= 7 * 24 * 60 * 60;
+        final long dias = resto / (24 * 60 * 60);
+        resto %= 24 * 60 * 60;
+        final long horas = resto / (60 * 60);
+        final long minutos = (resto % (60 * 60)) / 60;
+        final long segundos = resto % 60;
 
         class Unidade {
             final long valor;

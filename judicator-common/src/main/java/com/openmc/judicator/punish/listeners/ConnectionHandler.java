@@ -36,7 +36,7 @@ public class ConnectionHandler {
      * and, with {@code alts.deny-if-banned}, the ban-evasion check.
      */
     public Optional<Component> checkLogin(UUID uuid, String username, String address) {
-        if (judicator.getPlatform().isOnlineMode()) {
+        if (judicator.trustsUuids()) {
             final Optional<Component> ban = judicator.getPunishService().searchOnLogin(uuid, username, address)
                     .map(punishment -> PunishUtils.getMessageList(judicator.getMessagesConfig(), punishment, "runners", "ban-kick"));
             if (ban.isPresent()) return ban;

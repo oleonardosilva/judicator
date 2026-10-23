@@ -111,7 +111,7 @@ public class ImmuneCache {
     private UUID uuidOf(String target) {
         final UUID known = judicator.getUuidManager().getKnownUUID(target);
         if (known != null) return known;
-        if (!judicator.getPlatform().isOnlineMode()) {
+        if (!judicator.trustsUuids()) {
             return UUID.nameUUIDFromBytes(("OfflinePlayer:" + target).getBytes(StandardCharsets.UTF_8));
         }
         return judicator.getUuidManager().getUUID(target);

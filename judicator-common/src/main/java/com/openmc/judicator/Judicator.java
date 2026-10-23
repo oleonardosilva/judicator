@@ -234,6 +234,15 @@ public class Judicator {
     }
 
     /**
+     * Whether the UUIDs players join with are their real (Mojang) ones: the server is in online mode, or it is a
+     * Spigot/Paper backend behind a proxy that forwards them ({@code trust-uuids: true}; such a backend reports
+     * online-mode false).
+     */
+    public boolean trustsUuids() {
+        return platform.isOnlineMode() || (config != null && config.node("trust-uuids").getBoolean(false));
+    }
+
+    /**
      * The messages to send to someone: in the language of their game client with {@code per-player-language: true}
      * (when it is one of {@link #LANGUAGES}), otherwise in the server language. The console, and a player whose client
      * has not told its language yet, get the server language.

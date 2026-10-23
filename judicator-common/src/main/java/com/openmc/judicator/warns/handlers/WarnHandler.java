@@ -47,6 +47,15 @@ public class WarnHandler {
         final WarnService warnService = judicator.getWarnService();
 
         final Long count = warnService.countActiveWarns(warn.getNickname());
+        // The command line gets the name without characters that could add arguments; if that changes the name, it
+        // would name another account (warns for "Adm.in" punishing "Admin"), so nothing is run.
+        if (!warn.getSafeNickname().equals(warn.getNickname())) {
+            if (judicator.getActionCache().getAction(count).isPresent()) {
+                judicator.getLogger().warn("Warn tree: not running the commands for '{}': the name has characters a command line cannot carry",
+                        warn.getNickname());
+            }
+            return;
+        }
         judicator.getActionCache().getAction(count)
                 .map(ConfiguredAction::getCommands)
                 .ifPresent(actions -> actions.forEach(action ->

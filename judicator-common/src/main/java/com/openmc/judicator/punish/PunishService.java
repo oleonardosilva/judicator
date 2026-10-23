@@ -44,7 +44,10 @@ public class PunishService {
     }
 
     public Optional<Punishment> searchOnPreLogin(String username, String ipAddress) {
-        final List<Punishment> punishments = repository.findAllActiveByUsernameOrIpAndTypes(username.toLowerCase(), ipAddress, PunishType.values());
+        // An IP punishment stored on an exempt address (older, or imported) must not reach everyone behind it.
+        final List<Punishment> punishments = judicator.getAddressPolicy().isExempt(ipAddress)
+                ? repository.findAllActiveByUsernameAndTypes(username.toLowerCase(), PunishType.values())
+                : repository.findAllActiveByUsernameOrIpAndTypes(username.toLowerCase(), ipAddress, PunishType.values());
         if (punishments.isEmpty()) return Optional.empty();
 
         final Optional<Punishment> ban = punishments.stream().filter(Punishment::isBanType).findFirst();

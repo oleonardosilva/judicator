@@ -21,6 +21,10 @@ Use the Velocity build when you run a network behind a proxy: punishments then a
 Spigot/Paper build on a standalone server. On Spigot/Paper the database drivers, HikariCP and Caffeine are downloaded
 by the server itself (`libraries` in `plugin.yml`); on Velocity they are downloaded by the plugin on the first start.
 
+Running the Spigot/Paper build on backends behind Velocity or BungeeCord with UUID forwarding? Those servers report
+`online-mode=false`, so set **`trust-uuids: true`** in `config.yml` to check bans by UUID too (a banned player who
+changes name and IP is still refused). Never set it on a real offline-mode server, where UUIDs come from the name.
+
 ### Database
 
 Set `type` in `data.yml` to `postgres` (default), `mysql` or `sqlite`. SQLite needs no database server: the data is
@@ -236,7 +240,8 @@ The following commands are used to apply, remove, or check punishments for playe
 
 ### 🌐 Shared Networks and Accounts per IP
 
-* **`exempt-addresses`** in `config.yml`: IP addresses or CIDR ranges shared by many players (a school network,
+* **`exempt-addresses`** in `config.yml` (also at login: an older or imported IP ban on such an address only keeps out
+  the account it was recorded on): IP addresses or CIDR ranges shared by many players (a school network,
   `127.0.0.1` behind a proxy without IP forwarding). `/banip`, `/muteip` and IP reasons of `/punish` are refused on
   them — punish the account instead; they do not link accounts in `/alts` nor trigger the alt warning, and they are
   never limited by `ip-limits`. New installs list `127.0.0.1` and `::1`.
@@ -408,6 +413,12 @@ the server language.
 * Also optional: `per-player-language`, `soft-mute-format`, `notes`, `alts.deny-if-banned`, `retention` and the
   `players:` section of `immune.yml`. Without them nothing changes (no retention, alts are only reported).
 * `/tempmute` (and the other mute/ban commands) now read `-s` and `-o` in any order before or after the duration.
+* The `warns:` tree no longer runs its commands for a name with characters other than letters, digits and `_`
+  (possible in offline mode): removing them would name another account (`Adm.in` → `Admin`). The warns are stored;
+  apply the punishment by hand.
+* `/unban`, `/unmute` and `/revoke` free the cooldown of that player, so a mistaken punishment can be applied again
+  right away.
+* `/blame` no longer shows IP addresses in its hover (`blame.hover`).
 
 ---
 

@@ -12,6 +12,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -86,7 +87,7 @@ final class JudicatorImporter implements ImportSource {
             return;
         }
         final String nickname = rs.getString("nickname");
-        final LocalDateTime startedAt = SqlTime.read(rs, "started_at");
+        final LocalDateTime startedAt = seconds(SqlTime.read(rs, "started_at"));
         if (nickname == null || nickname.isBlank() || startedAt == null) {
             result.skip("punishment without a player name or start");
             return;
@@ -109,7 +110,7 @@ final class JudicatorImporter implements ImportSource {
 
     private static void warn(ResultSet rs, ImportResult result) throws SQLException {
         final String nickname = rs.getString("nickname");
-        final LocalDateTime startedAt = SqlTime.read(rs, "started_at");
+        final LocalDateTime startedAt = seconds(SqlTime.read(rs, "started_at"));
         if (nickname == null || nickname.isBlank() || startedAt == null) {
             result.skip("warn without a player name or start");
             return;
@@ -121,7 +122,7 @@ final class JudicatorImporter implements ImportSource {
     private static void note(ResultSet rs, ImportResult result) throws SQLException {
         final String nickname = rs.getString("nickname");
         final String content = rs.getString("content");
-        final LocalDateTime createdAt = SqlTime.read(rs, "created_at");
+        final LocalDateTime createdAt = seconds(SqlTime.read(rs, "created_at"));
         if (nickname == null || nickname.isBlank() || content == null || createdAt == null) {
             result.skip("note without a player name, text or date");
             return;
@@ -148,6 +149,14 @@ final class JudicatorImporter implements ImportSource {
             return;
         }
         result.add(new AccessAddress(null, host, names, lastUsage));
+    }
+
+    /**
+     * Whole seconds, like the duplicate keys: a MySQL DATETIME rounds a fraction, so a row of 12:00:00.700 would be
+     * stored as 12:00:01 and imported again on the next run.
+     */
+    private static LocalDateTime seconds(LocalDateTime time) {
+        return time == null ? null : time.truncatedTo(ChronoUnit.SECONDS);
     }
 
     private static UUID uuid(String text) {

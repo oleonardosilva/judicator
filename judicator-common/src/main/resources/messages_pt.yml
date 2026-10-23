@@ -281,6 +281,13 @@ blame:
   none: "&c{staff} não aplicou nenhuma punição."
   title-since: "&ePunições aplicadas por &f{staff} &7nos últimos &f{period} &7({count} no total, página {page}/{pages})\n\n"
   none-since: "&c{staff} não aplicou nenhuma punição nos últimos {period}."
+  hover:
+    - "&c * Motivo: &f{reason}\n"
+    - "&c * Início: &f{startedAt}\n"
+    - "&c * Fim: &f{finishAt}\n"
+    - "&c * Autor: &f{author}\n"
+    - "&c * Status: &f{status}\n"
+    - "\n&7Clique para ver a punição."
 
 banlist:
   title: "&eBanimentos em vigor &7({count} no total, página {page}/{pages})\n\n"

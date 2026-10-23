@@ -83,7 +83,7 @@ public class BlameCommand extends CoreCommand {
                 .append(PunishUtils.format(messages, placeholders, "blame", period == null ? "title" : "title-since"));
         for (Punishment punishment : shown) {
             text.append(PunishUtils.getMessageList(messages, punishment, "blame", "line")
-                    .hoverEvent(HoverEvent.showText(PunishUtils.getMessageList(messages, punishment, "punish-history", "line", "hoverMessage")))
+                    .hoverEvent(HoverEvent.showText(PunishUtils.getMessageList(messages, punishment, "blame", "hover")))
                     .clickEvent(ClickEvent.runCommand("/pview " + punishment.getId())));
         }
         final String base = "/blame " + staff + (period == null ? "" : " " + period) + " ";

@@ -3,6 +3,7 @@ log-kicks: false # true: /kick is stored in the punishment history (/phistory, /
 block-global-chat: true # a message entered without no command
 soft-mute-format: "<{player}> {message}" # Velocity only: what a soft-muted player sees of their own message (Bukkit keeps the server's chat format)
 language: en # native languages: en, es or pt
+trust-uuids: false # Spigot/Paper behind Velocity/BungeeCord with UUID forwarding (online-mode=false): true checks bans by UUID, as in online mode. Never on a real offline-mode server.
 per-player-language: false # true: each player gets the messages in their game language when it is en, es or pt (console, Discord and login screens use 'language')
 commands-locked-when-silenced:
   - "/g"

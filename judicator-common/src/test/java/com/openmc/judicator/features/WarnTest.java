@@ -129,14 +129,29 @@ class WarnTest {
     }
 
     @Test
-    void warnTreeCommand_neverCarriesCharactersFromThePlayerName() {
-        // Offline-mode servers accept any name; the name ends up in a console command.
+    void warnTreeCommand_isNotRunForANameACommandLineCannotCarry() {
+        // Offline-mode servers accept any name; cleaning it for the command line would name another account
+        // ("Ev;il" -> "Evil"), so the tree does not run at all.
         server.online(new FakePlayer("Ev;il", "10.0.0.1"));
         server.command(server.console, "warn Ev;il a");
         server.command(server.console, "warn Ev;il b");
         server.command(server.console, "warn Ev;il c");
 
-        assertEquals(List.of("tempban Evil '3:d' got three warns"), server.platform.consoleCommands());
+        assertEquals(List.of(), server.platform.consoleCommands());
+    }
+
+    @Test
+    void warnTree_cannotBeAimedAtAnotherAccountThroughTheName() {
+        server.online(new FakePlayer("Admin", "10.0.0.9", "judicator.level.100"));
+        final FakePlayer helper = server.online(new FakePlayer("Helper", "10.0.0.2", "judicator.warn", "judicator.level.1"));
+
+        for (String reason : List.of("a", "b", "c")) {
+            server.judicator.getPunishCooldown().release("warn", "Adm.in");
+            server.command(helper, "warn Adm.in " + reason);
+        }
+
+        assertEquals(3, server.warns.findAllByUsername("Adm.in").size(), "the warns are stored for the name typed");
+        assertEquals(List.of(), server.platform.consoleCommands(), "no 'tempban Admin' run by the console");
     }
 
     @Test

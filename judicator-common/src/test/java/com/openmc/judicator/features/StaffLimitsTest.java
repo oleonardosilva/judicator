@@ -47,6 +47,22 @@ class StaffLimitsTest {
         assertEquals(Outcome.TAKEN_BY_PROMPT, server.chat(staff, "confirm"));
     }
 
+    @Test
+    void undoingAPunishment_letsItBeAppliedAgainRightAway() {
+        server = TestServer.in(folder).start();
+        final FakePlayer mod = server.online(new FakePlayer("Mod", "10.0.0.2", "judicator.tempban", "judicator.unban"));
+        server.online(new FakePlayer("Steve", "10.0.0.1"));
+        server.command(mod, "tempban Steve 1:h wrong duration");
+        confirm(mod);
+
+        server.command(mod, "unban Steve");
+        server.command(mod, "tempban Steve 1:d xray");
+        confirm(mod);
+
+        assertEquals(1, bans("Steve"));
+        assertEquals(2, server.punishments.findAllByUsername("Steve").size());
+    }
+
     // --- time limits ---
 
     @Test

@@ -57,7 +57,7 @@ public final class ImportContext {
      * punishment is enforced by name.
      */
     public Optional<UUID> uuidForName(String name) {
-        if (judicator.getPlatform().isOnlineMode()) return Optional.empty();
+        if (judicator.trustsUuids()) return Optional.empty();
         return Optional.of(UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8)));
     }
 

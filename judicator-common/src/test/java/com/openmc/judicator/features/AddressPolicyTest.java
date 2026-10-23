@@ -1,5 +1,6 @@
 package com.openmc.judicator.features;
 
+import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.types.PunishType;
 import com.openmc.judicator.testing.FakePlayer;
 import com.openmc.judicator.testing.TestServer;
@@ -11,8 +12,10 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -119,6 +122,18 @@ class AddressPolicyTest {
 
         assertTrue(server.console.received("stevealt"), server.console.messages().toString());
         assertTrue(server.console.clicks().contains("/phistory stevealt"), server.console.clicks().toString());
+    }
+
+    @Test
+    void anIpPunishmentStoredOnAnExemptAddress_doesNotReachEveryoneBehindIt() {
+        server = TestServer.in(folder).start();
+        final LocalDateTime now = LocalDateTime.now();
+        // e.g. imported from a plugin that recorded the proxy's address
+        server.punishments.save(Punishment.create(null, "old", "Console", "Old", "127.0.0.1", now.minusDays(1), null,
+                List.of(), PunishType.BAN));
+
+        assertTrue(server.join(new FakePlayer("Fresh", "127.0.0.1")).isEmpty());
+        assertTrue(server.join(new FakePlayer("Old", "127.0.0.1")).isPresent(), "the account it was recorded on stays banned");
     }
 
     @Test

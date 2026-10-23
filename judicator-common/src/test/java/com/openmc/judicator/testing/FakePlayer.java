@@ -101,6 +101,10 @@ public final class FakePlayer implements JudicatorPlayer {
         return received.stream().flatMap(message -> Texts.clicks(message).stream()).toList();
     }
 
+    public List<String> hovers() {
+        return received.stream().flatMap(message -> Texts.hovers(message).stream()).toList();
+    }
+
     public boolean received(String fragment) {
         return messages().stream().anyMatch(message -> message.contains(fragment));
     }

@@ -163,6 +163,24 @@ class SelfImportTest {
     }
 
     @Test
+    void timesAreImportedInWholeSeconds() {
+        final RelationalDBManager manager = new RelationalDBManager();
+        manager.initialize(of(map("database", map("type", "sqlite", "file", "old.db"))), oldServer, NOPLogger.NOP_LOGGER);
+        try {
+            new PunishmentRelationalDAO(manager, NOPLogger.NOP_LOGGER).save(Punishment.create(steve, "fraction", "Mod", "Steve",
+                    null, start.plusDays(8).plusNanos(700_000_000), null, List.of(), PunishType.MUTE));
+        } finally {
+            manager.shutdown();
+        }
+
+        server.command(server.console, "judicator import judicator confirm");
+
+        final Punishment imported = server.punishments.all().stream()
+                .filter(p -> p.getReason().orElse("").equals("fraction")).findFirst().orElseThrow();
+        assertEquals(start.plusDays(8), imported.getStartedAt(), "MySQL DATETIME would round .7 up; the duplicate key cuts it");
+    }
+
+    @Test
     void staffNotesAreCopiedOnce() {
         final RelationalDBManager manager = new RelationalDBManager();
         manager.initialize(of(map("database", map("type", "sqlite", "file", "old.db"))), oldServer, NOPLogger.NOP_LOGGER);

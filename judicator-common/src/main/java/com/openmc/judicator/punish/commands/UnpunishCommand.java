@@ -9,6 +9,7 @@ import com.openmc.judicator.punish.PunishService;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.data.cache.PunishCache;
+import com.openmc.judicator.punish.rules.PunishCooldown;
 import com.openmc.judicator.punish.types.PunishPermissions;
 import com.openmc.judicator.punish.types.PunishType;
 import org.spongepowered.configurate.ConfigurationNode;
@@ -66,6 +67,8 @@ public class UnpunishCommand extends CoreCommand {
         }
 
         if (mute) clearMuteCache(active);
+        // a mistaken punishment, undone, can be applied again right away
+        judicator.getPunishCooldown().release(mute ? PunishCooldown.MUTE : PunishCooldown.BAN, targetName);
 
         final String nickname = active.get(0).getNickname();
         source.sendMessage(PunishUtils.format(messages, Map.of("nickname", nickname, "count", String.valueOf(revoked)),

@@ -1,10 +1,13 @@
 package com.openmc.judicator.commons;
 
 import org.junit.jupiter.api.Test;
+import org.spongepowered.configurate.ConfigurationNode;
 
 import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 
+import static com.openmc.judicator.testing.FakeConfig.map;
+import static com.openmc.judicator.testing.FakeConfig.of;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -31,6 +34,15 @@ class DateTimeOffsetParserTest {
         assertEquals(LocalDateTime.of(2026, 2, 28, 12, 0), DateTimeOffsetParser.getFinishedAtFromDuration("1:months", base));
         assertEquals(LocalDateTime.of(2026, 2, 7, 14, 30),
                 DateTimeOffsetParser.getFinishedAtFromDuration("1:w,2:h,30:m", base));
+    }
+
+    @Test
+    void formatTakesEachUnitFromWhatTheLargerOnesLeft() {
+        final ConfigurationNode english = of(map("time", map("format",
+                map("month", "month", "weeks", "weeks", "day", "day", "hour", "hour"))));
+
+        assertEquals("1 month, 2 weeks, 1 day", DateTimeOffsetParser.format(english, TimeUnit.DAYS.toMillis(45)));
+        assertEquals("2 weeks, 1 day, 1 hour", DateTimeOffsetParser.format(english, TimeUnit.HOURS.toMillis(15 * 24 + 1)));
     }
 
     @Test

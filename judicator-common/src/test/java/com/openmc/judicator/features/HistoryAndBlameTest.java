@@ -192,6 +192,18 @@ class HistoryAndBlameTest {
     }
 
     @Test
+    void blame_hoverDoesNotShowTheIp() {
+        server.online(new FakePlayer("Steve", "10.7.7.7"));
+        final FakePlayer viewer = server.online(new FakePlayer("Viewer", "10.0.0.9", "judicator.blame"));
+        server.command(server.console, "banip Steve proxy");
+
+        server.command(viewer, "blame Console");
+
+        assertTrue(viewer.received("#"), viewer.messages().toString());
+        assertFalse(String.join(" ", viewer.hovers()).contains("10.7.7.7"), viewer.hovers().toString());
+    }
+
+    @Test
     void blame_linesOpenThePunishment() {
         final Punishment ban = server.punishments.save(Punishment.create(null, "r", "Mod", "Steve", null, LocalDateTime.now(), null,
                 List.of(), PunishType.BAN));

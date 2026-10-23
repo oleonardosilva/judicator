@@ -7,6 +7,7 @@ import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.punish.PunishService;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
+import com.openmc.judicator.punish.rules.PunishCooldown;
 import com.openmc.judicator.punish.types.PunishPermissions;
 import org.spongepowered.configurate.ConfigurationNode;
 
@@ -46,6 +47,7 @@ public class RevokeCommand extends CoreCommand {
         punishService.revoke(id, reason, () -> {
             source.sendMessage(PunishUtils.getMessage(messages, "success", "pardon"));
             judicator.getPunishCache().forgetMute(id);
+            judicator.getPunishCooldown().release(PunishCooldown.categoryOf(punishment.getType()), punishment.getNickname());
 
             // a soft-muted player never knew about it
             if (!punishment.isSoft()) {

@@ -9,13 +9,33 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Offline-mode servers skip the UUID login check, so mutes must be restored from the name/IP check alone.
  */
 class MuteOfflineModeTest {
+
+    @Test
+    void trustUuids_checksBansByUuidOnABackendBehindAProxy(@TempDir Path backend) {
+        try (TestServer proxied = TestServer.in(backend).offlineMode().config("trust-uuids: false", "trust-uuids: true").start()) {
+            final UUID account = UUID.randomUUID();
+            proxied.online(new FakePlayer("Steve", account, "10.0.0.1"));
+            proxied.command(proxied.console, "ban Steve xray");
+
+            assertTrue(proxied.join(new FakePlayer("Steve2", account, "10.0.0.2")).isPresent(), "renamed, new IP, same UUID");
+        }
+        try (TestServer offline = TestServer.in(backend.resolve("plain")).offlineMode().start()) {
+            final UUID account = UUID.randomUUID();
+            offline.online(new FakePlayer("Steve", account, "10.0.0.1"));
+            offline.command(offline.console, "ban Steve xray");
+
+            assertTrue(offline.join(new FakePlayer("Steve2", account, "10.0.0.2")).isEmpty(), "a real offline server cannot trust UUIDs");
+        }
+    }
 
     @TempDir
     Path folder;
