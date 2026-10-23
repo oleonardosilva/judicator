@@ -73,8 +73,9 @@ There is no lint task.
 
 ### Punishment Flow
 
-1. **Pre-login** — `ConnectionHandler.checkPreLogin` (name/IP), then `AddressPolicy.checkLogin` (`ip-limits`); after
-   authentication `checkLogin` (UUID ban in online mode; `alts.deny-if-banned` in both modes).
+1. **Pre-login** — `ConnectionHandler.checkPreLogin`: bans on the IP (and on the name in offline mode). After
+   authentication `checkLogin`: `PlayerDirectory.joined`, the account's bans, `AddressPolicy.checkLogin` (`ip-limits`),
+   then `alts.deny-if-banned`. Velocity also checks scoped bans on `PlayerChooseInitialServerEvent`/`ServerPreConnectEvent`.
 2. **Login** — active mutes go into `PunishCache`; `onLoginAllowed` resumes paused online-only mutes and stores the IP
    (`AccessAddressService`); `onJoin` records the staff level and tells `judicator.notes.notify` about staff notes.
    `onDisconnect` (and `Judicator.disable`) pauses online-only mutes.
@@ -95,9 +96,32 @@ and `ApiViews` (core model → API views, `LocalDateTime` → `Instant`). `Judic
 that made it (never from `SyncService`), by `PunishFactory`, `KickHandler`, `WarnHandler`, `RevokeHandler`,
 `UnwarnHandler` and `EditPunishmentCommand`: a new way of applying or revoking must go through those handlers.
 
+### Identity
+
+`players/`: a player is a `PlayerRef` — identified by UUID when `Judicator.trustsUuids()` (online mode or
+`trust-uuids`), by name otherwise. `PlayerDirectory.resolve(name)` turns a typed name into one (online player, then the
+`players` table, then Mojang in online mode); `refOf(player)` for someone online. Queries go through
+`commons/db/IdentitySql` (`player_uuid = ? OR (player_uuid IS NULL AND lower_nickname = ?)`), the SQL twin of
+`PlayerRef.matches`, which the in-memory repositories use. Records stored for a name nobody had seen have no UUID
+(warns keep the offline-mode UUID of the name instead, `Warn#getAccountUuid`); `PlayerDirectory.joined` gives them the
+account's UUID at login. Never look players up by name in new code: take a `PlayerRef`. Staff history uses
+`punisher_uuid`/`author_uuid`. Alts are `player_addresses` rows (one per account and address).
+
+### Scopes and reports
+
+`punish/scopes/ScopeService`: a punishment's `scope` is null (everywhere), `server:<name>` or `group:<name>`
+(`scopes.groups`). Velocity knows each player's backend (`Platform.serverOf`); Spigot/Paper uses `scopes.server-name`.
+Logins only count bans that `refusesLogin`; the mute cache keeps every mute of a key and `ChatHandler` picks the one
+that applies where the player is. `reports/`: `ReportService` (cooldown, states OPEN/ASSIGNED/CLOSED, notices, sync
+`REPORTED`/`REPORT_CHANGED`), `/report`, `/reports`; `/reports tp` on Velocity sends a `TeleportRequest` on the
+`judicator:main` plugin channel (the proxy drops client messages on it; the backend in `proxy-mode` also checks
+`judicator.reports.tp`).
+
 ### Database
 
-Configured in `data.yml`. PostgreSQL (default), MySQL and SQLite (`commons/db/Dialect`). HikariCP pool in
+Configured in `data.yml`. Every table and index name carries `database.table-prefix` (`judicator_`): DAOs write
+`{table}` in their SQL and `RelationalDBManager.sql()` puts the prefixed name in; `ensureColumn`/`ensureIndex` take the
+name without it. `commons/db/LegacyTables` renames the 1.x tables at startup. PostgreSQL (default), MySQL and SQLite (`commons/db/Dialect`). HikariCP pool in
 `RelationalDBManager`; DDL for the three dialects lives in each `*RelationalDAO.initialize()`. A column added after
 1.0.0 goes in the `CREATE TABLE` **and** in `SchemaUtil.ensureColumnExists` (for tables created by older versions).
 A paused online-only mute has `finish_at` NULL and `paused_remaining` set, so "in force" queries stay the same.
