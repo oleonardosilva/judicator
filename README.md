@@ -26,6 +26,13 @@ Running the Spigot/Paper build on backends behind Velocity or BungeeCord with UU
 `online-mode=false`, so set **`trust-uuids: true`** in `config.yml` to check bans by UUID too (a banned player who
 changes name and IP is still refused). Never set it on a real offline-mode server, where UUIDs come from the name.
 
+Players are identified by their **account (UUID)** whenever the server trusts UUIDs (online mode, or `trust-uuids`):
+punishments, warns, notes, staff levels, alts and staff history follow the account through name changes, and the next
+owner of a banned player's old name joins freely. A name typed in a command means the player online with it, else the
+account that joined last with it (the `players` table), else the one the Mojang API gives. A punishment applied to a
+name nobody had seen is stored without a UUID and holds that name until an account joins with it; from then on it
+follows that account. On a real offline-mode server the name is the player, as before.
+
 ### Database
 
 Set `type` in `data.yml` to `postgres` (default), `mysql` or `sqlite`. SQLite needs no database server: the data is
@@ -33,6 +40,10 @@ kept in `plugins/<Judicator folder>/judicator.db` (`file` in `data.yml`). Spigot
 driver; on Velocity it is downloaded on the first start with `type: 'sqlite'`. Use SQLite for a single server or a
 small network; a network with several Spigot/Paper servers sharing punishments needs PostgreSQL or MySQL. Changing
 `type` requires a restart (it is not applied by `/judicator reload`).
+
+Every table and index starts with **`table-prefix`** (`judicator_` by default: `judicator_punishments`…), so they
+never clash with other plugins in the same database. Use the same prefix on every server sharing the database; it is
+read at startup only.
 
 For PostgreSQL/MySQL, an empty `port` means the default of the type (5432/3306). `properties` passes options to the
 JDBC driver (`useSSL: 'false'` for MySQL, `sslmode: 'require'` for PostgreSQL...) and `pool` sizes the connection
@@ -74,6 +85,32 @@ message; commands of the proxy itself (a proxy-wide `/g`, for instance) are stil
 
 Limits: SQLite can only be shared by servers on the same machine. A server that stops reading for more than a minute
 (a long freeze) can miss notices; the player gets the right state at their next login.
+
+#### Punishments for some servers (scopes)
+
+Bans and mutes can apply to one server or a group of servers instead of the whole network: add
+**`-scope=(server or group)`** to `/ban`, `/tempban`, `/mute`, `/tempmute`, `/softmute`, `/tempsoftmute`, their IP
+variants or `/punish` (in any order with `-s`/`-o`; tab completion lists the groups and servers).
+
+```yaml
+scopes:
+  server-name: '' # Spigot/Paper: this server's name in velocity.toml (empty = only punishments for every server here)
+  groups:
+    survival: [survival1, survival2]
+```
+
+* **Velocity**: a ban for some servers does not refuse the network. The player cannot connect to the servers it covers
+  (also when the proxy picks one by itself, at login or after a server goes down) and, if already on one, is sent to
+  the first server of velocity.toml's `try` list it does not cover; with none left, they are disconnected. A mute for
+  some servers only blocks their chat there. Announcements only show where the punishment applies.
+* **Spigot/Paper** without a proxy: set `server-name`; a ban for this server (or a group with it) refuses the login, one
+  for another server is ignored here. In `proxy-mode`, `server-name` must be the name the proxy gives the backend, so
+  its mute check knows which mutes apply there.
+* `/unban` and `/unmute` lift the ones for some servers too; `/revoke (id)` lifts one. `alts.deny-if-banned` only
+  counts bans for every server. Kicks have no scope.
+* A group removed from `scopes.groups` makes its punishments apply nowhere: the console says so at startup and on
+  `/judicator reload`.
+* A ban applied while the player is in the middle of switching to a server it covers takes effect at their next switch.
 
 ### Building
 
@@ -337,7 +374,8 @@ the player picture, the footer and the field names (to translate them) are share
 ### 🚷 Exemptions (`immune.yml`)
 
 * `players:` — a UUID (preferred: it survives a name change, and a name proves nothing in offline mode) or a name,
-  and what it is exempt from: `all`, `ban`, `mute`, `kick`, `warn`, `alts` (may join despite `alts.deny-if-banned`).
+  and what it is exempt from: `all`, `ban`, `mute`, `kick`, `warn`, `alts` (may join despite `alts.deny-if-banned`),
+  `report` (cannot be reported; `all` does not include it).
 
   ```yaml
   players:
@@ -439,10 +477,12 @@ Player names, IP addresses and histories are personal data. Judicator keeps them
     finished-warns: 180       # temporary warns that ended
     addresses: 90             # IPs no account used for that long (/alts and offline IP bans stop finding them)
     notes: 0                  # staff notes
+    reports: 0                # player reports closed that long ago
   ```
 * **`/judicator clear (player) {confirm}`** (console only) — for a deletion request: shows what is stored about the
-  player and, with `confirm`, deletes their punishments (those in force are lifted), warns, staff notes, their name in
-  the IP history and their staff level. Records under an older name of the same account (same UUID) are included.
+  player and, with `confirm`, deletes their punishments (those in force are lifted), warns, staff notes, IP history,
+  staff level, the reports they made or got and their entry in the `players` table. Records under an older name of the
+  same account (same UUID) are included.
 
 ---
 
@@ -455,6 +495,33 @@ notifications are built for each recipient. The evidence prompt accepts the word
 the server language.
 
 ---
+
+### ⬆️ Upgrading to 2.0.0
+
+2.0.0 changes the database: **stop every server sharing the database, update them all, then start them.** A 1.x server
+does not find the tables once a 2.0 server has renamed them.
+
+* **Table prefix**: on the first start the 1.x tables (`punishments`, `warns`, `notes`, `player_levels`,
+  `sync_messages`, `access_addresses`) are renamed to `judicator_*` with their rows. A table of another plugin with one
+  of those names (without Judicator's columns) is left alone. If the renaming cannot be done (no `ALTER` permission, for
+  instance) the plugin does not start, rather than starting with empty tables. Tools that read Judicator's tables
+  (web ban lists) must use the new names.
+* **IP history** (`/alts`): copied from `access_addresses` (one row per address) into `judicator_player_addresses`
+  (one row per account and address); the old table stays as `judicator_access_addresses_old` and can be dropped by
+  hand.
+* **Accounts**: new `judicator_players` table, filled on the first start with the accounts the stored records know.
+  New columns `punisher_uuid` (`punishments`, `warns`), `author_uuid` (`notes`), `scope` (`punishments`) and the
+  `judicator_reports` table.
+* **Behaviour** with trusted UUIDs: the name check before login is gone (bans are checked on the account after
+  login), so whoever takes a banned player's old name can join; the account limits of `ip-limits` are checked after
+  login, so a banned player sees their ban screen. `/alts` shows names as the players typed them (not in lower case).
+* **Commands and permissions**: `/report` (everyone, unless `reports.require-permission: true`; `judicator.report`,
+  `judicator.report.offline`) and `/reports` (`judicator.reports`, `.manage`, `.tp`, `.notify`); `-scope=` on the ban
+  and mute commands.
+* New optional `config.yml` sections `scopes` and `reports`, `retention.reports`, `data.yml` → `table-prefix`,
+  `import.yml` → `judicator.table-prefix`, `discord.yml` → `events.report` (off) and new labels.
+* API: `PunishmentView` has a new `scope` component (its constructor changed), `PunishmentRequest.Builder.scope(...)`
+  and `ActionStatus.SCOPE_UNKNOWN` are new, and name lookups now resolve the account first.
 
 ### ⬆️ Upgrading from 1.0.0
 
@@ -494,14 +561,32 @@ the server language.
 
 ---
 
-### 📣 Reports - Coming Soon
+### 📣 Reports
 
-* **`/report (player) {reason}`**
-  Sends a report to the moderation team.
+* **`/report (player) (reason)`**
+  Tells the staff about a player who is online (`judicator.report.offline`: also about one who is not). Open to every
+  player unless `reports.require-permission: true` (then `judicator.report`). A player waits `reports.cooldown`
+  seconds between reports and has at most one open report about the same player; players exempt from `report` in
+  `immune.yml` cannot be reported.
 
-* **`/reports`**
-  Shows pending reports.
+* **`/reports [list open|assigned|closed|all] [page]`** and **`/reports info (id)`**
+  The reports (open ones by default), newest first, and the details of one, with buttons for what you may do.
   **Permission:** `judicator.reports`
+
+* **`/reports assign (id) {staff}`**, **`/reports unassign (id)`**, **`/reports close (id) {comment}`**
+  Takes a report (or gives it to another staff member who may read reports), gives it back, closes it. The reporter
+  hears when theirs is taken and closed.
+  **Permission:** `judicator.reports.manage`
+
+* **`/reports tp (id)`**
+  Goes to the reported player. On Velocity: to the player's server and, when that backend runs Judicator in
+  `proxy-mode` (and you have `judicator.reports.tp` there too), to the player.
+  **Permission:** `judicator.reports.tp`
+
+* Staff with **`judicator.reports.notify`** hear of each new report and, when they join, how many are open
+  (`reports.notify-on-join`). With `sync`, reports reach the staff of every server and the reporter hears back on the
+  server they are on. `/playerinfo` shows how many times a player was reported; `events.report` in `discord.yml`
+  (off by default) posts them.
 
 ---
 
