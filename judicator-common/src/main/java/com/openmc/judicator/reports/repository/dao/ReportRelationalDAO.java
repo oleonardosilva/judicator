@@ -112,22 +112,37 @@ public class ReportRelationalDAO implements ReportRepository {
     }
 
     @Override
-    public boolean update(Report report, ReportState expected) {
+    public boolean update(Report report, ReportState expectedState, UUID expectedAssignee) {
         try (Connection connection = manager.getDataSource().getConnection();
              PreparedStatement statement = connection.prepareStatement(manager.sql("""
                      UPDATE {reports} SET state = ?, assignee_uuid = ?, assignee_name = ?, updated_at = ?, closed_at = ?, close_comment = ?
-                     WHERE id = ? AND state = ?
-                     """))) {
+                     WHERE id = ? AND state = ? AND\s""" + (expectedAssignee == null ? "assignee_uuid IS NULL" : "assignee_uuid = ?")))) {
             bindChange(statement, 1, report);
             statement.setTimestamp(4, SqlTime.of(report.getUpdatedAt()));
             statement.setTimestamp(5, SqlTime.of(report.getClosedAt().orElse(null)));
             statement.setString(6, report.getCloseComment().orElse(null));
             statement.setLong(7, report.getId());
-            statement.setString(8, expected.name());
+            statement.setString(8, expectedState.name());
+            if (expectedAssignee != null) statement.setString(9, expectedAssignee.toString());
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
             logger.error(e.getMessage(), e);
             return false;
+        }
+    }
+
+    @Override
+    public Optional<LocalDateTime> lastReportBy(UUID reporter) {
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(manager.sql(
+                     "SELECT created_at FROM {reports} WHERE reporter_uuid = ? ORDER BY created_at DESC LIMIT 1"))) {
+            statement.setString(1, reporter.toString());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next() ? Optional.ofNullable(SqlTime.read(resultSet, "created_at")) : Optional.empty();
+            }
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return Optional.empty();
         }
     }
 

@@ -134,6 +134,7 @@ public class ImportService {
                     + "§e already up to date.");
         }
         result.getSkipped().forEach((reason, count) -> send(sender, "§7  skipped " + count + ": " + reason));
+        result.getAdvice().forEach(text -> send(sender, "§6  note: §f" + text));
 
         if (!confirm) {
             send(sender, "§eNothing was written. Back up your database, then run §f/judicator import " + source.name() + " confirm§e.");

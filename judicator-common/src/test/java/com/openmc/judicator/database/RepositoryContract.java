@@ -107,12 +107,22 @@ abstract class RepositoryContract {
         read.setAssigneeUuid(UUID.randomUUID());
         read.setAssigneeName("Mod");
         read.setUpdatedAt(now);
-        assertTrue(store.reports().update(read, ReportState.OPEN));
-        assertFalse(store.reports().update(read, ReportState.OPEN), "someone changed it meanwhile");
+        assertTrue(store.reports().update(read, ReportState.OPEN, null));
+        assertFalse(store.reports().update(read, ReportState.OPEN, null), "someone changed it meanwhile");
+        // two staff members reassign at once: the one who decided on an assignee that is no longer there is refused
+        final UUID mod = read.getAssigneeUuid().orElseThrow();
+        final UUID other = UUID.randomUUID();
+        read.setAssigneeUuid(other);
+        read.setAssigneeName("Other");
+        assertFalse(store.reports().update(read, ReportState.ASSIGNED, UUID.randomUUID()), "reassigned by someone else meanwhile");
+        assertTrue(store.reports().update(read, ReportState.ASSIGNED, mod));
+        read.setAssigneeUuid(mod);
+        read.setAssigneeName("Mod");
+        assertTrue(store.reports().update(read, ReportState.ASSIGNED, other));
         read.setState(ReportState.CLOSED);
         read.setClosedAt(now);
         read.setCloseComment("banned");
-        assertTrue(store.reports().update(read, ReportState.ASSIGNED));
+        assertTrue(store.reports().update(read, ReportState.ASSIGNED, mod));
 
         final Report closed = store.reports().findById(older.getId()).orElseThrow();
         assertEquals("Mod", closed.getAssigneeName().orElseThrow());
@@ -132,7 +142,7 @@ abstract class RepositoryContract {
         closed.setState(ReportState.CLOSED);
         closed.setClosedAt(now.minusDays(40));
         closed.setUpdatedAt(now.minusDays(40));
-        store.reports().update(closed, ReportState.OPEN);
+        store.reports().update(closed, ReportState.OPEN, null);
 
         assertTrue(store.reports().hasOpen(alex, PlayerRef.account(steve, "Steve")));
         assertFalse(store.reports().hasOpen(alex, PlayerRef.account(UUID.randomUUID(), "Steve")), "another account named Steve");
@@ -140,6 +150,17 @@ abstract class RepositoryContract {
         assertEquals(1, store.reports().deleteClosedBefore(now.minusDays(30)));
         assertEquals(1, store.reports().deleteAllOf(PlayerRef.account(alex, "Alex")), "as the reporter");
         assertEquals(0, store.reports().countByStates(List.of(ReportState.values())));
+    }
+
+    @Test
+    void theLastReportOfAPlayerIsKnownWhateverServerMadeIt() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final UUID alex = UUID.randomUUID();
+        report(alex, "Alex", UUID.randomUUID(), "Steve", now.minusMinutes(5));
+        report(alex, "Alex", UUID.randomUUID(), "Bob", now.minusMinutes(1));
+
+        assertEquals(now.minusMinutes(1), store.reports().lastReportBy(alex).orElseThrow());
+        assertTrue(store.reports().lastReportBy(UUID.randomUUID()).isEmpty());
     }
 
     // --- sync notices ---

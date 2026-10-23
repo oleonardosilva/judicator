@@ -105,10 +105,36 @@ public class ConnectionHandler {
     }
 
     /**
+     * Velocity: the player got to a server ({@code ServerPostConnectEvent}). A ban for it applied while they were on
+     * their way (after {@link #checkServerSwitch} let them through) sends them on to the first server of the try list
+     * it does not cover, or disconnects them.
+     */
+    public void checkArrival(JudicatorPlayer player) {
+        final Optional<String> server = judicator.getScopeService().serverOf(player);
+        if (server.isEmpty()) return;
+        final List<Punishment> bans = scopedBans(player);
+        final Optional<Punishment> ban = bannedFrom(bans, server.get());
+        if (ban.isEmpty()) return;
+        final Optional<String> fallback = fallbackFor(bans, server.get());
+        final Component kick = PunishUtils.getMessageList(judicator.messagesFor(player), ban.get(), "runners", "ban-kick");
+        if (fallback.isEmpty()) {
+            player.disconnect(kick);
+            return;
+        }
+        player.sendMessage(PunishUtils.getMessageList(judicator.messagesFor(player), ban.get(), "runners", "ban-server"));
+        judicator.getPlatform().connect(player, fallback.get()).thenAccept(connected -> {
+            if (!connected) player.disconnect(kick);
+        });
+    }
+
+    /**
      * The first server of the try list that no ban keeps the player out of, other than the one they are leaving.
      */
     public Optional<String> fallbackFor(JudicatorPlayer player, String leaving) {
-        final List<Punishment> bans = scopedBans(player);
+        return fallbackFor(scopedBans(player), leaving);
+    }
+
+    private Optional<String> fallbackFor(List<Punishment> bans, String leaving) {
         return judicator.getPlatform().fallbackServers().stream()
                 .filter(server -> !server.equalsIgnoreCase(leaving))
                 .filter(server -> bannedFrom(bans, server).isEmpty())

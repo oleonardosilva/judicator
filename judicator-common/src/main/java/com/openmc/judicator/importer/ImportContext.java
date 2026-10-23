@@ -2,6 +2,7 @@ package com.openmc.judicator.importer;
 
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.punish.Punishment;
+import com.openmc.judicator.punish.scopes.ScopeService;
 import com.openmc.judicator.punish.types.PunishType;
 import com.openmc.judicator.warns.Warn;
 import org.spongepowered.configurate.ConfigurationNode;
@@ -117,6 +118,28 @@ public final class ImportContext {
             punishment.setRevokedReason(truncate(why, REVOKED_REASON_MAX));
         }
         return punishment;
+    }
+
+    /**
+     * Gives an imported punishment the scope it had in the source plugin.
+     *
+     * @param name  the server or group of the source; null or empty for every server
+     * @param group true for a group of servers (a LibertyBans category)
+     * @return false when the scope cannot be a Judicator one (the punishment must be skipped; the reason is recorded)
+     */
+    public boolean scope(Punishment punishment, String name, boolean group, ImportResult result) {
+        if (name == null || name.isBlank()) return true;
+        final Optional<String> scope = ScopeService.imported(name, group);
+        if (scope.isEmpty()) {
+            result.skip("scope that is not a server or group name of up to 32 letters, digits, _, - and . (" + name + ")");
+            return false;
+        }
+        punishment.setScope(scope.get());
+        if (group && !judicator.getScopeService().hasGroup(name)) {
+            result.advise("add the group '" + ScopeService.displayName(scope.get()) + "' to scopes.groups in config.yml with its servers: "
+                    + "until then its punishments apply on no server");
+        }
+        return true;
     }
 
     /**

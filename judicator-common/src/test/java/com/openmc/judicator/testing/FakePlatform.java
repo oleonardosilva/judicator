@@ -4,6 +4,7 @@ import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.Platform;
 import com.openmc.judicator.platform.PlatformTask;
 import com.openmc.judicator.platform.PlatformType;
+import com.openmc.judicator.platform.TeleportOutcome;
 import net.kyori.adventure.text.Component;
 import org.slf4j.Logger;
 import org.slf4j.helpers.NOPLogger;
@@ -44,6 +45,7 @@ public final class FakePlatform implements Platform {
     /** servers that refuse connections (down, full) */
     private final Set<String> refusing = new HashSet<>();
     private final List<String> teleports = new ArrayList<>();
+    private TeleportOutcome teleportOutcome = TeleportOutcome.TELEPORTED;
 
     public FakePlatform(Path dataDirectory, boolean onlineMode) {
         this(dataDirectory, onlineMode, PlatformType.VELOCITY);
@@ -193,12 +195,20 @@ public final class FakePlatform implements Platform {
     }
 
     @Override
-    public CompletableFuture<Boolean> teleport(JudicatorPlayer staff, JudicatorPlayer target) {
+    public CompletableFuture<TeleportOutcome> teleport(JudicatorPlayer staff, JudicatorPlayer target) {
         if (getPlayer(staff.getUniqueId()).isEmpty() || getPlayer(target.getUniqueId()).isEmpty()) {
-            return CompletableFuture.completedFuture(false);
+            return CompletableFuture.completedFuture(TeleportOutcome.FAILED);
         }
         teleports.add(staff.getName() + " -> " + target.getName());
-        return CompletableFuture.completedFuture(true);
+        return CompletableFuture.completedFuture(teleportOutcome);
+    }
+
+    /**
+     * What the next teleports end with ({@link TeleportOutcome#TELEPORTED} by default), e.g. a proxy whose backend did
+     * not answer.
+     */
+    public void teleportOutcome(TeleportOutcome outcome) {
+        this.teleportOutcome = outcome;
     }
 
     /**

@@ -8,7 +8,9 @@ import com.openmc.judicator.warns.Warn;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 /**
  * What a source produced: the records Judicator can store and, per reason, how many it had to leave out.
@@ -20,6 +22,7 @@ public final class ImportResult {
     private final List<PlayerAddress> addresses = new ArrayList<>();
     private final List<Note> notes = new ArrayList<>();
     private final Map<String, Integer> skipped = new TreeMap<>();
+    private final Set<String> advice = new TreeSet<>();
 
     public void add(Punishment punishment) {
         punishments.add(punishment);
@@ -55,6 +58,17 @@ public final class ImportResult {
 
     public List<Note> getNotes() {
         return notes;
+    }
+
+    /**
+     * Something the server owner must do or know after the import (shown once, however many rows caused it).
+     */
+    public void advise(String text) {
+        advice.add(text);
+    }
+
+    public Set<String> getAdvice() {
+        return advice;
     }
 
     public Map<String, Integer> getSkipped() {

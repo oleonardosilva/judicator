@@ -16,6 +16,7 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import org.spongepowered.configurate.ConfigurationNode;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
@@ -86,6 +87,14 @@ public class ReportService {
         // is exempt costs a cooldown each time
         final long secondsLeft = claimCooldown(reporter.getUniqueId());
         if (secondsLeft > 0) return new Creation(Outcome.COOLDOWN, null, secondsLeft);
+        // a report made on another server sharing the database, or before a restart, counts too
+        final long storedLeft = repository.lastReportBy(reporter.getUniqueId())
+                .map(last -> secondsLeft(Duration.between(last, LocalDateTime.now()).toMillis(), cooldownMillis())).orElse(0L);
+        if (storedLeft > 0) {
+            // the wait counts from that report, not from this attempt
+            lastReport.remove(reporter.getUniqueId());
+            return new Creation(Outcome.COOLDOWN, null, storedLeft);
+        }
         if (judicator.getImmuneCache().isExemptFrom(target.name(), target.uuid(), ImmuneCache.REPORT)) return new Creation(Outcome.EXEMPT, null, 0);
         if (repository.hasOpen(reporter.getUniqueId(), target)) return new Creation(Outcome.DUPLICATE, null, 0);
 
@@ -107,16 +116,27 @@ public class ReportService {
      */
     private long claimCooldown(UUID reporter) {
         final long now = System.currentTimeMillis();
-        final long cooldown = Math.max(0, judicator.getConfig().node("reports", "cooldown").getLong(60)) * 1000;
+        final long cooldown = cooldownMillis();
         final long[] left = {0};
         lastReport.compute(reporter, (key, last) -> {
-            if (last != null && now - last < cooldown) {
-                left[0] = (cooldown - (now - last) + 999) / 1000;
-                return last;
-            }
-            return now;
+            if (last == null) return now;
+            left[0] = secondsLeft(now - last, cooldown);
+            return left[0] > 0 ? last : now;
         });
         return left[0];
+    }
+
+    /**
+     * @param elapsedMillis since the last report; negative when another server's clock is ahead (or in another time
+     *                      zone): the wait is never longer than the cooldown
+     */
+    private static long secondsLeft(long elapsedMillis, long cooldownMillis) {
+        final long elapsed = Math.max(0, elapsedMillis);
+        return elapsed >= cooldownMillis ? 0 : (cooldownMillis - elapsed + 999) / 1000;
+    }
+
+    private long cooldownMillis() {
+        return Math.max(0, judicator.getConfig().node("reports", "cooldown").getLong(60)) * 1000;
     }
 
     /**
@@ -198,10 +218,11 @@ public class ReportService {
         if (found.isEmpty()) return Change.NOT_FOUND;
         final Report report = found.get();
         final ReportState before = report.getState();
+        final UUID assignedBefore = report.getAssigneeUuid().orElse(null);
         final Change change = edit.apply(report);
         if (change != Change.DONE) return change;
         report.setUpdatedAt(LocalDateTime.now());
-        if (!repository.update(report, before)) return Change.CHANGED_MEANWHILE;
+        if (!repository.update(report, before, assignedBefore)) return Change.CHANGED_MEANWHILE;
         if (report.getState() == ReportState.ASSIGNED) tellAssignee(report, actor);
         tellReporter(report);
         judicator.getSyncService().publish(SyncKind.REPORT_CHANGED, report.getId());

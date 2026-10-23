@@ -1,6 +1,7 @@
 package com.openmc.judicator.features;
 
 import com.openmc.judicator.platform.PlatformType;
+import com.openmc.judicator.platform.TeleportOutcome;
 import com.openmc.judicator.reports.Report;
 import com.openmc.judicator.reports.ReportState;
 import com.openmc.judicator.testing.FakePlayer;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -273,6 +275,12 @@ class ReportsTest {
 
         server.command(mod, "reports tp " + id);
         assertEquals(List.of("Mod -> Steve"), server.platform.teleports());
+        assertFalse(mod.received("You are on the server of Steve"));
+
+        // a proxy whose backend did not teleport (no Judicator there)
+        server.platform.teleportOutcome(TeleportOutcome.SERVER_ONLY);
+        server.command(mod, "reports tp " + id);
+        assertTrue(mod.received("You are on the server of Steve, but it did not teleport you to them"), mod.messages().toString());
 
         server.quit(steve);
         server.command(mod, "reports tp " + id);
@@ -315,6 +323,57 @@ class ReportsTest {
         a.pollSync();
         a.pollSync();
         assertEquals(1, alex.messages().stream().filter(text -> text.contains("was closed by Mod")).count(), alex.messages().toString());
+    }
+
+    @Test
+    void theCooldownCountsAReportMadeOnAnotherServerOrBeforeARestart() {
+        final TestServer a = start(TestServer.in(folder.resolve("a")));
+        final TestServer b = start(TestServer.in(folder.resolve("b")).sharingDatabaseWith(a));
+        a.online(new FakePlayer("Steve", "10.0.0.1"));
+        b.online(new FakePlayer("Bob", "10.0.0.3"));
+        a.command(a.online(new FakePlayer("Alex", "10.0.0.2")), "report Steve x");
+
+        final FakePlayer alexOnB = b.online(new FakePlayer("Alex", "10.0.0.2"));
+        b.command(alexOnB, "report Bob y");
+
+        assertTrue(alexOnB.messages().stream().anyMatch(text -> text.startsWith("Wait ")), alexOnB.messages().toString());
+        assertEquals(1, a.reports.all().size());
+    }
+
+    private static Report storedReportBy(FakePlayer reporter, LocalDateTime createdAt) {
+        final Report report = Report.create(reporter.getUniqueId(), reporter.getName(), null, "Bob", "old", null);
+        report.setState(ReportState.CLOSED);
+        report.setCreatedAt(createdAt);
+        report.setClosedAt(createdAt);
+        return report;
+    }
+
+    @Test
+    void aRefusalBecauseOfAStoredReport_doesNotStartANewWait() {
+        final TestServer server = start(TestServer.in(folder));
+        server.online(new FakePlayer("Steve", "10.0.0.1"));
+        final FakePlayer alex = server.online(new FakePlayer("Alex", "10.0.0.2"));
+        server.reports.insert(storedReportBy(alex, LocalDateTime.now().minusSeconds(10)));
+        server.command(alex, "report Steve x");
+        assertTrue(alex.received("Wait 50s before reporting again."), alex.messages().toString());
+
+        // that report no longer counts (as if its wait were over): the refused attempt does not hold Alex back
+        server.reports.deleteClosedBefore(LocalDateTime.now().plusMinutes(1));
+        server.command(alex, "report Steve x");
+
+        assertEquals(List.of("x"), server.reports.all().stream().map(Report::getReason).toList(), alex.messages().toString());
+    }
+
+    @Test
+    void aStoredReportFromAServerWithItsClockAhead_neverMeansWaitingLongerThanTheCooldown() {
+        final TestServer server = start(TestServer.in(folder));
+        server.online(new FakePlayer("Steve", "10.0.0.1"));
+        final FakePlayer alex = server.online(new FakePlayer("Alex", "10.0.0.2"));
+        server.reports.insert(storedReportBy(alex, LocalDateTime.now().plusHours(1)));
+
+        server.command(alex, "report Steve x");
+
+        assertTrue(alex.received("Wait 60s before reporting again."), alex.messages().toString());
     }
 
     @Test

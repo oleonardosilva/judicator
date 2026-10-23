@@ -23,12 +23,18 @@ public interface ReportRepository {
     Report insert(Report report);
 
     /**
-     * Stores the state, assignee and closing of a report, unless another staff member changed its state meanwhile.
+     * Stores the state, assignee and closing of a report, unless another staff member changed it meanwhile.
      *
-     * @param expected the state the change was decided on
-     * @return false when the report is gone or is no longer in that state
+     * @param expectedState    the state the change was decided on
+     * @param expectedAssignee the assignee it was decided on; null when it had none
+     * @return false when the report is gone or no longer has that state and assignee
      */
-    boolean update(Report report, ReportState expected);
+    boolean update(Report report, ReportState expectedState, UUID expectedAssignee);
+
+    /**
+     * When a player last made a report, on any server sharing the database.
+     */
+    Optional<LocalDateTime> lastReportBy(UUID reporter);
 
     Optional<Report> findById(long id);
 

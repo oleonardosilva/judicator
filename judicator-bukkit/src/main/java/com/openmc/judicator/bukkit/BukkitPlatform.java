@@ -4,6 +4,7 @@ import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.Platform;
 import com.openmc.judicator.platform.PlatformTask;
 import com.openmc.judicator.platform.PlatformType;
+import com.openmc.judicator.platform.TeleportOutcome;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -153,12 +154,13 @@ public class BukkitPlatform implements Platform {
     }
 
     @Override
-    public CompletableFuture<Boolean> teleport(JudicatorPlayer staff, JudicatorPlayer target) {
-        final CompletableFuture<Boolean> done = new CompletableFuture<>();
+    public CompletableFuture<TeleportOutcome> teleport(JudicatorPlayer staff, JudicatorPlayer target) {
+        final CompletableFuture<TeleportOutcome> done = new CompletableFuture<>();
         runSync(() -> {
             final Player moving = Bukkit.getPlayer(staff.getUniqueId());
             final Player destination = Bukkit.getPlayer(target.getUniqueId());
-            done.complete(moving != null && destination != null && moving.teleport(destination));
+            done.complete(moving != null && destination != null && moving.teleport(destination)
+                    ? TeleportOutcome.TELEPORTED : TeleportOutcome.FAILED);
         });
         return done;
     }

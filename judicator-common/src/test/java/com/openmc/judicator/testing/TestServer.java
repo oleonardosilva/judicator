@@ -136,12 +136,23 @@ public final class TestServer implements AutoCloseable {
      * @return whether they got there
      */
     public boolean switchServer(FakePlayer player, String server) {
+        return switchServer(player, server, () -> {
+        });
+    }
+
+    /**
+     * {@link #switchServer} with something happening while the player is on the way (after the check, before they
+     * arrive), then the check on arrival ({@code ServerPostConnectEvent}).
+     */
+    public boolean switchServer(FakePlayer player, String server, Runnable meanwhile) {
         final Optional<Component> denied = judicator.getConnectionHandler().checkServerSwitch(player, server);
         if (denied.isPresent()) {
             player.sendMessage(denied.get());
             return false;
         }
+        meanwhile.run();
         platform.moveTo(player, server);
+        judicator.getConnectionHandler().checkArrival(player);
         return true;
     }
 

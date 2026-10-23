@@ -1,5 +1,7 @@
 package com.openmc.judicator.importer;
 
+import com.openmc.judicator.punish.Punishment;
+
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -18,7 +20,9 @@ import java.util.UUID;
  *     <li>{@code <prefix>bans}, {@code <prefix>mutes}, {@code <prefix>warns}: ids of the punishments in force;</li>
  *     <li>{@code <prefix>names}: {@code uuid}, {@code name}, {@code updated}.</li>
  * </ul>
- * Kicks and punishments limited to some servers are not imported.
+ * Bans and mutes for some servers keep their scope: a server ({@code scope_type} 1) as that server, a category (2) as
+ * the group of the same name, which {@code scopes.groups} must define. Kicks and warns for some servers are not imported
+ * (Judicator warns apply everywhere).
  */
 final class LibertyBansImporter implements ImportSource {
 
@@ -76,12 +80,17 @@ final class LibertyBansImporter implements ImportSource {
             result.skip("unknown punishment type " + type);
             return;
         }
-        // scope_type exists since server scopes were added (0 = every server); before that an empty scope meant global.
-        final boolean global = SourceConnection.hasColumn(rs, "scope_type")
-                ? rs.getInt("scope_type") == 0
-                : rs.getString("scope") == null || rs.getString("scope").isBlank();
-        if (!global) {
-            result.skip("punishment limited to some servers (scope)");
+        // scope_type exists since server scopes were added (0 = every server, 1 = a server, 2 = a category); before that
+        // the scope was a server name, empty for every server.
+        final int scopeType = SourceConnection.hasColumn(rs, "scope_type") ? rs.getInt("scope_type")
+                : rs.getString("scope") == null || rs.getString("scope").isBlank() ? 0 : 1;
+        if (scopeType < 0 || scopeType > 2) {
+            result.skip("unknown scope type " + scopeType);
+            return;
+        }
+        final String scope = scopeType == 0 ? null : rs.getString("scope");
+        if (type == 2 && scope != null) {
+            result.skip("warn limited to some servers (Judicator warns apply everywhere)");
             return;
         }
 
@@ -126,7 +135,8 @@ final class LibertyBansImporter implements ImportSource {
             result.add(context.warn(uuid, nickname, rs.getString("reason"), operator, startedAt, finishAt, permanent, isActive));
             return;
         }
-        result.add(context.punishment(uuid, nickname, address, rs.getString("reason"), operator,
-                type == 0, startedAt, finishAt, permanent, isActive, "LibertyBans"));
+        final Punishment punishment = context.punishment(uuid, nickname, address, rs.getString("reason"), operator,
+                type == 0, startedAt, finishAt, permanent, isActive, "LibertyBans");
+        if (context.scope(punishment, scope, scopeType == 2, result)) result.add(punishment);
     }
 }

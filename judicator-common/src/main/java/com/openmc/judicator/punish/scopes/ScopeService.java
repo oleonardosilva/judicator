@@ -169,6 +169,26 @@ public class ScopeService {
     }
 
     /**
+     * A scope of another plugin as Judicator stores it, for imports.
+     *
+     * @param group true for a group of servers (a LibertyBans category), false for one server
+     * @return empty when the name cannot be a Judicator scope (too long, other characters)
+     */
+    public static Optional<String> imported(String name, boolean group) {
+        if (name == null) return Optional.empty();
+        final String lower = name.trim().toLowerCase(Locale.ROOT);
+        if (!VALID.matcher(lower).matches()) return Optional.empty();
+        return Optional.of((group ? GROUP : SERVER) + lower);
+    }
+
+    /**
+     * Whether {@code scopes.groups} has this group.
+     */
+    public boolean hasGroup(String name) {
+        return name != null && groups.containsKey(name.trim().toLowerCase(Locale.ROOT));
+    }
+
+    /**
      * The name shown for a stored scope ({@code survival} for {@code group:survival}).
      */
     public static String displayName(String scope) {

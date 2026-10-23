@@ -222,8 +222,14 @@ public class ReportsCommand extends CoreCommand {
             return;
         }
         source.sendMessage(PunishUtils.format(messages, placeholders, "reports", "tp"));
-        judicator.getPlatform().teleport(staff.get(), target.get()).thenAccept(arrived -> {
-            if (!arrived) staff.get().sendMessage(PunishUtils.format(messages, placeholders, "reports", "tp-failed"));
+        judicator.getPlatform().teleport(staff.get(), target.get()).thenAccept(outcome -> {
+            switch (outcome) {
+                case SERVER_ONLY -> staff.get().sendMessage(PunishUtils.format(messages, placeholders, "reports", "tp-server-only"));
+                case FAILED -> staff.get().sendMessage(PunishUtils.format(messages, placeholders, "reports", "tp-failed"));
+                default -> {
+                    // TELEPORTED: "Going to" was already said; SUPERSEDED: a newer request answers
+                }
+            }
         });
     }
 

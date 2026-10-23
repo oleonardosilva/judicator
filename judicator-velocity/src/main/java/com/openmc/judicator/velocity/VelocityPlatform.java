@@ -1,10 +1,14 @@
 package com.openmc.judicator.velocity;
 
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.Map;
+import com.openmc.judicator.platform.TeleportOutcome;
 import com.openmc.judicator.reports.TeleportRequest;
 import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.Platform;
 import com.openmc.judicator.platform.PlatformTask;
 import com.openmc.judicator.platform.PlatformType;
+import com.openmc.judicator.reports.TeleportResult;
 import com.velocitypowered.api.proxy.ConnectionRequestBuilder;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
@@ -21,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
@@ -31,6 +36,9 @@ public class VelocityPlatform implements Platform {
     private final Logger logger;
     private final Path dataDirectory;
     static final MinecraftChannelIdentifier TELEPORT_CHANNEL = MinecraftChannelIdentifier.from(TeleportRequest.CHANNEL);
+    private static final long TELEPORT_ANSWER_SECONDS = 5;
+    private final Map<UUID, PendingTeleport> pendingTeleports = new ConcurrentHashMap<>();
+    private final AtomicLong nextTeleport = new AtomicLong();
 
     public VelocityPlatform(Object plugin, ProxyServer server, Logger logger, Path dataDirectory) {
         this.plugin = plugin;
@@ -132,22 +140,45 @@ public class VelocityPlatform implements Platform {
     }
 
     @Override
-    public CompletableFuture<Boolean> teleport(JudicatorPlayer staff, JudicatorPlayer target) {
+    public CompletableFuture<TeleportOutcome> teleport(JudicatorPlayer staff, JudicatorPlayer target) {
         final Optional<Player> moving = server.getPlayer(staff.getUniqueId());
         final Optional<ServerConnection> destination = server.getPlayer(target.getUniqueId()).flatMap(Player::getCurrentServer);
-        if (moving.isEmpty() || destination.isEmpty()) return CompletableFuture.completedFuture(false);
+        if (moving.isEmpty() || destination.isEmpty()) return CompletableFuture.completedFuture(TeleportOutcome.FAILED);
         final RegisteredServer there = destination.get().getServer();
         final boolean alreadyThere = moving.get().getCurrentServer().map(current -> current.getServer().equals(there)).orElse(false);
         final CompletableFuture<Boolean> arrived = alreadyThere ? CompletableFuture.completedFuture(true)
                 : moving.get().createConnectionRequest(there).connect().thenApply(ConnectionRequestBuilder.Result::isSuccessful)
                 .exceptionally(error -> false);
-        return arrived.thenApply(connected -> {
-            if (connected) {
-                moving.get().getCurrentServer().ifPresent(connection -> connection.sendPluginMessage(TELEPORT_CHANNEL,
-                        new TeleportRequest(staff.getUniqueId(), target.getUniqueId()).encode()));
-            }
-            return connected;
+        return arrived.thenCompose(connected -> {
+            if (!connected) return CompletableFuture.completedFuture(TeleportOutcome.FAILED);
+            final Optional<ServerConnection> connection = moving.get().getCurrentServer();
+            if (connection.isEmpty()) return CompletableFuture.completedFuture(TeleportOutcome.FAILED);
+            // the backend answers with a TeleportResult (onTeleportResult); a backend without Judicator never does
+            final PendingTeleport pending = new PendingTeleport(nextTeleport.incrementAndGet(), new CompletableFuture<>());
+            final PendingTeleport previous = pendingTeleports.put(staff.getUniqueId(), pending);
+            if (previous != null) previous.answer().complete(TeleportOutcome.SUPERSEDED);
+            connection.get().sendPluginMessage(TELEPORT_CHANNEL,
+                    new TeleportRequest(pending.id(), staff.getUniqueId(), target.getUniqueId()).encode());
+            return pending.answer().completeOnTimeout(TeleportOutcome.SERVER_ONLY, TELEPORT_ANSWER_SECONDS, TimeUnit.SECONDS)
+                    .whenComplete((outcome, error) -> pendingTeleports.remove(staff.getUniqueId(), pending));
         });
+    }
+
+    /**
+     * A backend answered a teleport request through the staff member's connection.
+     *
+     * @param from the player the backend connection belongs to
+     */
+    void onTeleportResult(Player from, TeleportResult result) {
+        if (!from.getUniqueId().equals(result.staff())) return;
+        final PendingTeleport pending = pendingTeleports.get(result.staff());
+        // an answer to an older request is not this one's
+        if (pending != null && pending.id() == result.request()) {
+            pending.answer().complete(result.teleported() ? TeleportOutcome.TELEPORTED : TeleportOutcome.FAILED);
+        }
+    }
+
+    private record PendingTeleport(long id, CompletableFuture<TeleportOutcome> answer) {
     }
 
     @Override

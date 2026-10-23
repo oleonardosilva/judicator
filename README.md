@@ -110,7 +110,7 @@ scopes:
   counts bans for every server. Kicks have no scope.
 * A group removed from `scopes.groups` makes its punishments apply nowhere: the console says so at startup and on
   `/judicator reload`.
-* A ban applied while the player is in the middle of switching to a server it covers takes effect at their next switch.
+* A ban applied while the player is on their way to a server it covers moves them on as soon as they arrive.
 
 ### Building
 
@@ -439,9 +439,9 @@ punishments already in Judicator (same target — IP, UUID or name — type and 
 
 | Source | What is read | Notes |
 |---|---|---|
-| `litebans` | bans, mutes and warnings from LiteBans' database | names come from LiteBans' history table; kicks, wildcard IP bans and punishments limited to one server (`server_scope`) are skipped |
+| `litebans` | bans, mutes and warnings from LiteBans' database | names come from LiteBans' history table; bans and mutes for one server keep it as their scope (`server_scope`; a name that is also a group of `scopes.groups` becomes that group); kicks, wildcard IP bans and warnings for one server are skipped |
 | `advancedban` | `PunishmentHistory` and `Punishments` from AdvancedBan's database | punishments no longer in `Punishments` are imported as revoked; kicks and notes are skipped |
-| `libertybans` | every punishment from LibertyBans' database (`simple_history` view) | names from its `names` table; kicks and punishments limited to some servers (scopes) are skipped |
+| `libertybans` | every punishment from LibertyBans' database (`simple_history` view) | names from its `names` table; bans and mutes for a server or a category keep their scope (a category becomes the group of the same name: add it to `scopes.groups`, the import tells which); kicks and warns for some servers are skipped |
 | `banmanager` | player/IP bans and mutes (active and `*_records`) and warnings from BanManager's database | kicks, notes, name bans and IP range bans are not read; soft mutes become normal mutes; an online-only mute ends after the time it had left |
 | `vanilla` | `banned-players.json` and `banned-ips.json` (also used by Essentials) | bans only |
 | `judicator` | another Judicator database: punishments (with revocations, evidence, logged kicks, soft and online-only mutes), warns, staff notes and the IP history used by `/alts` | to move between databases, e.g. SQLite → MySQL: point `data.yml` to the new one, restart, import the old one; staff levels are recorded again on join |
@@ -566,7 +566,7 @@ does not find the tables once a 2.0 server has renamed them.
 * **`/report (player) (reason)`**
   Tells the staff about a player who is online (`judicator.report.offline`: also about one who is not). Open to every
   player unless `reports.require-permission: true` (then `judicator.report`). A player waits `reports.cooldown`
-  seconds between reports and has at most one open report about the same player; players exempt from `report` in
+  seconds between reports (on every server sharing the database, and across restarts) and has at most one open report about the same player; players exempt from `report` in
   `immune.yml` cannot be reported.
 
 * **`/reports [list open|assigned|closed|all] [page]`** and **`/reports info (id)`**
@@ -575,12 +575,14 @@ does not find the tables once a 2.0 server has renamed them.
 
 * **`/reports assign (id) {staff}`**, **`/reports unassign (id)`**, **`/reports close (id) {comment}`**
   Takes a report (or gives it to another staff member who may read reports), gives it back, closes it. The reporter
-  hears when theirs is taken and closed.
+  hears when theirs is taken and closed. When two staff members change the same report at once, the second is told
+  it changed meanwhile instead of overwriting the first.
   **Permission:** `judicator.reports.manage`
 
 * **`/reports tp (id)`**
   Goes to the reported player. On Velocity: to the player's server and, when that backend runs Judicator in
-  `proxy-mode` (and you have `judicator.reports.tp` there too), to the player.
+  `proxy-mode` (and you have `judicator.reports.tp` there too), to the player; the backend confirms it, and you are
+  told when you only got to the server.
   **Permission:** `judicator.reports.tp`
 
 * Staff with **`judicator.reports.notify`** hear of each new report and, when they join, how many are open

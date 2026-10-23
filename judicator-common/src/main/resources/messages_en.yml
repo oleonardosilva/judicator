@@ -430,6 +430,7 @@ reports:
   tp: "&aGoing to {target}..."
   tp-offline: "&c{target} is not online."
   tp-failed: "&cCould not get to {target}."
+  tp-server-only: "&eYou are on the server of {target}, but it did not teleport you to them (it needs Judicator in proxy-mode)."
   none-value: "-"
   states:
     open: "&aopen"

@@ -82,6 +82,17 @@ class ScopeTest {
     }
 
     @Test
+    void aBanForAServerAppliedWhileThePlayerIsOnTheirWayThere_movesThemOnArrival() {
+        final TestServer proxy = proxy();
+        final FakePlayer steve = on(proxy, "Steve", "lobby");
+
+        proxy.switchServer(steve, "survival1", () -> proxy.command(proxy.console, "ban Steve -scope=survival x"));
+
+        assertEquals(Optional.of("lobby"), proxy.platform.serverOf(steve));
+        assertEquals(0, steve.kicks());
+    }
+
+    @Test
     void withNoServerOfTheTryListLeft_thePlayerIsDisconnected() {
         final TestServer proxy = proxy();
         final FakePlayer steve = on(proxy, "Steve", "survival1");

@@ -1,5 +1,6 @@
 package com.openmc.judicator.velocity;
 
+import com.openmc.judicator.reports.TeleportResult;
 import com.velocitypowered.api.event.connection.PluginMessageEvent;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.punish.listeners.ChatHandler;
@@ -17,6 +18,7 @@ import com.velocitypowered.api.event.player.ServerPostConnectEvent;
 import com.velocitypowered.api.event.player.ServerPreConnectEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,8 +30,10 @@ public class VelocityListener {
     private final ProxyServer server;
     private final ConnectionHandler connectionHandler;
     private final ChatHandler chatHandler;
+    private final VelocityPlatform platform;
 
-    public VelocityListener(Judicator judicator, ProxyServer server) {
+    public VelocityListener(Judicator judicator, ProxyServer server, VelocityPlatform platform) {
+        this.platform = platform;
         this.judicator = judicator;
         this.server = server;
         this.connectionHandler = judicator.getConnectionHandler();
@@ -113,22 +117,30 @@ public class VelocityListener {
     }
 
     /**
-     * The first server of a staff member after login: the open reports are told now (at login the client cannot get
-     * chat yet).
+     * The player got to a server: a ban for it applied on the way moves them on. After login, the first server is also
+     * when a staff member hears of the open reports (at login the client cannot get chat yet).
      */
     @Subscribe
     public EventTask onServerPostConnect(ServerPostConnectEvent event) {
-        if (event.getPreviousServer() != null) return null;
-        return EventTask.async(() -> judicator.getReportService().notifyOnJoin(new VelocityPlayer(event.getPlayer())));
+        final boolean firstServer = event.getPreviousServer() == null;
+        return EventTask.async(() -> {
+            final VelocityPlayer player = new VelocityPlayer(event.getPlayer());
+            connectionHandler.checkArrival(player);
+            if (firstServer) judicator.getReportService().notifyOnJoin(player);
+        });
     }
 
     /**
-     * Only the proxy talks on Judicator's plugin channel ({@code /reports tp}): what a client (or a backend) sends on it
-     * is never passed on, so no player can make a backend teleport them.
+     * Only the proxy talks on Judicator's plugin channel ({@code /reports tp}): what a client sends on it is never
+     * passed on, so no player can make a backend teleport them; what a backend sends is its answer to a teleport.
      */
     @Subscribe
     public void onPluginMessage(PluginMessageEvent event) {
-        if (event.getIdentifier().equals(VelocityPlatform.TELEPORT_CHANNEL)) event.setResult(PluginMessageEvent.ForwardResult.handled());
+        if (!event.getIdentifier().equals(VelocityPlatform.TELEPORT_CHANNEL)) return;
+        event.setResult(PluginMessageEvent.ForwardResult.handled());
+        if (event.getSource() instanceof ServerConnection backend) {
+            TeleportResult.decode(event.getData()).ifPresent(result -> platform.onTeleportResult(backend.getPlayer(), result));
+        }
     }
 
     @Subscribe

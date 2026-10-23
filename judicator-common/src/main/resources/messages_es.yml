@@ -430,6 +430,7 @@ reports:
   tp: "&aYendo a {target}..."
   tp-offline: "&c{target} no está conectado."
   tp-failed: "&cNo se pudo llegar a {target}."
+  tp-server-only: "&eEstás en el servidor de {target}, pero no te teletransportó hasta el jugador (necesita Judicator en proxy-mode)."
   none-value: "-"
   states:
     open: "&aabierto"

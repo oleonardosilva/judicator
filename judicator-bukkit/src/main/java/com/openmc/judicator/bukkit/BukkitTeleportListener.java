@@ -1,9 +1,11 @@
 package com.openmc.judicator.bukkit;
 
+import com.openmc.judicator.reports.TeleportResult;
 import com.openmc.judicator.punish.types.PunishPermissions;
 import com.openmc.judicator.reports.TeleportRequest;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 
 /**
@@ -15,16 +17,25 @@ import org.bukkit.plugin.messaging.PluginMessageListener;
  */
 final class BukkitTeleportListener implements PluginMessageListener {
 
+    private final Plugin plugin;
+
+    BukkitTeleportListener(Plugin plugin) {
+        this.plugin = plugin;
+    }
+
     @Override
     public void onPluginMessageReceived(String channel, Player player, byte[] message) {
         if (!TeleportRequest.CHANNEL.equals(channel)) return;
         TeleportRequest.decode(message)
                 .filter(request -> request.staff().equals(player.getUniqueId()))
-                .filter(request -> player.hasPermission(PunishPermissions.REPORTS_TP.getPermission())
-                        || player.hasPermission(PunishPermissions.ADMIN.getPermission()))
                 .ifPresent(request -> {
-                    final Player target = Bukkit.getPlayer(request.target());
-                    if (target != null) player.teleport(target);
+                    final boolean allowed = player.hasPermission(PunishPermissions.REPORTS_TP.getPermission())
+                            || player.hasPermission(PunishPermissions.ADMIN.getPermission());
+                    final Player target = allowed ? Bukkit.getPlayer(request.target()) : null;
+                    final boolean teleported = target != null && player.teleport(target);
+                    // the proxy tells the staff member how it went (refused here too: not "no Judicator on this server")
+                    player.sendPluginMessage(plugin, TeleportRequest.CHANNEL,
+                            new TeleportResult(request.id(), request.staff(), teleported).encode());
                 });
     }
 }

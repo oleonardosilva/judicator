@@ -11,6 +11,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -43,9 +44,10 @@ public final class InMemoryReportRepository implements ReportRepository {
     }
 
     @Override
-    public synchronized boolean update(Report report, ReportState expected) {
+    public synchronized boolean update(Report report, ReportState expectedState, UUID expectedAssignee) {
         final Report row = rows.get(report.getId());
-        if (row == null || row.getState() != expected) return false;
+        if (row == null || row.getState() != expectedState) return false;
+        if (!Objects.equals(row.getAssigneeUuid().orElse(null), expectedAssignee)) return false;
         Columns.maxLength(report.getCloseComment().orElse(null), 255, "close_comment");
         row.setState(report.getState());
         row.setAssigneeUuid(report.getAssigneeUuid().orElse(null));
@@ -54,6 +56,12 @@ public final class InMemoryReportRepository implements ReportRepository {
         row.setClosedAt(trim(report.getClosedAt().orElse(null)));
         row.setCloseComment(report.getCloseComment().orElse(null));
         return true;
+    }
+
+    @Override
+    public synchronized Optional<LocalDateTime> lastReportBy(UUID reporter) {
+        return rows.values().stream().filter(report -> report.getReporterUuid().equals(reporter))
+                .map(Report::getCreatedAt).max(Comparator.naturalOrder());
     }
 
     @Override

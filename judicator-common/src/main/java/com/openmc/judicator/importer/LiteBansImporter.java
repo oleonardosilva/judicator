@@ -76,10 +76,7 @@ final class LiteBansImporter implements ImportSource {
                     result.skip("wildcard IP ban");
                     continue;
                 }
-                if (hasScope && !globalScope(rs.getString("server_scope"))) {
-                    result.skip("punishment limited to one server (server_scope)");
-                    continue;
-                }
+                final String scope = hasScope && !globalScope(rs.getString("server_scope")) ? rs.getString("server_scope") : null;
                 final String uuidText = rs.getString("uuid");
                 UUID uuid = null;
                 if (uuidText != null && !uuidText.equals(OFFLINE)) {
@@ -117,7 +114,9 @@ final class LiteBansImporter implements ImportSource {
                 final LocalDateTime end = permanent ? null : ImportContext.fromEpochMillis(until);
                 final Punishment punishment = context.punishment(uuid, nickname, address, rs.getString("reason"),
                         operator(rs), ban, start, end, permanent, rs.getBoolean("active"), "LiteBans");
-                result.add(punishment);
+                // server_scope names a server (or a group Judicator also has in scopes.groups)
+                final boolean group = scope != null && context.judicator().getScopeService().hasGroup(scope);
+                if (context.scope(punishment, scope, group, result)) result.add(punishment);
             }
         }
     }
@@ -129,7 +128,7 @@ final class LiteBansImporter implements ImportSource {
             final boolean hasScope = SourceConnection.hasColumn(rs, "server_scope");
             while (rs.next()) {
                 if (hasScope && !globalScope(rs.getString("server_scope"))) {
-                    result.skip("warning limited to one server (server_scope)");
+                    result.skip("warning limited to one server (server_scope; Judicator warns apply everywhere)");
                     continue;
                 }
                 final String uuidText = rs.getString("uuid");

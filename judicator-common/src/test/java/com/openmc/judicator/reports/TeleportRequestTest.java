@@ -16,16 +16,25 @@ class TeleportRequestTest {
 
     @Test
     void aRequestReadsBackAsItWasWritten() {
-        final TeleportRequest request = new TeleportRequest(UUID.randomUUID(), UUID.randomUUID());
+        final TeleportRequest request = new TeleportRequest(7L, UUID.randomUUID(), UUID.randomUUID());
 
         assertEquals(Optional.of(request), TeleportRequest.decode(request.encode()));
     }
 
     @Test
+    void theBackendsAnswerReadsBack_andIsNeverTakenForARequest() {
+        final TeleportResult result = new TeleportResult(9L, UUID.randomUUID(), true);
+
+        assertEquals(Optional.of(result), TeleportResult.decode(result.encode()));
+        assertTrue(TeleportRequest.decode(result.encode()).isEmpty());
+        assertTrue(TeleportResult.decode(new TeleportRequest(7L, UUID.randomUUID(), UUID.randomUUID()).encode()).isEmpty());
+    }
+
+    @Test
     void anythingElseIsIgnored() {
-        final byte[] valid = new TeleportRequest(UUID.randomUUID(), UUID.randomUUID()).encode();
+        final byte[] valid = new TeleportRequest(7L, UUID.randomUUID(), UUID.randomUUID()).encode();
         final byte[] otherVersion = valid.clone();
-        otherVersion[0] = 2;
+        otherVersion[0] = 1;
 
         assertTrue(TeleportRequest.decode(new byte[0]).isEmpty());
         assertTrue(TeleportRequest.decode(otherVersion).isEmpty());
