@@ -98,14 +98,18 @@ class HistoryAndBlameTest {
         assertTrue(page1.indexOf("Player12") < page1.indexOf("Player3"), "newest first");
         assertFalse(page1.contains("Player2 -"), page1);
         assertFalse(page1.contains("Someone"));
-        assertTrue(page1.contains("Next page: /blame mod 2"));
+        assertTrue(page1.contains("| Page 1/2 | Next »"), page1);
+        assertFalse(page1.contains("Previous"), page1);
+        assertTrue(server.console.clicks().contains("/blame mod 2"), server.console.clicks().toString());
 
         server.console.clearMessages();
         server.command(server.console, "staffhistory Mod 2");
         final String page2 = String.join("", server.console.messages());
         assertTrue(page2.contains("page 2/2"), page2);
         assertTrue(page2.contains("Player2 -") && page2.contains("Player1 -"), page2);
-        assertFalse(page2.contains("Next page"));
+        assertTrue(page2.contains("« Previous | Page 2/2 |"), page2);
+        assertFalse(page2.contains("Next"), page2);
+        assertTrue(server.console.clicks().contains("/blame Mod 1"), server.console.clicks().toString());
     }
 
     @Test
@@ -125,7 +129,7 @@ class HistoryAndBlameTest {
     @Test
     void blame_invalidInput() {
         server.command(server.console, "blame");
-        assertTrue(server.console.received("Incorrect command. Use: /blame (staff) [page]."));
+        assertTrue(server.console.received("Incorrect command. Use: /blame (staff) [period, e.g. 7:d] [page]."));
         server.command(server.console, "blame Mod two");
         assertEquals(2, server.console.messages().stream().filter(m -> m.contains("Use: /blame")).count());
         server.command(server.console, "blame Nobody");
@@ -138,5 +142,61 @@ class HistoryAndBlameTest {
         assertFalse(server.command(helper, "blame Mod"));
         helper.grant("judicator.blame");
         assertTrue(server.command(helper, "blame Mod"));
+    }
+
+    @Test
+    void blame_withAPeriodOnlyListsWhatStartedWithinIt() {
+        final LocalDateTime now = LocalDateTime.now();
+        for (int i = 0; i < 12; i++) {
+            server.punishments.save(Punishment.create(null, "r", "Mod", "Recent" + i, null, now.minusHours(i + 1), null,
+                    List.of(), PunishType.BAN));
+        }
+        server.punishments.save(Punishment.create(null, "r", "Mod", "OldOne", null, now.minusDays(3), null, List.of(), PunishType.BAN));
+
+        server.command(server.console, "blame Mod 1:d");
+        final String page1 = String.join("", server.console.messages());
+        assertTrue(page1.contains("Punishments applied by Mod in the last 1 day (12 in total, page 1/2)"), page1);
+        assertFalse(page1.contains("OldOne"), page1);
+        assertTrue(server.console.clicks().contains("/blame Mod 1:d 2"), server.console.clicks().toString());
+
+        server.console.clearMessages();
+        server.command(server.console, "blame Mod 1:d 2");
+        assertTrue(server.console.received("page 2/2"), server.console.messages().toString());
+
+        server.command(server.console, "blame Mod 7:d");
+        assertTrue(server.console.received("(13 in total, page 1/2)"), server.console.messages().toString());
+    }
+
+    @Test
+    void blame_withAPeriodAndNothingInIt() {
+        server.punishments.save(Punishment.create(null, "r", "Mod", "OldOne", null, LocalDateTime.now().minusDays(3), null,
+                List.of(), PunishType.BAN));
+        server.command(server.console, "blame Mod 24:h");
+        assertTrue(server.console.received("Mod has not applied any punishment in the last 1 day."), server.console.messages().toString());
+    }
+
+    @Test
+    void blame_aHugePeriodMeansEverything() {
+        server.punishments.save(Punishment.create(null, "r", "Mod", "OldOne", null, LocalDateTime.now().minusYears(5), null,
+                List.of(), PunishType.BAN));
+        server.command(server.console, "blame Mod 300:y");
+        assertTrue(server.console.received("(1 in total, page 1/1)"), server.console.messages().toString());
+    }
+
+    @Test
+    void blame_invalidPeriod() {
+        server.command(server.console, "blame Mod 7:lightyears");
+        server.command(server.console, "blame Mod 0:d");
+        server.command(server.console, "blame Mod 7:d two");
+        assertEquals(3, server.console.messages().stream().filter(m -> m.contains("Use: /blame")).count());
+    }
+
+    @Test
+    void blame_linesOpenThePunishment() {
+        final Punishment ban = server.punishments.save(Punishment.create(null, "r", "Mod", "Steve", null, LocalDateTime.now(), null,
+                List.of(), PunishType.BAN));
+        server.command(server.console, "blame Mod");
+        assertTrue(server.console.clicks().contains("/pview " + ban.getId()), server.console.clicks().toString());
+        assertTrue(server.console.hovers().stream().anyMatch(h -> h.contains("Author: Mod")), server.console.hovers().toString());
     }
 }

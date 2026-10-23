@@ -41,7 +41,10 @@ public class JudicatorCommand extends CoreCommand {
             new HelpEntry("/unban <player> [-s] [reason]", "Revokes every active ban of a player.", "/unban "),
             new HelpEntry("/unmute <player> [-s] [reason]", "Revokes every active mute of a player.", "/unmute "),
             new HelpEntry("/alts <player>", "Lists accounts that shared an IP with a player.", "/alts "),
-            new HelpEntry("/blame <staff> [page]", "Lists the punishments applied by a staff member.", "/blame "),
+            new HelpEntry("/blame <staff> [period] [page]", "Lists the punishments applied by a staff member, optionally only in the last period (e.g. 7:d).", "/blame "),
+            new HelpEntry("/activity <period> [page]", "Shows how many punishments each staff member applied in the last period (e.g. 24:h).", "/activity "),
+            new HelpEntry("/banlist [page]", "Lists the bans in force.", "/banlist"),
+            new HelpEntry("/mutelist [page]", "Lists the mutes in force.", "/mutelist"),
             new HelpEntry("/judicator import <source> [confirm]", "Imports punishments from another plugin (console only).", "/judicator import ")
     );
 

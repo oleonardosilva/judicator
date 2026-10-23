@@ -8,6 +8,8 @@ import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.types.PunishPermissions;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import org.spongepowered.configurate.ConfigurationNode;
 
 import java.util.List;
@@ -31,7 +33,7 @@ public class AltsCommand extends CoreCommand {
         final String targetName = optTarget.get();
         final ConfigurationNode messages = messages();
 
-        final Set<String> alts = judicator.getAddressService().findAlts(targetName);
+        final Set<String> alts = judicator.getAddressService().findAlts(targetName, judicator.getAddressPolicy()::isExempt);
         if (alts.isEmpty()) {
             source.sendMessage(PunishUtils.format(messages, Map.of("nickname", targetName), "alts", "none"));
             return;
@@ -43,7 +45,9 @@ public class AltsCommand extends CoreCommand {
             final String status = messages.node("alts", "status", judicator.getPunishService().statusOf(alt))
                     .getString("").replace("&", "§");
             text.append(Component.text("\n"))
-                    .append(PunishUtils.format(messages, Map.of("account", alt, "status", status), "alts", "line"));
+                    .append(PunishUtils.format(messages, Map.of("account", alt, "status", status), "alts", "line")
+                            .hoverEvent(HoverEvent.showText(PunishUtils.format(messages, Map.of("account", alt), "alts", "hover")))
+                            .clickEvent(ClickEvent.runCommand("/phistory " + alt)));
         }
         source.sendMessage(text.build());
     }

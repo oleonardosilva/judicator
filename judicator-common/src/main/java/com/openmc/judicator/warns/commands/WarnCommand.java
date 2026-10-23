@@ -4,6 +4,8 @@ import com.openmc.judicator.Judicator;
 import com.openmc.judicator.commons.command.CommandArgs;
 import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.platform.JudicatorSender;
+import com.openmc.judicator.punish.ReasonShortcuts;
+import com.openmc.judicator.punish.rules.PunishCooldown;
 import com.openmc.judicator.punish.types.PunishPermissions;
 import com.openmc.judicator.warns.WarnBuilder;
 import com.openmc.judicator.warns.handlers.WarnHandler;
@@ -45,17 +47,19 @@ public class WarnCommand extends CoreCommand {
             silent |= args.consumeFlag("-s");
         }
 
-        final String reason = args.remaining();
-        if (reason.isEmpty()) {
+        final String typedReason = args.remaining();
+        if (typedReason.isEmpty()) {
             sendUsage(source, getName());
             return;
         }
+        final Optional<String> reason = ReasonShortcuts.expand(judicator, source, typedReason);
+        if (reason.isEmpty()) return;
 
         if (silent && !silentAllowed(source)) return;
         if (!judicator.getImmuneCache().canPunish(source, targetName)) return;
 
         final WarnBuilder builder = new WarnBuilder()
-                .reason(reason)
+                .reason(reason.get())
                 .silent(silent);
 
         if (duration != null) {
@@ -72,8 +76,17 @@ public class WarnCommand extends CoreCommand {
         );
 
         source.asPlayer().ifPresent(builder::punisher);
+        if (!judicator.getPunishCooldown().acquire(source, PunishCooldown.WARN, targetName)) return;
 
-        new WarnHandler(judicator, builder).handle();
+        if (new WarnHandler(judicator, builder).handle().isEmpty()) {
+            judicator.getPunishCooldown().release(PunishCooldown.WARN, targetName);
+        }
+    }
+
+    @Override
+    public List<String> suggest(JudicatorSender sender, String[] args) {
+        final List<String> shortcuts = ReasonShortcuts.suggest(judicator, sender, args, temporary ? 2 : 1);
+        return shortcuts.isEmpty() ? super.suggest(sender, args) : shortcuts;
     }
 
 }

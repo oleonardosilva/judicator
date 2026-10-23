@@ -12,12 +12,14 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * Same rules as {@link PunishmentRelationalDAO} (checked by the repository contract tests), kept in memory.
@@ -87,13 +89,40 @@ public final class InMemoryPunishmentRepository implements PunishmentRepository 
     }
 
     @Override
-    public int countByPunisher(String punisher) {
-        return find(p -> p.getPunisher().equalsIgnoreCase(punisher)).size();
+    public int countByPunisher(String punisher, LocalDateTime since) {
+        return find(byPunisher(punisher, since)).size();
     }
 
     @Override
-    public List<Punishment> findByPunisher(String punisher, int limit, int offset) {
-        return find(p -> p.getPunisher().equalsIgnoreCase(punisher)).stream()
+    public List<Punishment> findByPunisher(String punisher, LocalDateTime since, int limit, int offset) {
+        return newestFirst(find(byPunisher(punisher, since)), limit, offset);
+    }
+
+    @Override
+    public int countActiveByTypes(PunishType... types) {
+        return find(active(types)).size();
+    }
+
+    @Override
+    public List<Punishment> findActiveByTypes(int limit, int offset, PunishType... types) {
+        return newestFirst(find(active(types)), limit, offset);
+    }
+
+    @Override
+    public List<StaffCount> countByStaffSince(LocalDateTime since) {
+        final Map<String, List<Punishment>> groups = find(p -> !p.getStartedAt().isBefore(since)).stream()
+                .collect(Collectors.groupingBy(p -> p.getPunisher().toLowerCase(Locale.ROOT) + "|" + p.getType().name()));
+        return groups.values().stream()
+                .map(rows -> new StaffCount(rows.get(0).getPunisher(), rows.get(0).getType().name(), rows.size()))
+                .toList();
+    }
+
+    private static Predicate<Punishment> byPunisher(String punisher, LocalDateTime since) {
+        return p -> p.getPunisher().equalsIgnoreCase(punisher) && (since == null || !p.getStartedAt().isBefore(since));
+    }
+
+    private static List<Punishment> newestFirst(List<Punishment> rows, int limit, int offset) {
+        return rows.stream()
                 .sorted(Comparator.comparing(Punishment::getStartedAt).thenComparing(Punishment::getId).reversed())
                 .skip(offset).limit(limit).toList();
     }

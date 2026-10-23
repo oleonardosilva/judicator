@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @NoArgsConstructor
@@ -23,8 +24,17 @@ public class PunishmentBuilder {
     private LocalDateTime finishAt;
     private PunishType type;
     private boolean silent;
+    private JudicatorPlayer staff;
+
+    /**
+     * @return the staff member who applies it; empty for the console
+     */
+    public Optional<JudicatorPlayer> getStaff() {
+        return Optional.ofNullable(staff);
+    }
 
     public PunishmentBuilder punisher(JudicatorPlayer player) {
+        this.staff = player;
         this.punisher = player.getName();
         return this;
     }

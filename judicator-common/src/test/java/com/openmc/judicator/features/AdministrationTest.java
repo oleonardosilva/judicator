@@ -55,13 +55,13 @@ class AdministrationTest {
         // A 1.0.0 messages file has no "blame" or "usages.blame" keys.
         final Path messages = folder.resolve("messages_en.yml");
         final String current = Files.readString(messages).replace("\r\n", "\n");
-        Files.writeString(messages, current.substring(0, current.indexOf("\nblame:")).replace("  blame: \"&cIncorrect command. Use: /blame (staff) [page].\"\n", ""), StandardCharsets.UTF_8);
+        Files.writeString(messages, current.substring(0, current.indexOf("\nblame:")).replace("  blame: \"&cIncorrect command. Use: /blame (staff) [period, e.g. 7:d] [page].\"\n", ""), StandardCharsets.UTF_8);
 
         server.command(server.console, "judicator reload");
         server.command(server.console, "blame");
         server.command(server.console, "blame Nobody");
 
-        assertTrue(server.console.received("Use: /blame (staff) [page]."), server.console.messages().toString());
+        assertTrue(server.console.received("Use: /blame (staff) [period, e.g. 7:d] [page]."), server.console.messages().toString());
         assertTrue(server.console.received("Nobody has not applied any punishment."));
         assertFalse(server.console.received("Find Message Error"));
     }
@@ -105,7 +105,7 @@ class AdministrationTest {
     @Test
     void import_ofAnUnknownSource() {
         server.command(server.console, "judicator import essentials");
-        assertTrue(server.console.received("Unknown source. Use one of: advancedban, banmanager, libertybans, litebans, vanilla"),
+        assertTrue(server.console.received("Unknown source. Use one of: advancedban, banmanager, judicator, libertybans, litebans, vanilla"),
                 server.console.messages().toString());
     }
 

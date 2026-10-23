@@ -16,6 +16,9 @@ error:
   not-muted: "&cEste jogador não tem silenciamento ativo."
   silent-not-allowed: "&cVocê não tem permissão para punir em silêncio (-s)."
   reason-no-permission: "&cVocê não tem permissão para usar este motivo."
+  time-limit: "&cSeu cargo pode aplicar {type} de no máximo {limit}."
+  cooldown: "&c{nickname} recebeu um {type} há {elapsed}s. Aguarde {remaining}s para punir de novo."
+  address-exempt: "&cEste IP está em exempt-addresses e não pode ser punido por IP. Puna a conta (/ban, /mute)."
 success:
   cancel: "&aOperação cancelada com sucesso."
   pardon: "&aA punição com o ID fornecido foi revogada com sucesso."
@@ -105,6 +108,11 @@ announcements:
     - ""
 
 runners:
+  too-many-accounts:
+    - "&6&lOpenMine Network\n"
+    - "&cContas demais estão se conectando da sua rede.\n"
+    - "\n"
+    - "&cTente mais tarde ou fale conosco no nosso Discord: &c&nbit.ly/openmc\n"
   ban-kick:
     - "&6&lOpenMine Network\n"
     - "&cVocê foi banido do servidor.\n"
@@ -227,7 +235,10 @@ usages:
   unban: "&cComando incorreto. Use: /unban (jogador) [-s] [motivo]."
   unmute: "&cComando incorreto. Use: /unmute (jogador) [-s] [motivo]."
   alts: "&cComando incorreto. Use: /alts (jogador)."
-  blame: "&cComando incorreto. Use: /blame (staff) [página]."
+  blame: "&cComando incorreto. Use: /blame (staff) [período, ex.: 7:d] [página]."
+  banlist: "&cComando incorreto. Use: /banlist [página]."
+  mutelist: "&cComando incorreto. Use: /mutelist [página]."
+  activity: "&cComando incorreto. Use: /activity (período, ex.: 24:h ou 7:d) [página]."
 
 notifications:
   punish: "&7[Staff] &f{author} &7aplicou &c{type} &7em &f{nickname}&7: &f{reason}"
@@ -237,6 +248,7 @@ notifications:
 alts:
   title: "&eContas que já usaram o mesmo IP de &f{nickname}&e:"
   line: "&f • &e{account} &7- {status}"
+  hover: "&7Clique para ver o histórico de punições de {account}"
   none: "&aNenhuma outra conta encontrada para {nickname}."
   notify: "&e[Alts] &f{nickname} &7compartilha IP com conta(s) banida(s)/silenciada(s): &c{accounts}"
   status:
@@ -248,4 +260,41 @@ blame:
   title: "&ePunições aplicadas por &f{staff} &7({count} no total, página {page}/{pages})\n\n"
   line: "    &f&l• &e#{id} &7- &c{type} &7- &f{nickname} &7- &f{startedAt}\n"
   none: "&c{staff} não aplicou nenhuma punição."
-  next-page: "\n&7Próxima página: &e/blame {staff} {next} &7(clique)"
+  title-since: "&ePunições aplicadas por &f{staff} &7nos últimos &f{period} &7({count} no total, página {page}/{pages})\n\n"
+  none-since: "&c{staff} não aplicou nenhuma punição nos últimos {period}."
+
+banlist:
+  title: "&eBanimentos em vigor &7({count} no total, página {page}/{pages})\n\n"
+  line: "    &f&l• &e#{id} &7- &f{nickname} &7- &c{type} &7- &faté {finishAt}\n"
+  hover:
+    - "&c * Motivo: &f{reason}\n"
+    - "&c * Início: &f{startedAt}\n"
+    - "&c * Fim: &f{finishAt}\n"
+    - "&c * Autor: &f{author}\n"
+    - "\n&7Clique para ver a punição."
+  none: "&aNão há banimentos em vigor."
+
+mutelist:
+  title: "&eSilenciamentos em vigor &7({count} no total, página {page}/{pages})\n\n"
+  line: "    &f&l• &e#{id} &7- &f{nickname} &7- &c{type} &7- &faté {finishAt}\n"
+  hover:
+    - "&c * Motivo: &f{reason}\n"
+    - "&c * Início: &f{startedAt}\n"
+    - "&c * Fim: &f{finishAt}\n"
+    - "&c * Autor: &f{author}\n"
+    - "\n&7Clique para ver a punição."
+  none: "&aNão há silenciamentos em vigor."
+
+activity:
+  title: "&eAtividade da staff nos últimos &f{period} &7({count} membros, página {page}/{pages})\n\n"
+  line: "    &f&l• &e{staff}&7: {summary}\n"
+  entry: "&f{count} &c{type}"
+  separator: "&7, "
+  hover: "&7{total} no total. Clique para ver o que {staff} aplicou nos últimos {period}."
+  none: "&cNenhuma punição ou aviso foi aplicado nos últimos {period}."
+
+pagination:
+  previous: "&e&l« &eAnterior "
+  page: "&7| Página {page}/{pages} |"
+  next: " &ePróxima &e&l»"
+  hover: "&7Clique para abrir a página {page}"

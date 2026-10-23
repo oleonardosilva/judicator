@@ -5,6 +5,7 @@ import com.openmc.judicator.commons.command.CommandArgs;
 import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.punish.PunishmentBuilder;
+import com.openmc.judicator.punish.ReasonShortcuts;
 import com.openmc.judicator.punish.types.PunishPermissions;
 import com.openmc.judicator.punish.types.PunishType;
 
@@ -57,14 +58,15 @@ public class PunishTypeCommand extends CoreCommand {
             duration = optDuration.get();
             silent |= args.consumeFlag(SILENT_FLAG);
         }
-        final String reason = args.remaining();
+        final Optional<String> reason = ReasonShortcuts.expand(judicator, source, args.remaining());
+        if (reason.isEmpty()) return;
 
         if (silent && !silentAllowed(source)) return;
         if (!judicator.getImmuneCache().canPunish(source, targetName)) return;
 
         final PunishmentBuilder builder = new PunishmentBuilder()
                 .type(type)
-                .reason(reason)
+                .reason(reason.get())
                 .silent(silent);
 
         if (duration != null) {
@@ -76,8 +78,15 @@ public class PunishTypeCommand extends CoreCommand {
             }
         }
 
+        if (!PunishmentCommandSupport.passesStaffRules(judicator, source, builder, targetName)) return;
         if (!PunishmentCommandSupport.resolveTarget(judicator, source, builder, targetName, byAddress)) return;
         PunishmentCommandSupport.submit(judicator, source, builder);
+    }
+
+    @Override
+    public List<String> suggest(JudicatorSender sender, String[] args) {
+        final List<String> shortcuts = ReasonShortcuts.suggest(judicator, sender, args, type.isTemp() ? 2 : 1);
+        return shortcuts.isEmpty() ? super.suggest(sender, args) : shortcuts;
     }
 
 }

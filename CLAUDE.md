@@ -47,7 +47,7 @@ There is no lint task.
 | Module | Responsibility |
 |---|---|
 | `judicator-common` | Platform-independent core: `Judicator` (bootstrap of configs, caches, DB and services), commands, services, repositories/DAOs, caches, messages, resources (`*.yml`) and the `platform/` abstraction. Must not import Velocity or Bukkit APIs. |
-| `judicator-velocity` | Velocity entry point (`JudicatorVelocity`, `@Plugin`), `VelocityPlatform`, command adapter (`SimpleCommand`), event listener, runtime `DependencyManager`. |
+| `judicator-velocity` | Velocity entry point (`JudicatorVelocity`, `@Plugin`), `VelocityPlatform`, command adapter (`SimpleCommand`), event listener, runtime `DependencyManager` (Maven Central only; every jar has a SHA-256 fixed in `JudicatorVelocity` and is not loaded if it does not match — changing a version means changing its hash). |
 | `judicator-bukkit` | Spigot/Paper entry point (`JudicatorBukkit`, `plugin.yml`), `BukkitPlatform`, command adapter (`TabExecutor`), event listener. Shades and relocates Adventure and Configurate; JDBC drivers, HikariCP and Caffeine come from `libraries:` in `plugin.yml`. |
 
 ### Platform abstraction (`judicator-common/.../platform`)
@@ -65,10 +65,13 @@ There is no lint task.
 ### Punishment Flow
 
 1. **Pre-login** — `ConnectionHandler.checkPreLogin` (name/IP) and, in online mode, `checkLogin` (UUID); a ban
-   denies the connection.
+   denies the connection, then `AddressPolicy.checkLogin` applies `ip-limits` (accounts per IP).
 2. **Login** — active mutes go into `PunishCache`; the last IP is stored by `AccessAddressService`.
 3. **Chat/Command** — `ChatHandler` blocks muted players and handles the evidence prompt of staff members.
-4. **Command** → `PunishFactory` → `BanHandler`/`MuteHandler` → `PunishService.save()` → DB → Discord webhook.
+4. **Command** → staff rules (`ImmuneCache.canPunish`: self, `immune.yml`, hierarchy; `punish/rules/`:
+   `TimeLimitService` and `PunishCooldown`; `AddressPolicy.isExempt` for IP punishments) → `PunishFactory` (checks the
+   cooldown again at confirmation) → `BanHandler`/`MuteHandler` → `PunishService.save()` → DB → Discord webhook.
+   `ReasonShortcuts` expands `#key` reasons; list commands page with `commons/Pagination` (clickable footer).
 
 ### Database
 
@@ -78,8 +81,8 @@ Configured in `data.yml`. PostgreSQL (default), MySQL and SQLite (`commons/db/Di
 parameter, never `CURRENT_TIMESTAMP`, which follows the database time zone and does not work in SQLite).
 
 `/judicator import` (console only) lives in `importer/`: one `ImportSource` per plugin (LiteBans, AdvancedBan,
-LibertyBans, BanManager, vanilla ban lists), `ImportContext` for the shared conversions and `ImportService` for dry-run, de-duplication
-and batch inserts. Sources are read-only; their connection settings are in `import.yml`.
+LibertyBans, BanManager, vanilla ban lists, another Judicator database), `ImportContext` for the shared conversions and
+`ImportService` for dry-run, de-duplication, batch inserts and merging of IP history. Sources are read-only; their connection settings are in `import.yml`.
 
 ### Localization
 

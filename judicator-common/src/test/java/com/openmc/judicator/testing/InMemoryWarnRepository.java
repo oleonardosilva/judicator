@@ -1,5 +1,6 @@
 package com.openmc.judicator.testing;
 
+import com.openmc.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.judicator.warns.Warn;
 import com.openmc.judicator.warns.repository.WarnRepository;
 import com.openmc.judicator.warns.repository.dao.WarnRelationalDAO;
@@ -8,12 +9,14 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * Same rules as {@link WarnRelationalDAO}, kept in memory.
@@ -48,6 +51,15 @@ public final class InMemoryWarnRepository implements WarnRepository {
     @Override
     public List<Warn> findAllByUsername(String username) {
         return find(w -> w.getNickname().equalsIgnoreCase(username));
+    }
+
+    @Override
+    public List<PunishmentRepository.StaffCount> countByStaffSince(LocalDateTime since) {
+        final Map<String, List<Warn>> byStaff = find(w -> !w.getStartedAt().isBefore(since)).stream()
+                .collect(Collectors.groupingBy(w -> w.getPunisher().toLowerCase(Locale.ROOT)));
+        return byStaff.values().stream()
+                .map(warns -> new PunishmentRepository.StaffCount(warns.get(0).getPunisher(), "WARN", warns.size()))
+                .toList();
     }
 
     @Override

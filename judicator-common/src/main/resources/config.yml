@@ -1,4 +1,5 @@
 announce: true # Announces the punishment on the server that the player was connected
+log-kicks: false # true: /kick is stored in the punishment history (/phistory, /pview, /blame, /activity)
 block-global-chat: true # a message entered without no command
 language: en # native languages: en, es or pt
 commands-locked-when-silenced:
@@ -37,6 +38,22 @@ reasons: # These will be the predefined reasons to use on /punish
 hierarchy:
   enabled: true # staff can only punish players with a lower judicator.level.<N>; players without a level can always be punished
   max-level: 100 # highest N checked in judicator.level.<N>
+time-limits: # longest ban/mute a staff group may apply; give the group the permission judicator.timelimit.<group>
+  helper:    # e.g. judicator.timelimit.helper: bans up to 1 day, mutes up to 7 days, nothing permanent (ranks inheriting helper must set it to false)
+    ban: "1:d"
+    mute: "7:d"
+cooldowns: # seconds before the same player can get another punishment of the same kind (0 = off); console and judicator.admin are not blocked
+  ban: 30
+  mute: 30
+  warn: 30
+  kick: 0
 staff-notifications: true # players with judicator.notify see every punishment; silent (-s) ones only judicator.notify.silent
+exempt-addresses: # IPs or CIDR ranges shared by many players (a school network, the proxy itself): never IP-punished, ignored by alt warnings and account limits
+  - "127.0.0.1"
+  - "::1"
+ip-limits: # 0 = off; addresses in exempt-addresses are never limited
+  max-online: 0 # most accounts online at the same time from one IP
+  max-recent-accounts: 0 # most different accounts that may join from one IP within recent-period
+  recent-period: "1:d"
 alts:
   notify-on-join: true # players with judicator.alts.notify are warned when someone shares an IP with a banned/muted account

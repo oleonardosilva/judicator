@@ -1,6 +1,8 @@
 package com.openmc.judicator.punish.commands;
 
 import com.openmc.judicator.Judicator;
+import com.openmc.judicator.commons.DateTimeOffsetParser;
+import com.openmc.judicator.commons.Pagination;
 import com.openmc.judicator.commons.command.CommandArgs;
 import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.platform.JudicatorSender;
@@ -13,16 +15,19 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import org.spongepowered.configurate.ConfigurationNode;
 
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 
 /**
- * {@code /blame <staff> [page]}: punishments applied by a staff member, newest first.
+ * {@code /blame <staff> [period] [page]}: punishments applied by a staff member, newest first; with a period
+ * ({@code 7:d}, {@code 24:h}), only the ones started within it.
  */
 public class BlameCommand extends CoreCommand {
-
-    private static final int PAGE_SIZE = 10;
 
     public BlameCommand(Judicator judicator) {
         super(judicator, "blame", List.of("staffhistory"), PunishPermissions.BLAME.getPermission(), PunishPermissions.ADMIN.getPermission());
@@ -36,42 +41,53 @@ public class BlameCommand extends CoreCommand {
             return;
         }
         final String staff = optStaff.get();
-        int page = 1;
-        final Optional<String> optPage = args.word();
-        if (optPage.isPresent()) {
-            try {
-                page = Integer.parseInt(optPage.get());
-            } catch (NumberFormatException e) {
+
+        Optional<String> next = args.word();
+        String period = null;
+        long periodMillis = 0;
+        if (next.isPresent() && next.get().contains(":")) {
+            final OptionalLong millis = DateTimeOffsetParser.parseMillis(next.get());
+            if (millis.isEmpty()) {
                 sendUsage(source, "blame");
                 return;
             }
+            period = next.get();
+            periodMillis = millis.getAsLong();
+            next = args.word();
         }
-
-        final ConfigurationNode messages = messages();
-        final int total = judicator.getPunishService().countByPunisher(staff);
-        if (total == 0) {
-            source.sendMessage(PunishUtils.format(messages, Map.of("staff", staff), "blame", "none"));
+        final OptionalInt requested = Pagination.parsePage(next);
+        if (requested.isEmpty()) {
+            sendUsage(source, "blame");
             return;
         }
 
-        final int pages = (total + PAGE_SIZE - 1) / PAGE_SIZE;
-        page = Math.max(1, Math.min(page, pages));
-        final List<Punishment> shown = judicator.getPunishService().findByPunisher(staff, PAGE_SIZE, (page - 1) * PAGE_SIZE);
+        final ConfigurationNode messages = messages();
+        final LocalDateTime since = period == null ? null : DateTimeOffsetParser.since(periodMillis);
+        final Map<String, String> placeholders = new HashMap<>(Map.of("staff", staff));
+        if (period != null) placeholders.put("period", DateTimeOffsetParser.format(messages, periodMillis));
 
-        final TextComponent.Builder text = Component.text().append(PunishUtils.format(messages, Map.of(
-                "staff", staff,
-                "count", String.valueOf(total),
-                "page", String.valueOf(page),
-                "pages", String.valueOf(pages)), "blame", "title"));
+        final int total = judicator.getPunishService().countByPunisher(staff, since);
+        if (total == 0) {
+            source.sendMessage(PunishUtils.format(messages, placeholders, "blame", period == null ? "none" : "none-since"));
+            return;
+        }
+
+        final int pages = Pagination.pages(total);
+        final int page = Pagination.clamp(requested.getAsInt(), pages);
+        final List<Punishment> shown = judicator.getPunishService().findByPunisher(staff, since, Pagination.PAGE_SIZE, Pagination.offset(page));
+
+        placeholders.put("count", String.valueOf(total));
+        placeholders.put("page", String.valueOf(page));
+        placeholders.put("pages", String.valueOf(pages));
+        final TextComponent.Builder text = Component.text()
+                .append(PunishUtils.format(messages, placeholders, "blame", period == null ? "title" : "title-since"));
         for (Punishment punishment : shown) {
             text.append(PunishUtils.getMessageList(messages, punishment, "blame", "line")
                     .hoverEvent(HoverEvent.showText(PunishUtils.getMessageList(messages, punishment, "punish-history", "line", "hoverMessage")))
                     .clickEvent(ClickEvent.runCommand("/pview " + punishment.getId())));
         }
-        if (page < pages) {
-            text.append(PunishUtils.format(messages, Map.of("staff", staff, "next", String.valueOf(page + 1)), "blame", "next-page")
-                    .clickEvent(ClickEvent.runCommand("/blame " + staff + " " + (page + 1))));
-        }
+        final String base = "/blame " + staff + (period == null ? "" : " " + period) + " ";
+        text.append(Pagination.footer(messages, page, pages, target -> base + target));
         source.sendMessage(text.build());
     }
 

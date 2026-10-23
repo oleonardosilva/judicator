@@ -6,11 +6,17 @@ import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.punish.PunishUtils;
+import com.openmc.judicator.punish.Punishment;
+import com.openmc.judicator.punish.ReasonShortcuts;
+import com.openmc.judicator.punish.rules.PunishCooldown;
 import com.openmc.judicator.punish.types.PunishPermissions;
+import com.openmc.judicator.punish.types.PunishType;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import org.spongepowered.configurate.ConfigurationNode;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,8 +38,9 @@ public class KickCommand extends CoreCommand {
         final ConfigurationNode messages = messages();
         if (silent && !silentAllowed(source)) return;
         if (!judicator.getImmuneCache().canPunish(source, targetName)) return;
-        final String remaining = args.remaining();
-        final String reason = remaining.isEmpty() ? "None" : remaining;
+        final Optional<String> remaining = ReasonShortcuts.expand(judicator, source, args.remaining());
+        if (remaining.isEmpty()) return;
+        final String reason = remaining.get().isEmpty() ? "None" : remaining.get();
 
         final Optional<JudicatorPlayer> optPlayer = judicator.getPlatform().getPlayer(targetName);
         if (optPlayer.isEmpty()) {
@@ -41,6 +48,7 @@ public class KickCommand extends CoreCommand {
             return;
         }
 
+        if (!judicator.getPunishCooldown().acquire(source, PunishCooldown.KICK, targetName)) return;
         final String punisher = source.asPlayer().map(JudicatorPlayer::getName).orElse("Console");
         final JudicatorPlayer player = optPlayer.get();
 
@@ -60,6 +68,27 @@ public class KickCommand extends CoreCommand {
             player.disconnect(kickMessage);
         });
         judicator.getStaffNotifier().notifyKick(punisher, targetName, reason, silent);
+        if (judicator.getConfig().node("log-kicks").getBoolean(false)) record(player, punisher, reason);
+    }
+
+    /**
+     * Stores the kick in the punishment history. It is already over when it is stored (end = start), so it never
+     * counts as an active punishment.
+     */
+    private void record(JudicatorPlayer player, String punisher, String reason) {
+        final LocalDateTime now = LocalDateTime.now();
+        // reason is VARCHAR(255): a longer one would make the database reject the row.
+        final Punishment kick = Punishment.create(player.getUniqueId(), reason.length() <= 255 ? reason : reason.substring(0, 255),
+                punisher, player.getName(), null,
+                now, now, new ArrayList<>(), PunishType.KICK);
+        kick.setPermanent(false);
+        judicator.getPunishService().save(kick);
+    }
+
+    @Override
+    public List<String> suggest(JudicatorSender sender, String[] args) {
+        final List<String> shortcuts = ReasonShortcuts.suggest(judicator, sender, args, 1);
+        return shortcuts.isEmpty() ? super.suggest(sender, args) : shortcuts;
     }
 
 }

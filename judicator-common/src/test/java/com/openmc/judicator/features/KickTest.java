@@ -1,5 +1,8 @@
 package com.openmc.judicator.features;
 
+import com.openmc.judicator.punish.Punishment;
+import com.openmc.judicator.punish.types.PunishStatus;
+import com.openmc.judicator.punish.types.PunishType;
 import com.openmc.judicator.testing.FakePlayer;
 import com.openmc.judicator.testing.TestServer;
 import org.junit.jupiter.api.AfterEach;
@@ -8,7 +11,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -67,5 +72,44 @@ class KickTest {
 
         assertTrue(mod.received("You do not have permission to punish silently (-s)."));
         assertFalse(steve.wasKicked());
+    }
+
+    @Test
+    void withLogKicks_theKickGoesToTheHistoryAsAFinishedEntry() {
+        server.close();
+        server = TestServer.in(folder.resolve("logged")).config("log-kicks: false", "log-kicks: true").start();
+        server.online(new FakePlayer("Steve", "10.0.0.1"));
+        final FakePlayer mod = server.online(new FakePlayer("Mod", "10.0.0.2", "judicator.kick", "judicator.history"));
+
+        server.command(mod, "kick Steve calm down");
+
+        final List<Punishment> all = server.punishments.all();
+        assertEquals(1, all.size());
+        final Punishment kick = all.get(0);
+        assertEquals(PunishType.KICK, kick.getType());
+        assertEquals("Mod", kick.getPunisher());
+        assertEquals("calm down", kick.getReason().orElseThrow());
+        assertEquals(PunishStatus.FINISHED, kick.getStatus());
+        assertEquals(kick.getStartedAt(), kick.getFinishAt().orElseThrow(), "stored already over, so no query sees it as active");
+        assertFalse(kick.isPermanent());
+        assertTrue(server.join(new FakePlayer("Steve", "10.0.0.1")).isEmpty(), "a logged kick does not block the next login");
+
+        server.command(mod, "phistory Steve");
+        assertTrue(mod.received("#" + kick.getId() + " - KICK"), mod.messages().toString());
+    }
+
+    @Test
+    void loggedKicksDoNotCountForProgressiveReasons() {
+        server.close();
+        server = TestServer.in(folder.resolve("logged")).config("log-kicks: false", "log-kicks: true").start();
+        server.online(new FakePlayer("Steve", "10.0.0.1"));
+
+        server.command(server.console, "kick Steve Player Offense");
+        server.online(new FakePlayer("Steve", "10.0.0.1"));
+        server.command(server.console, "punish Steve Player Offense");
+
+        final Punishment mute = server.punishments.all().stream().filter(p -> p.getType() != PunishType.KICK).findFirst().orElseThrow();
+        assertEquals(PunishType.TEMPMUTE, mute.getType());
+        assertTrue(mute.getFinishAt().orElseThrow().isBefore(mute.getStartedAt().plusDays(8)), "first step (7 days), not the second (30 days)");
     }
 }

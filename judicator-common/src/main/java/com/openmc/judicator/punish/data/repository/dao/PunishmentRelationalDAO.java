@@ -17,6 +17,8 @@ import java.util.stream.Collectors;
 
 public class PunishmentRelationalDAO implements PunishmentRepository {
 
+    private static final LocalDateTime EPOCH = LocalDateTime.of(1970, 1, 1, 0, 0);
+
     private final RelationalDBManager manager;
     private final Logger logger;
 
@@ -364,11 +366,12 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
     }
 
     @Override
-    public int countByPunisher(String punisher) {
+    public int countByPunisher(String punisher, LocalDateTime since) {
         try (Connection connection = manager.getDataSource().getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     "SELECT COUNT(*) FROM punishments WHERE LOWER(punisher) = ?")) {
+                     "SELECT COUNT(*) FROM punishments WHERE LOWER(punisher) = ? AND started_at >= ?")) {
             statement.setString(1, punisher.toLowerCase());
+            statement.setTimestamp(2, SqlTime.of(since == null ? EPOCH : since));
             try (ResultSet resultSet = statement.executeQuery()) {
                 return resultSet.next() ? resultSet.getInt(1) : 0;
             }
@@ -379,19 +382,93 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
     }
 
     @Override
-    public List<Punishment> findByPunisher(String punisher, int limit, int offset) {
+    public List<Punishment> findByPunisher(String punisher, LocalDateTime since, int limit, int offset) {
         try (Connection connection = manager.getDataSource().getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     "SELECT * FROM punishments WHERE LOWER(punisher) = ? ORDER BY started_at DESC, id DESC LIMIT ? OFFSET ?")) {
+                     "SELECT * FROM punishments WHERE LOWER(punisher) = ? AND started_at >= ? ORDER BY started_at DESC, id DESC LIMIT ? OFFSET ?")) {
             statement.setString(1, punisher.toLowerCase());
-            statement.setInt(2, limit);
-            statement.setInt(3, offset);
+            statement.setTimestamp(2, SqlTime.of(since == null ? EPOCH : since));
+            statement.setInt(3, limit);
+            statement.setInt(4, offset);
             try (ResultSet resultSet = statement.executeQuery()) {
                 final List<Punishment> punishments = new ArrayList<>();
                 while (resultSet.next()) {
                     punishments.add(load(resultSet));
                 }
                 return punishments;
+            }
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return List.of();
+        }
+    }
+
+    private static String activeByTypes(String select, PunishType... types) {
+        final String placeholders = Arrays.stream(types).map(t -> "?").collect(Collectors.joining(", "));
+        return select + " FROM punishments WHERE revoked = false AND (finish_at IS NULL OR finish_at > ?) AND type IN (" + placeholders + ")";
+    }
+
+    /**
+     * @return the index of the next parameter
+     */
+    private static int bindActive(PreparedStatement statement, PunishType... types) throws SQLException {
+        statement.setTimestamp(1, SqlTime.now());
+        for (int i = 0; i < types.length; i++) {
+            statement.setString(i + 2, types[i].name());
+        }
+        return types.length + 2;
+    }
+
+    @Override
+    public int countActiveByTypes(PunishType... types) {
+        if (types.length == 0) return 0;
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(activeByTypes("SELECT COUNT(*)", types))) {
+            bindActive(statement, types);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next() ? resultSet.getInt(1) : 0;
+            }
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return 0;
+        }
+    }
+
+    @Override
+    public List<Punishment> findActiveByTypes(int limit, int offset, PunishType... types) {
+        if (types.length == 0) return List.of();
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     activeByTypes("SELECT *", types) + " ORDER BY started_at DESC, id DESC LIMIT ? OFFSET ?")) {
+            final int next = bindActive(statement, types);
+            statement.setInt(next, limit);
+            statement.setInt(next + 1, offset);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                final List<Punishment> punishments = new ArrayList<>();
+                while (resultSet.next()) {
+                    punishments.add(load(resultSet));
+                }
+                return punishments;
+            }
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return List.of();
+        }
+    }
+
+    @Override
+    public List<StaffCount> countByStaffSince(LocalDateTime since) {
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT MAX(punisher) AS punisher, type, COUNT(*) AS total FROM punishments "
+                             + "WHERE started_at >= ? GROUP BY LOWER(punisher), type")) {
+            statement.setTimestamp(1, SqlTime.of(since));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                final List<StaffCount> counts = new ArrayList<>();
+                while (resultSet.next()) {
+                    counts.add(new StaffCount(resultSet.getString("punisher"), resultSet.getString("type"), resultSet.getInt("total")));
+                }
+                return counts;
             }
         } catch (SQLException e) {
             logger.error(e.getMessage(), e);

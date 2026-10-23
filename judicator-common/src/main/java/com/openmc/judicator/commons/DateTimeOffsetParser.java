@@ -2,11 +2,13 @@ package com.openmc.judicator.commons;
 
 import org.spongepowered.configurate.ConfigurationNode;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 import java.util.concurrent.TimeUnit;
 
 public class DateTimeOffsetParser {
@@ -93,6 +95,29 @@ public class DateTimeOffsetParser {
         return totalMillis;
     }
 
+
+    /**
+     * @return the duration ({@code 7:d}, {@code 1:d,12:h}) in milliseconds, or empty when it is not a valid, positive
+     * duration
+     */
+    public static OptionalLong parseMillis(String input) {
+        try {
+            final long millis = getMillisFromDuration(input);
+            return millis > 0 ? OptionalLong.of(millis) : OptionalLong.empty();
+        } catch (IllegalArgumentException e) {
+            return OptionalLong.empty();
+        }
+    }
+
+    /**
+     * @return now minus the period, never before 1970 (a huge period means "everything")
+     */
+    public static LocalDateTime since(long periodMillis) {
+        final LocalDateTime floor = LocalDateTime.of(1970, 1, 1, 0, 0);
+        final LocalDateTime now = LocalDateTime.now();
+        if (periodMillis >= Duration.between(floor, now).toMillis()) return floor;
+        return now.minus(Duration.ofMillis(periodMillis));
+    }
 
     public static LocalDateTime getFinishedAtFromDuration(String input, LocalDateTime base) throws IllegalArgumentException {
         String[] parts = input.split(",");

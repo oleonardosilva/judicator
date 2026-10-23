@@ -60,3 +60,16 @@ banmanager:
 vanilla:
   # Folder with banned-players.json and banned-ips.json (also used by Essentials). Empty: the server folder.
   directory: ''
+
+judicator:
+  # Another Judicator database, e.g. to move from SQLite to MySQL/PostgreSQL: set data.yml to the new database,
+  # restart, then import the old one here. Copies punishments, warns and the IP history used by /alts.
+  # SQLite: jdbc:sqlite:plugins/Judicator/judicator-old.db (a COPY of the old file). On Velocity the SQLite driver is
+  # only downloaded while data.yml uses SQLite: otherwise put sqlite-jdbc-3.46.1.2.jar in the drivers folder and set
+  # driver-jar to its file name and driver-class to 'org.sqlite.JDBC'.
+  # MySQL: jdbc:mysql://localhost:3306/judicator   PostgreSQL: jdbc:postgresql://localhost:5432/judicator
+  jdbc-url: ''
+  user: ''
+  password: ''
+  driver-jar: ''
+  driver-class: ''

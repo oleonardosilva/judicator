@@ -1,9 +1,11 @@
 package com.openmc.judicator.punish.handlers;
 
 import com.openmc.judicator.Judicator;
+import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.PunishmentBuilder;
+import com.openmc.judicator.punish.rules.PunishCooldown;
 
 import java.util.Optional;
 
@@ -19,6 +21,16 @@ public class PunishFactory {
     }
 
     public Optional<Punishment> factory() {
+        // Checked again here: another staff member may have punished the same player while this one was confirming.
+        final String category = PunishCooldown.categoryOf(punishmentBuilder.getType());
+        final Optional<JudicatorPlayer> staff = punishmentBuilder.getStaff();
+        if (staff.isPresent()) {
+            if (!judicator.getPunishCooldown().acquire(staff.get(), category, punishmentBuilder.getNickname())) {
+                return Optional.empty();
+            }
+        } else {
+            judicator.getPunishCooldown().record(category, punishmentBuilder.getNickname());
+        }
         try {
             final Punishment punishment;
             if (punishmentBuilder.isBan()) punishment = new BanHandler(judicator, punishmentBuilder).handle();
@@ -31,6 +43,7 @@ public class PunishFactory {
 
             return Optional.of(punishment);
         } catch (Exception e) {
+            judicator.getPunishCooldown().release(category, punishmentBuilder.getNickname());
             judicator.getLogger().error("Failed to handle ban punishment", e);
             judicator.getPlatform().getPlayer(punishmentBuilder.getPunisher()).ifPresent(
                     player -> player

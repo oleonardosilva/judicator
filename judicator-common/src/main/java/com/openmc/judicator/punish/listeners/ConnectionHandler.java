@@ -22,8 +22,10 @@ public class ConnectionHandler {
     }
 
     public Optional<Component> checkPreLogin(String username, String address) {
-        return judicator.getPunishService().searchOnPreLogin(username, address)
+        final Optional<Component> ban = judicator.getPunishService().searchOnPreLogin(username, address)
                 .map(punishment -> PunishUtils.getMessageList(judicator.getMessagesConfig(), punishment, "runners", "ban-kick"));
+        if (ban.isPresent()) return ban;
+        return judicator.getAddressPolicy().checkLogin(username, address);
     }
 
     public Optional<Component> checkLogin(UUID uuid, String username, String address) {
@@ -33,6 +35,7 @@ public class ConnectionHandler {
     }
 
     public void onLoginAllowed(String username, String address) {
+        judicator.getAddressPolicy().recordLogin(username, address);
         judicator.getAddressService().updateUserIP(username, address);
         notifyAlts(username, address);
     }
@@ -44,6 +47,7 @@ public class ConnectionHandler {
 
     private void notifyAlts(String username, String address) {
         if (!judicator.getConfig().node("alts", "notify-on-join").getBoolean(true)) return;
+        if (judicator.getAddressPolicy().isExempt(address)) return;
         final Set<String> flagged = new TreeSet<>();
         for (String account : judicator.getAddressService().findAccountsByIp(address, username)) {
             if (!"clean".equals(judicator.getPunishService().statusOf(account))) flagged.add(account);

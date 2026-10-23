@@ -9,12 +9,15 @@ import com.openmc.judicator.discord.DiscordWebhookService;
 import com.openmc.judicator.importer.ImportService;
 import com.openmc.judicator.platform.Platform;
 import com.openmc.judicator.punish.AccessAddressService;
+import com.openmc.judicator.punish.AddressPolicy;
 import com.openmc.judicator.punish.PunishService;
 import com.openmc.judicator.punish.commands.*;
 import com.openmc.judicator.punish.data.cache.ImmuneCache;
 import com.openmc.judicator.punish.hierarchy.HierarchyService;
 import com.openmc.judicator.punish.hierarchy.PlayerLevelRelationalDAO;
 import com.openmc.judicator.punish.hierarchy.PlayerLevelRepository;
+import com.openmc.judicator.punish.rules.PunishCooldown;
+import com.openmc.judicator.punish.rules.TimeLimitService;
 import com.openmc.judicator.punish.data.cache.PunishCache;
 import com.openmc.judicator.punish.data.cache.ReasonCache;
 import com.openmc.judicator.punish.data.repository.AccessAddressRepository;
@@ -64,7 +67,10 @@ public class Judicator {
     private PunishService punishService;
     private WarnService warnService;
     private AccessAddressService addressService;
+    private AddressPolicy addressPolicy;
     private HierarchyService hierarchyService;
+    private TimeLimitService timeLimitService;
+    private PunishCooldown punishCooldown;
     private StaffNotifier staffNotifier;
     private ImportService importService;
     private ConnectionHandler connectionHandler;
@@ -152,16 +158,21 @@ public class Judicator {
         this.reasonCache.initialize(this);
         this.immuneCache.initialize(this);
         this.actionCache.initialize(this);
+        this.timeLimitService.reload();
+        this.addressPolicy.reload();
         this.chatHandler.reload();
     }
 
     private void registerServices(Repositories repositories) {
         this.punishService = new PunishService(this, repositories.punishments());
         this.addressService = new AccessAddressService(repositories.addresses());
+        this.addressPolicy = new AddressPolicy(this);
         this.warnService = new WarnService(repositories.warns());
         this.hierarchyService = new HierarchyService(this, repositories.levels());
+        this.timeLimitService = new TimeLimitService(this);
+        this.punishCooldown = new PunishCooldown(this);
         this.staffNotifier = new StaffNotifier(this);
-        this.importService = new ImportService(this, repositories.punishments(), repositories.warns());
+        this.importService = new ImportService(this, repositories.punishments(), repositories.warns(), repositories.addresses());
     }
 
     /**
@@ -181,6 +192,8 @@ public class Judicator {
         list.addAll(UnpunishCommand.all(this));
         list.add(new AltsCommand(this));
         list.add(new BlameCommand(this));
+        list.addAll(ActiveListCommand.all(this));
+        list.add(new ActivityCommand(this));
         list.add(new WarnCommand(this));
         list.add(new TempWarnCommand(this));
         list.add(new UnwarnCommand(this));

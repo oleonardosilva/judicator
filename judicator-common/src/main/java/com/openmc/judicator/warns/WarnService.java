@@ -1,7 +1,9 @@
 package com.openmc.judicator.warns;
 
+import com.openmc.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.judicator.warns.repository.WarnRepository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,6 +30,10 @@ public class WarnService {
 
     public Long countActiveWarns(String username) {
         return repository.countActiveWarns(username);
+    }
+
+    public List<PunishmentRepository.StaffCount> countByStaffSince(LocalDateTime since) {
+        return repository.countByStaffSince(since);
     }
 
     public void deleteById(Long id) {

@@ -39,6 +39,17 @@ public final class FakeConsole implements JudicatorSender {
         return received.stream().map(Texts::plain).toList();
     }
 
+    /**
+     * Commands behind the clickable parts of every message received.
+     */
+    public List<String> clicks() {
+        return received.stream().flatMap(message -> Texts.clicks(message).stream()).toList();
+    }
+
+    public List<String> hovers() {
+        return received.stream().flatMap(message -> Texts.hovers(message).stream()).toList();
+    }
+
     public boolean received(String fragment) {
         return messages().stream().anyMatch(message -> message.contains(fragment));
     }

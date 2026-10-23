@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Predicate;
 
 public class AccessAddressService {
 
@@ -35,9 +36,17 @@ public class AccessAddressService {
     }
 
     public Set<String> findAlts(String username) {
+        return findAlts(username, address -> false);
+    }
+
+    /**
+     * @param ignoredAddress addresses that do not link accounts (e.g. exempt shared networks)
+     */
+    public Set<String> findAlts(String username, Predicate<String> ignoredAddress) {
         final String account = username.toLowerCase();
         final Set<String> alts = new TreeSet<>();
         for (AccessAddress address : repository.findAllByUsername(account)) {
+            if (ignoredAddress.test(address.getHostAddress())) continue;
             address.getAccounts().stream().filter(other -> !other.equalsIgnoreCase(account)).forEach(alts::add);
         }
         return alts;

@@ -4,6 +4,7 @@ import com.openmc.judicator.commons.db.Dialect;
 import com.openmc.judicator.commons.db.RelationalDBManager;
 import com.openmc.judicator.commons.db.SchemaUtil;
 import com.openmc.judicator.commons.db.SqlTime;
+import com.openmc.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.judicator.warns.Warn;
 import com.openmc.judicator.warns.repository.WarnRepository;
 import org.slf4j.Logger;
@@ -172,6 +173,25 @@ public class WarnRelationalDAO implements WarnRepository {
             logger.error(e.getMessage(), e);
         }
         return 0L;
+    }
+
+    @Override
+    public List<PunishmentRepository.StaffCount> countByStaffSince(LocalDateTime since) {
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     "SELECT MAX(punisher) AS punisher, COUNT(*) AS total FROM warns WHERE started_at >= ? GROUP BY LOWER(punisher)")) {
+            statement.setTimestamp(1, SqlTime.of(since));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                final List<PunishmentRepository.StaffCount> counts = new ArrayList<>();
+                while (resultSet.next()) {
+                    counts.add(new PunishmentRepository.StaffCount(resultSet.getString("punisher"), "WARN", resultSet.getInt("total")));
+                }
+                return counts;
+            }
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return List.of();
+        }
     }
 
     @Override

@@ -110,12 +110,27 @@ public class PunishService {
         return repository.findById(id);
     }
 
-    public int countByPunisher(String punisher) {
-        return repository.countByPunisher(punisher);
+    /**
+     * @param since null for every punishment of the staff member
+     */
+    public int countByPunisher(String punisher, LocalDateTime since) {
+        return repository.countByPunisher(punisher, since);
     }
 
-    public List<Punishment> findByPunisher(String punisher, int limit, int offset) {
-        return repository.findByPunisher(punisher, limit, offset);
+    public List<Punishment> findByPunisher(String punisher, LocalDateTime since, int limit, int offset) {
+        return repository.findByPunisher(punisher, since, limit, offset);
+    }
+
+    public int countActive(PunishType... types) {
+        return repository.countActiveByTypes(types);
+    }
+
+    public List<Punishment> findActive(int limit, int offset, PunishType... types) {
+        return repository.findActiveByTypes(limit, offset, types);
+    }
+
+    public List<PunishmentRepository.StaffCount> countByStaffSince(LocalDateTime since) {
+        return repository.countByStaffSince(since);
     }
 
     public List<Punishment> findAllByUsername(String username) {

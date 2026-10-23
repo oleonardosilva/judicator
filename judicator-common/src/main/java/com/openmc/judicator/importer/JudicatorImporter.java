@@ -1,0 +1,121 @@
+package com.openmc.judicator.importer;
+
+import com.openmc.judicator.commons.db.SqlTime;
+import com.openmc.judicator.punish.AccessAddress;
+import com.openmc.judicator.punish.Punishment;
+import com.openmc.judicator.punish.types.PunishType;
+import com.openmc.judicator.warns.Warn;
+
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * Another Judicator database (e.g. the SQLite file of a server moving to MySQL): {@code punishments} with their
+ * revocation, evidence and kicks, {@code warns} and the {@code access_addresses} used by {@code /alts} and offline IP
+ * punishments. Staff levels are not copied: they are recorded again when each staff member joins.
+ */
+final class JudicatorImporter implements ImportSource {
+
+    @Override
+    public String name() {
+        return "judicator";
+    }
+
+    @Override
+    public ImportResult read(ImportContext context) throws Exception {
+        final ImportResult result = new ImportResult();
+        try (SourceConnection source = SourceConnection.open(context.config(name()), context.judicator().getPlatform().getDataDirectory())) {
+            try (PreparedStatement statement = source.connection().prepareStatement("SELECT * FROM " + source.table("punishments"));
+                 ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) punishment(rs, result);
+            }
+            final Optional<String> warns = source.findTable("warns");
+            if (warns.isPresent()) {
+                try (PreparedStatement statement = source.connection().prepareStatement("SELECT * FROM " + warns.get());
+                     ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) warn(rs, result);
+                }
+            }
+            final Optional<String> addresses = source.findTable("access_addresses");
+            if (addresses.isPresent()) {
+                try (PreparedStatement statement = source.connection().prepareStatement("SELECT * FROM " + addresses.get());
+                     ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) address(rs, result);
+                }
+            }
+        }
+        return result;
+    }
+
+    private static void punishment(ResultSet rs, ImportResult result) throws SQLException {
+        final PunishType type;
+        try {
+            type = PunishType.valueOf(String.valueOf(rs.getString("type")).toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            result.skip("unknown punishment type");
+            return;
+        }
+        final String nickname = rs.getString("nickname");
+        final LocalDateTime startedAt = SqlTime.read(rs, "started_at");
+        if (nickname == null || nickname.isBlank() || startedAt == null) {
+            result.skip("punishment without a player name or start");
+            return;
+        }
+        final String address = rs.getString("ip_address");
+        final String evidences = rs.getString("evidences");
+        final Punishment punishment = new Punishment(null, uuid(rs.getString("player_uuid")), rs.getString("reason"),
+                rs.getString("punisher"), nickname, address == null || address.isBlank() ? null : address, startedAt,
+                SqlTime.read(rs, "finish_at"), rs.getBoolean("revoked"), rs.getString("revoked_reason"),
+                evidences == null ? new ArrayList<>() : new ArrayList<>(Arrays.stream(evidences.split(",")).filter(s -> !s.isBlank()).toList()),
+                type, rs.getBoolean("permanent"));
+        result.add(punishment);
+    }
+
+    private static void warn(ResultSet rs, ImportResult result) throws SQLException {
+        final String nickname = rs.getString("nickname");
+        final LocalDateTime startedAt = SqlTime.read(rs, "started_at");
+        if (nickname == null || nickname.isBlank() || startedAt == null) {
+            result.skip("warn without a player name or start");
+            return;
+        }
+        result.add(new Warn(null, uuid(rs.getString("player_uuid")), rs.getString("reason"), rs.getString("punisher"),
+                nickname, startedAt, SqlTime.read(rs, "finish_at"), rs.getBoolean("permanent")));
+    }
+
+    private static void address(ResultSet rs, ImportResult result) throws SQLException {
+        final String host = rs.getString("host_address");
+        final String accounts = rs.getString("accounts");
+        final LocalDateTime lastUsage = SqlTime.read(rs, "last_usage");
+        if (host == null || host.isBlank() || accounts == null || lastUsage == null) {
+            result.skip("address without IP, accounts or last use");
+            return;
+        }
+        final List<String> names = Arrays.stream(accounts.split(","))
+                .filter(name -> !name.isBlank())
+                .map(name -> name.toLowerCase(Locale.ROOT))
+                .distinct()
+                .toList();
+        if (names.isEmpty()) {
+            result.skip("address without accounts");
+            return;
+        }
+        result.add(new AccessAddress(null, host, names, lastUsage));
+    }
+
+    private static UUID uuid(String text) {
+        if (text == null || text.isBlank()) return null;
+        try {
+            return UUID.fromString(text);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+}

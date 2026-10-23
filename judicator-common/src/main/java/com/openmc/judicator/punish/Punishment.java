@@ -74,6 +74,7 @@ public class Punishment {
     public PunishStatus getStatus() {
         final LocalDateTime now = LocalDateTime.now();
         if (revoked) return PunishStatus.REVOKED;
+        if (type == PunishType.KICK) return PunishStatus.FINISHED;
         if (type.isTemp() && finishAt.isBefore(now))
             return PunishStatus.FINISHED;
         return PunishStatus.ACTIVE;

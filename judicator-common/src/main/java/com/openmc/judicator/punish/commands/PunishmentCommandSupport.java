@@ -7,6 +7,7 @@ import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.PunishmentBuilder;
 import com.openmc.judicator.punish.handlers.PunishFactory;
+import com.openmc.judicator.punish.rules.PunishCooldown;
 
 import java.util.Optional;
 
@@ -16,10 +17,23 @@ final class PunishmentCommandSupport {
     }
 
     /**
+     * Rules that depend on who punishes: the sender's time limit and the cooldown on the target. Checked before the
+     * target is resolved; the cooldown is checked again when the punishment is confirmed.
+     *
+     * @return false when the punishment must not go on (the reason was already sent to the source)
+     */
+    static boolean passesStaffRules(Judicator judicator, JudicatorSender source, PunishmentBuilder builder, String targetName) {
+        if (!judicator.getTimeLimitService().allows(source, builder.getType(), builder.getStartedAt(), builder.getFinishAt())) {
+            return false;
+        }
+        return judicator.getPunishCooldown().allows(source, PunishCooldown.categoryOf(builder.getType()), targetName);
+    }
+
+    /**
      * Fills the target (and, for IP punishments, the address) of the builder.
      *
-     * @return false when the punishment must not go on: an IP punishment would reach an account the source cannot
-     * punish (the reason was already sent to the source).
+     * @return false when the punishment must not go on: the address is in {@code exempt-addresses}, or an IP
+     * punishment would reach an account the source cannot punish (the reason was already sent to the source).
      */
     static boolean resolveTarget(Judicator judicator, JudicatorSender source, PunishmentBuilder builder, String targetName, boolean byAddress) {
         final Optional<JudicatorPlayer> online = judicator.getPlatform().getPlayer(targetName);
@@ -40,6 +54,10 @@ final class PunishmentCommandSupport {
         }
 
         if (address == null) return true;
+        if (judicator.getAddressPolicy().isExempt(address)) {
+            source.sendMessage(PunishUtils.getMessage(judicator.getMessagesConfig(), "error", "address-exempt"));
+            return false;
+        }
         if (!judicator.getImmuneCache().canPunishAddress(source, address)) return false;
         builder.ipAddress(address);
         return true;

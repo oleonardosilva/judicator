@@ -88,6 +88,16 @@ commands:
     description: Lists the punishments applied by a staff member.
     permission: judicator.command.blame
     aliases: [staffhistory]
+  banlist:
+    description: Lists the bans in force.
+    permission: judicator.command.banlist
+  mutelist:
+    description: Lists the mutes in force.
+    permission: judicator.command.mutelist
+  activity:
+    description: Shows how many punishments each staff member applied in a period.
+    permission: judicator.command.activity
+    aliases: [staffactivity]
 permissions:
   judicator.admin:
     description: Full access to every Judicator command.
@@ -114,6 +124,9 @@ permissions:
       judicator.command.unmute: true
       judicator.command.alts: true
       judicator.command.blame: true
+      judicator.command.banlist: true
+      judicator.command.mutelist: true
+      judicator.command.activity: true
       judicator.alts.notify: true
       judicator.notify: true
       judicator.notify.silent: true
@@ -247,6 +260,18 @@ permissions:
     default: op
     children:
       judicator.command.blame: true
+  judicator.banlist:
+    default: op
+    children:
+      judicator.command.banlist: true
+  judicator.mutelist:
+    default: op
+    children:
+      judicator.command.mutelist: true
+  judicator.activity:
+    default: op
+    children:
+      judicator.command.activity: true
   judicator.alts.notify:
     description: Warned when someone shares an IP with a banned or muted account.
     default: op
@@ -267,4 +292,10 @@ permissions:
     default: false
   judicator.command.blame:
     description: Shows and allows /blame (granted by judicator.blame or judicator.admin).
+    default: false
+  judicator.command.banlist:
+    default: false
+  judicator.command.mutelist:
+    default: false
+  judicator.command.activity:
     default: false

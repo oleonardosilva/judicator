@@ -10,6 +10,7 @@ import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.PunishmentBuilder;
 import com.openmc.judicator.punish.data.cache.ReasonCache;
 import com.openmc.judicator.punish.types.PunishPermissions;
+import com.openmc.judicator.punish.types.PunishType;
 
 import java.util.Arrays;
 import java.util.List;
@@ -72,6 +73,7 @@ public class PunishCommand extends CoreCommand {
             builder.duration(step.duration());
         }
 
+        if (!PunishmentCommandSupport.passesStaffRules(judicator, source, builder, targetName)) return;
         if (!PunishmentCommandSupport.resolveTarget(judicator, source, builder, targetName, configuredReason.isIp())) return;
         PunishmentCommandSupport.submit(judicator, source, builder);
     }
@@ -91,16 +93,13 @@ public class PunishCommand extends CoreCommand {
     }
 
     private boolean canUseReason(JudicatorSender sender, ConfiguredReason reason) {
-        if (!judicator.getConfig().node("require-reason-permission").getBoolean(false)) return true;
-        final String permission = reason.getPermission();
-        return permission == null || permission.isBlank()
-                || sender.hasPermission(permission)
-                || sender.hasPermission(PunishPermissions.ADMIN.getPermission());
+        return judicator.getReasonCache().canUse(sender, reason);
     }
 
     private static int countPrevious(List<Punishment> history, ConfiguredReason reason) {
         return (int) history.stream()
                 .filter(punishment -> !punishment.isRevoked())
+                .filter(punishment -> punishment.getType() != PunishType.KICK)
                 .filter(punishment -> punishment.getReason().map(r -> r.equalsIgnoreCase(reason.getReason())).orElse(false))
                 .count();
     }

@@ -18,7 +18,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
@@ -142,6 +144,18 @@ abstract class RepositoryContract {
     }
 
     @Test
+    void aLoggedKickIsNeverActive() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final Punishment kick = Punishment.create(uuidOf("Steve"), "calm down", "Mod", "Steve", null, now, now, List.of(), PunishType.KICK);
+        kick.setPermanent(false);
+        store.punishments().save(kick);
+
+        assertTrue(store.punishments().findAllActiveByUsernameAndTypes("steve", PunishType.values()).isEmpty());
+        assertTrue(store.punishments().findAllActiveByUUIDAndTypes(uuidOf("Steve"), PunishType.values()).isEmpty());
+        assertEquals(PunishType.KICK, store.punishments().findAllByUsername("steve").get(0).getType());
+    }
+
+    @Test
     void blamePagesNewestFirst() {
         final LocalDateTime start = LocalDateTime.now().minusDays(30);
         for (int i = 0; i < 12; i++) {
@@ -153,6 +167,61 @@ abstract class RepositoryContract {
         assertEquals(List.of("Player2", "Player0"),
                 store.punishments().findByPunisher("mod", 4, 4).stream().map(Punishment::getNickname).toList());
         assertEquals(0, store.punishments().countByPunisher("nobody"));
+    }
+
+    @Test
+    void blameCanBeLimitedToAPeriod() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        store.punishments().save(punishment("Old", null, PunishType.BAN, now.minusDays(10), null, "Mod"));
+        store.punishments().save(punishment("Recent", null, PunishType.BAN, now.minusHours(1), null, "Mod"));
+        store.punishments().save(punishment("Newest", null, PunishType.BAN, now.minusMinutes(1), null, "mod"));
+
+        assertEquals(3, store.punishments().countByPunisher("Mod", null));
+        assertEquals(2, store.punishments().countByPunisher("Mod", now.minusDays(1)));
+        assertEquals(List.of("Newest", "Recent"),
+                store.punishments().findByPunisher("MOD", now.minusDays(1), 10, 0).stream().map(Punishment::getNickname).toList());
+    }
+
+    @Test
+    void activeByTypesPagesWhatIsInForceNewestFirst() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        store.punishments().save(punishment("A", null, PunishType.BAN, now.minusHours(3), null, "Mod"));
+        store.punishments().save(punishment("B", null, PunishType.TEMPBAN, now.minusHours(2), now.plusHours(1), "Mod"));
+        store.punishments().save(punishment("C", null, PunishType.TEMPBAN, now.minusDays(2), now.minusDays(1), "Mod"));
+        final Punishment revoked = store.punishments().save(punishment("D", null, PunishType.BAN, now.minusHours(1), null, "Mod"));
+        store.punishments().revoke(revoked.getId(), "appeal");
+        store.punishments().save(punishment("E", "10.0.0.1", PunishType.MUTE, now.minusMinutes(1), null, "Mod"));
+
+        assertEquals(2, store.punishments().countActiveByTypes(PunishType.BAN, PunishType.TEMPBAN));
+        assertEquals(List.of("B", "A"), store.punishments().findActiveByTypes(10, 0, PunishType.BAN, PunishType.TEMPBAN)
+                .stream().map(Punishment::getNickname).toList());
+        assertEquals(List.of("A"), store.punishments().findActiveByTypes(1, 1, PunishType.BAN, PunishType.TEMPBAN)
+                .stream().map(Punishment::getNickname).toList());
+        assertEquals(1, store.punishments().countActiveByTypes(PunishType.MUTE, PunishType.TEMPMUTE));
+        assertEquals(0, store.punishments().countActiveByTypes());
+    }
+
+    @Test
+    void staffActivityIsCountedPerStaffMemberAndType() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        store.punishments().save(punishment("A", null, PunishType.BAN, now.minusHours(1), null, "Mod"));
+        store.punishments().save(punishment("B", null, PunishType.BAN, now.minusHours(1), null, "mod"));
+        store.punishments().save(punishment("C", null, PunishType.TEMPMUTE, now.minusHours(1), now.plusHours(1), "Mod"));
+        store.punishments().save(punishment("D", null, PunishType.BAN, now.minusDays(5), null, "Mod"));
+        store.warns().save(Warn.create(UUID.randomUUID(), "r", "Helper", "A", now.minusHours(1), null));
+        store.warns().save(Warn.create(UUID.randomUUID(), "r", "helper", "B", now.minusHours(1), null));
+        store.warns().save(Warn.create(UUID.randomUUID(), "r", "Helper", "C", now.minusDays(5), null));
+
+        final Map<String, Integer> punishments = new HashMap<>();
+        store.punishments().countByStaffSince(now.minusDays(1))
+                .forEach(c -> punishments.put(c.punisher().toLowerCase() + "|" + c.type(), c.count()));
+        assertEquals(Map.of("mod|BAN", 2, "mod|TEMPMUTE", 1), punishments);
+
+        final List<PunishmentRepository.StaffCount> warns = store.warns().countByStaffSince(now.minusDays(1));
+        assertEquals(1, warns.size());
+        assertEquals("helper", warns.get(0).punisher().toLowerCase());
+        assertEquals("WARN", warns.get(0).type());
+        assertEquals(2, warns.get(0).count());
     }
 
     @Test
