@@ -1,6 +1,7 @@
 package com.openmc.judicator.punish;
 
 import com.openmc.judicator.commons.DateTimeOffsetParser;
+import com.openmc.judicator.punish.scopes.ScopeService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -48,6 +49,8 @@ public class PunishUtils {
                 ? messagesNode.node("paused").getString("&e{remaining} of online time left").replace("&", "§")
                 .replace("{remaining}", DateTimeOffsetParser.format(messagesNode, punishment.getPausedRemaining()))
                 : punishment.getFinishAt().map(timeFormatter::format).orElse(permanent);
+        final String scope = punishment.getScope().map(ScopeService::displayName)
+                .orElseGet(() -> messagesNode.node("scope", "global").getString("every server").replace("&", "§"));
         return messages.stream().map(s -> s
                         .replace("&", "§")
                         .replace("{finishAt}", end)
@@ -62,6 +65,7 @@ public class PunishUtils {
                         .replace("{revokedReason}", punishment.getRevokedReason().orElse("None"))
                         .replace("{reason}", punishment.getReason().orElse("None"))
                         .replace("{addressIP}", punishment.getIpAddress().orElse("None"))
+                        .replace("{scope}", scope)
                 )
                 .collect(Collectors.toList());
     }

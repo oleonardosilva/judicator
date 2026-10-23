@@ -29,6 +29,8 @@ import java.util.UUID;
  * @param soft            a soft mute: the player still sees their own messages, nobody else does
  * @param onlineOnly      a temporary mute whose time only runs while the player is online
  * @param pausedRemaining what is left of an online-only mute while the player is offline (its time is stopped)
+ * @param scope           where it applies: empty for every server, else {@code server:<name>} or {@code group:<name>}
+ *                        (a group of {@code scopes.groups} in {@code config.yml})
  */
 public record PunishmentView(long id,
                              PunishmentType type,
@@ -45,7 +47,8 @@ public record PunishmentView(long id,
                              boolean permanent,
                              boolean soft,
                              boolean onlineOnly,
-                             Optional<Duration> pausedRemaining) {
+                             Optional<Duration> pausedRemaining,
+                             Optional<String> scope) {
 
     public PunishmentView {
         Objects.requireNonNull(type, "type");
@@ -59,6 +62,7 @@ public record PunishmentView(long id,
         Objects.requireNonNull(status, "status");
         Objects.requireNonNull(revokedReason, "revokedReason");
         Objects.requireNonNull(pausedRemaining, "pausedRemaining");
+        Objects.requireNonNull(scope, "scope");
         evidences = List.copyOf(evidences);
     }
 

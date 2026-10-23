@@ -13,6 +13,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.spongepowered.configurate.serialize.SerializationException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -81,22 +82,27 @@ public final class ChatHandler {
     }
 
     /**
-     * The mute that applies to the player: the one cached under their UUID (applied while online, or restored at
-     * login) or under their address (IP mute restored at login, which also covers new accounts on that address).
-     * A cached mute that has ended or was revoked meanwhile is dropped instead of blocking until the next login.
+     * The mute that applies to the player where they are: among those cached under their UUID (applied while online,
+     * or restored at login) and under their address (IP mutes restored at login, which also cover new accounts on that
+     * address), the heaviest one whose scope covers their server. A cached mute that has ended or was revoked meanwhile
+     * is dropped instead of blocking until the next login.
      */
     private Optional<Punishment> activeMute(JudicatorPlayer player) {
         final PunishCache cache = judicator.getPunishCache();
-        return stillActive(cache, PunishService.cacheKey(player)).or(() -> stillActive(cache, player.getHostAddress()));
+        final List<Punishment> mutes = new ArrayList<>(stillActive(cache, PunishService.cacheKey(player)));
+        mutes.addAll(stillActive(cache, player.getHostAddress()));
+        return mutes.stream()
+                .filter(mute -> judicator.getScopeService().appliesToPlayer(mute, player))
+                .min(PunishService.heavyFirst());
     }
 
-    private static Optional<Punishment> stillActive(PunishCache cache, String key) {
-        final Optional<Punishment> punishment = cache.getPunishment(key);
-        if (punishment.isPresent() && punishment.get().getStatus() != PunishStatus.ACTIVE) {
-            cache.removeMutePunishment(key);
-            return Optional.empty();
+    private static List<Punishment> stillActive(PunishCache cache, String key) {
+        final List<Punishment> active = new ArrayList<>();
+        for (Punishment mute : cache.getMutes(key)) {
+            if (mute.getStatus() == PunishStatus.ACTIVE) active.add(mute);
+            else cache.removeMutePunishment(key, mute.getId());
         }
-        return punishment;
+        return active;
     }
 
     /**

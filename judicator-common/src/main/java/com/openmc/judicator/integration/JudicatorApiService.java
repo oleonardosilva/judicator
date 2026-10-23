@@ -160,6 +160,12 @@ public class JudicatorApiService implements JudicatorApi {
                     .onlineOnly(request.onlineOnly())
                     .evidences(request.evidences());
             request.duration().ifPresent(builder::duration);
+            if (request.scope().isPresent()) {
+                final Optional<String> scope = judicator.getScopeService().canScope()
+                        ? judicator.getScopeService().parse(request.scope().get()) : Optional.empty();
+                if (scope.isEmpty()) return ActionResult.failure(ActionStatus.SCOPE_UNKNOWN);
+                builder.scope(scope.get());
+            }
 
             final Optional<JudicatorPlayer> online = judicator.getPlatform().getPlayer(target);
             builder.target(player);

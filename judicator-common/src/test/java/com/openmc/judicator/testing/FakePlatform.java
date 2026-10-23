@@ -9,6 +9,8 @@ import org.slf4j.Logger;
 import org.slf4j.helpers.NOPLogger;
 
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -16,7 +18,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
@@ -33,6 +37,12 @@ public final class FakePlatform implements Platform {
     private final List<String> consoleCommands = new ArrayList<>();
     private final List<Component> announcements = new ArrayList<>();
     private final List<Runnable> repeating = new ArrayList<>();
+    /** proxy servers, in the order of velocity.toml's try list */
+    private final List<String> servers = new ArrayList<>();
+    private final List<String> fallbacks = new ArrayList<>();
+    private final Map<UUID, String> serverOfPlayer = new HashMap<>();
+    /** servers that refuse connections (down, full) */
+    private final Set<String> refusing = new HashSet<>();
 
     public FakePlatform(Path dataDirectory, boolean onlineMode) {
         this(dataDirectory, onlineMode, PlatformType.VELOCITY);
@@ -54,6 +64,29 @@ public final class FakePlatform implements Platform {
 
     public void remove(FakePlayer player) {
         players.remove(player.getName().toLowerCase(Locale.ROOT));
+        serverOfPlayer.remove(player.getUniqueId());
+    }
+
+    /**
+     * Proxy servers of the network; the first ones listed in {@code fallbacks} form velocity.toml's try list.
+     */
+    public FakePlatform servers(List<String> names, List<String> tryList) {
+        servers.clear();
+        servers.addAll(names);
+        fallbacks.clear();
+        fallbacks.addAll(tryList);
+        return this;
+    }
+
+    /**
+     * Puts an online player on a server of the proxy (as if they connected to it).
+     */
+    public void moveTo(FakePlayer player, String server) {
+        serverOfPlayer.put(player.getUniqueId(), server);
+    }
+
+    public void refuseConnections(String server) {
+        refusing.add(server);
     }
 
     public List<String> consoleCommands() {
@@ -132,6 +165,30 @@ public final class FakePlatform implements Platform {
     @Override
     public void dispatchConsoleCommand(String command) {
         consoleCommands.add(command);
+    }
+
+    @Override
+    public Optional<String> serverOf(JudicatorPlayer player) {
+        return Optional.ofNullable(serverOfPlayer.get(player.getUniqueId()));
+    }
+
+    @Override
+    public List<String> serverNames() {
+        return List.copyOf(servers);
+    }
+
+    @Override
+    public List<String> fallbackServers() {
+        return List.copyOf(fallbacks);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> connect(JudicatorPlayer player, String server) {
+        if (!servers.contains(server) || refusing.contains(server) || getPlayer(player.getUniqueId()).isEmpty()) {
+            return CompletableFuture.completedFuture(false);
+        }
+        serverOfPlayer.put(player.getUniqueId(), server);
+        return CompletableFuture.completedFuture(true);
     }
 
     @Override

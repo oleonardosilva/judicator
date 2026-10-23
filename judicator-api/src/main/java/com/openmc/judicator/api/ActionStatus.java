@@ -13,6 +13,9 @@ public enum ActionStatus {
     ADDRESS_EXEMPT,
     /** Refused: an IP punishment of a player whose address is not known (not online, never joined). */
     ADDRESS_UNKNOWN,
+    /** Refused: the scope is neither a group of {@code scopes.groups} nor a server of the network, or this Spigot/Paper
+     * server has no {@code scopes.server-name}. */
+    SCOPE_UNKNOWN,
     /** Refused: a kick of a player who is not online on this server. */
     TARGET_OFFLINE,
     /** Nothing to act on: no punishment or warn with that id, or no ban/mute in force for that player. */

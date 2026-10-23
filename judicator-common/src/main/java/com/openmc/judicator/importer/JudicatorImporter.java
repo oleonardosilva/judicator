@@ -134,6 +134,7 @@ final class JudicatorImporter implements ImportSource {
         if (columns.contains("soft")) punishment.setSoft(rs.getBoolean("soft"));
         if (columns.contains("online_only")) punishment.setOnlineOnly(rs.getBoolean("online_only"));
         if (columns.contains("punisher_uuid")) punishment.setPunisherUuid(uuid(rs.getString("punisher_uuid")));
+        if (columns.contains("scope")) punishment.setScope(rs.getString("scope"));
         if (columns.contains("paused_remaining")) {
             final long paused = rs.getLong("paused_remaining");
             punishment.setPausedRemaining(rs.wasNull() ? null : paused);

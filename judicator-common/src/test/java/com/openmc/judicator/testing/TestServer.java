@@ -5,6 +5,7 @@ import com.openmc.judicator.commons.command.CommandArgs;
 import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.platform.PlatformType;
+import com.openmc.judicator.punish.listeners.ConnectionHandler;
 import net.kyori.adventure.text.Component;
 import org.spongepowered.configurate.CommentedConfigurationNode;
 import org.spongepowered.configurate.yaml.NodeStyle;
@@ -108,6 +109,38 @@ public final class TestServer implements AutoCloseable {
         platform.add(player);
         judicator.getConnectionHandler().onJoin(player);
         return Optional.empty();
+    }
+
+    /**
+     * Proxy: where the player goes right after logging in ({@code PlayerChooseInitialServerEvent}), as
+     * {@code VelocityListener} does it.
+     *
+     * @return the server they are on, or empty when they were disconnected (the screen is in {@link FakePlayer})
+     */
+    public Optional<String> chooseInitialServer(FakePlayer player, String chosen) {
+        final ConnectionHandler.InitialServer decision = judicator.getConnectionHandler().chooseInitialServer(player, chosen);
+        if (decision.kick() != null) {
+            player.disconnect(decision.kick());
+            quit(player);
+            return Optional.empty();
+        }
+        platform.moveTo(player, decision.server());
+        return Optional.of(decision.server());
+    }
+
+    /**
+     * Proxy: the player connects to another server ({@code ServerPreConnectEvent}).
+     *
+     * @return whether they got there
+     */
+    public boolean switchServer(FakePlayer player, String server) {
+        final Optional<Component> denied = judicator.getConnectionHandler().checkServerSwitch(player, server);
+        if (denied.isPresent()) {
+            player.sendMessage(denied.get());
+            return false;
+        }
+        platform.moveTo(player, server);
+        return true;
     }
 
     /**

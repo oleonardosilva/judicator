@@ -32,6 +32,7 @@ public final class PunishmentRequest {
     private final boolean soft;
     private final boolean onlineOnly;
     private final List<String> evidences;
+    private final String scope;
 
     private PunishmentRequest(Builder builder) {
         this.type = builder.type;
@@ -44,6 +45,7 @@ public final class PunishmentRequest {
         this.soft = builder.soft;
         this.onlineOnly = builder.onlineOnly;
         this.evidences = List.copyOf(builder.evidences);
+        this.scope = builder.scope;
     }
 
     /**
@@ -102,6 +104,13 @@ public final class PunishmentRequest {
         return onlineOnly;
     }
 
+    /**
+     * @return the server or group it applies to, as given to {@link Builder#scope}; empty for every server
+     */
+    public Optional<String> scope() {
+        return Optional.ofNullable(scope);
+    }
+
     /** @return the evidence links to attach */
     public List<String> evidences() {
         return evidences;
@@ -122,6 +131,7 @@ public final class PunishmentRequest {
         private boolean soft;
         private boolean onlineOnly;
         private final List<String> evidences = new ArrayList<>();
+        private String scope;
 
         private Builder(PunishmentType type, String target) {
             this.type = Objects.requireNonNull(type, "type");
@@ -190,6 +200,16 @@ public final class PunishmentRequest {
          */
         public Builder onlineOnly(boolean onlineOnly) {
             this.onlineOnly = onlineOnly;
+            return this;
+        }
+
+        /**
+         * @param scope a server of the network or a group of {@code scopes.groups}, as staff type after
+         *              {@code -scope=}; null for every server (the default)
+         * @return this builder
+         */
+        public Builder scope(String scope) {
+            this.scope = scope;
             return this;
         }
 

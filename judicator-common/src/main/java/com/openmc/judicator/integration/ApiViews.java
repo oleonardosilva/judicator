@@ -53,7 +53,8 @@ public final class ApiViews {
                 punishment.isPermanent(),
                 punishment.isSoft(),
                 punishment.isOnlineOnly(),
-                Optional.ofNullable(punishment.getPausedRemaining()).map(Duration::ofMillis));
+                Optional.ofNullable(punishment.getPausedRemaining()).map(Duration::ofMillis),
+                punishment.getScope());
     }
 
     public static WarnView warn(Warn warn) {

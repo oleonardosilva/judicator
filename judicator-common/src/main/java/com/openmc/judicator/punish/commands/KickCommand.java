@@ -30,7 +30,7 @@ public class KickCommand extends CoreCommand {
             return;
         }
         final String targetName = optTarget.get();
-        final boolean silent = args.consumeFlag(PunishTypeCommand.SILENT_FLAG);
+        final boolean silent = args.consumeFlag(PunishmentFlags.SILENT);
         final ConfigurationNode messages = messages(source);
         if (silent && !silentAllowed(source)) return;
         if (!judicator.getImmuneCache().canPunish(source, targetName, ImmuneCache.KICK)) return;

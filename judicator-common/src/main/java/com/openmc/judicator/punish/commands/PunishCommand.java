@@ -32,7 +32,9 @@ public class PunishCommand extends CoreCommand {
             return;
         }
         final String targetName = optTarget.get();
-        final boolean silent = args.consumeFlag(PunishTypeCommand.SILENT_FLAG);
+        final PunishmentFlags flags = new PunishmentFlags(false);
+        flags.read(args);
+        final boolean silent = flags.silent;
         if (silent && !silentAllowed(source)) return;
         if (!judicator.getImmuneCache().canPunish(source, targetName, null)) return;
         final String reason = args.remaining();
@@ -78,6 +80,7 @@ public class PunishCommand extends CoreCommand {
             builder.duration(step.duration());
         }
 
+        if (!PunishmentCommandSupport.applyScope(judicator, source, builder, flags.scope)) return;
         if (!PunishmentCommandSupport.passesStaffRules(judicator, source, builder, targetName)) return;
         if (!PunishmentCommandSupport.resolveTarget(judicator, source, builder, target, configuredReason.isIp())) return;
         PunishmentCommandSupport.submit(judicator, source, builder);
@@ -85,7 +88,13 @@ public class PunishCommand extends CoreCommand {
 
     @Override
     public List<String> suggest(JudicatorSender sender, String[] args) {
-        final int reasonStart = args.length >= 2 && args[1].equalsIgnoreCase(PunishTypeCommand.SILENT_FLAG) ? 2 : 1;
+        if (args.length > 1 && args[args.length - 1].startsWith(PunishmentFlags.SCOPE)) {
+            return PunishmentCommandSupport.suggestScopes(judicator, args[args.length - 1]);
+        }
+        int reasonStart = 1;
+        while (args.length > reasonStart + 1 && PunishmentFlags.isFlag(args[reasonStart])) {
+            reasonStart++;
+        }
         if (args.length > reasonStart) {
             final String input = String.join(" ", Arrays.copyOfRange(args, reasonStart, args.length)).toLowerCase();
             return judicator.getReasonCache().getReasons().stream()

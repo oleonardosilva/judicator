@@ -5,6 +5,7 @@ import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.punish.data.cache.PunishCache;
 import com.openmc.judicator.punish.data.repository.PunishmentRepository;
+import com.openmc.judicator.punish.scopes.ScopeService;
 import com.openmc.judicator.punish.types.PunishType;
 import com.openmc.judicator.sync.SyncKind;
 
@@ -15,6 +16,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 public class PunishService {
@@ -60,23 +62,24 @@ public class PunishService {
         if (!judicator.trustsUuids()) {
             bans.addAll(repository.findAllActiveOf(PlayerRef.byName(username, null), PunishType.BAN, PunishType.TEMPBAN));
         }
-        return bans.stream().findFirst();
+        return bans.stream().filter(judicator.getScopeService()::refusesLogin).findFirst();
     }
 
     /**
-     * After authentication: a ban of the account refuses it; otherwise its mutes in force (its own and the IP mutes of
-     * the address) are cached for the chat checks.
+     * After authentication: a ban of the account that refuses the login ({@link ScopeService#refusesLogin}) refuses it;
+     * otherwise its mutes in force (its own and the IP mutes of the address, for any scope) are cached for the chat
+     * checks, which pick the one that applies where the player talks.
      */
     public Optional<Punishment> searchOnLogin(PlayerRef player, String address) {
         final List<Punishment> punishments = repository.findAllActiveOf(player, PunishType.values());
-        final Optional<Punishment> ban = punishments.stream().filter(Punishment::isBanType).findFirst();
+        final Optional<Punishment> ban = punishments.stream().filter(Punishment::isBanType)
+                .filter(judicator.getScopeService()::refusesLogin).findFirst();
         if (ban.isPresent()) return ban;
 
-        punishments.stream().filter(Punishment::isMuteType).min(heavyFirst())
-                .ifPresent(punishment -> cache.putMutePunishment(cacheKey(player), punishment));
+        punishments.stream().filter(Punishment::isMuteType).forEach(punishment -> cache.putMutePunishment(cacheKey(player), punishment));
         if (!judicator.getAddressPolicy().isExempt(address)) {
-            repository.findAllActiveOfAddress(address, PunishType.MUTE, PunishType.TEMPMUTE).stream().min(heavyFirst())
-                    .ifPresent(punishment -> cache.putMutePunishment(address, punishment));
+            repository.findAllActiveOfAddress(address, PunishType.MUTE, PunishType.TEMPMUTE)
+                    .forEach(punishment -> cache.putMutePunishment(address, punishment));
         }
         return Optional.empty();
     }
@@ -169,10 +172,29 @@ public class PunishService {
     }
 
     /**
-     * Bans in force on any of these accounts.
+     * Bans in force on any of these accounts that refuse a login here ({@link ScopeService#refusesLogin}): a ban for
+     * some servers of the network only keeps the player out of those.
      */
-    public List<Punishment> findActiveBans(Collection<PlayerRef> players) {
-        return repository.findAllActiveOfAny(players, PunishType.BAN, PunishType.TEMPBAN);
+    public List<Punishment> findLoginBans(Collection<PlayerRef> players) {
+        return repository.findAllActiveOfAny(players, PunishType.BAN, PunishType.TEMPBAN).stream()
+                .filter(judicator.getScopeService()::refusesLogin).toList();
+    }
+
+    /**
+     * The scopes of the punishments in force, each once.
+     */
+    public Set<String> findActiveScopes() {
+        return repository.findActiveScopes();
+    }
+
+    /**
+     * The bans in force that keep a player out of some servers only: their own and those on their address.
+     */
+    public List<Punishment> findScopedBans(PlayerRef player, String address) {
+        final List<Punishment> bans = judicator.getAddressPolicy().isExempt(address)
+                ? repository.findAllActiveOf(player, PunishType.BAN, PunishType.TEMPBAN)
+                : repository.findAllActiveOfPlayerOrAddress(player, address, PunishType.BAN, PunishType.TEMPBAN);
+        return bans.stream().filter(ban -> ban.getScope().isPresent()).toList();
     }
 
     /**

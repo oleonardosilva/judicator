@@ -30,6 +30,8 @@ public class PunishmentBuilder {
     private boolean silent;
     private boolean soft;
     private boolean onlineOnly;
+    /** null: everywhere */
+    private String scope;
     private JudicatorPlayer staff;
 
     /**
@@ -68,6 +70,14 @@ public class PunishmentBuilder {
 
     public PunishmentBuilder onlineOnly(boolean onlineOnly) {
         this.onlineOnly = onlineOnly;
+        return this;
+    }
+
+    /**
+     * @param scope as {@link com.openmc.judicator.punish.scopes.ScopeService#parse} gives it; null for everywhere
+     */
+    public PunishmentBuilder scope(String scope) {
+        this.scope = scope;
         return this;
     }
 
@@ -151,6 +161,8 @@ public class PunishmentBuilder {
         punishment.setSilent(silent);
         punishment.setSoft(soft);
         punishment.setOnlineOnly(onlineOnly);
+        // a kick is over at once: it has no servers to apply on
+        punishment.setScope(isBan() || isMute() ? scope : null);
         return punishment;
     }
 

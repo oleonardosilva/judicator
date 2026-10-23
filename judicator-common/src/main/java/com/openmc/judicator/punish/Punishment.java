@@ -44,6 +44,11 @@ public class Punishment {
      * while it runs.
      */
     private Long pausedRemaining;
+    /**
+     * Where it applies: null everywhere, else {@code server:<name>} or {@code group:<name>}
+     * ({@link com.openmc.judicator.punish.scopes.ScopeService}).
+     */
+    private String scope;
 
     public Punishment(Long id, UUID playerUUID, String reason, String punisher, String nickname, String ipAddress, LocalDateTime startedAt, LocalDateTime finishAt, boolean revoked, String revokedReason, List<String> evidences, PunishType type, boolean permanent) {
         this.id = id;
@@ -128,6 +133,10 @@ public class Punishment {
 
     public Optional<String> getReason() {
         return Optional.ofNullable(reason);
+    }
+
+    public Optional<String> getScope() {
+        return Optional.ofNullable(scope);
     }
 
     public Optional<UUID> getPunisherUuid() {

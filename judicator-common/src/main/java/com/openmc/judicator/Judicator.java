@@ -44,6 +44,7 @@ import com.openmc.judicator.punish.data.repository.dao.PunishmentRelationalDAO;
 import com.openmc.judicator.punish.handlers.PunishmentEffects;
 import com.openmc.judicator.punish.listeners.ChatHandler;
 import com.openmc.judicator.punish.listeners.ConnectionHandler;
+import com.openmc.judicator.punish.scopes.ScopeService;
 import com.openmc.judicator.sync.SyncService;
 import com.openmc.judicator.sync.repository.SyncRepository;
 import com.openmc.judicator.sync.repository.dao.SyncRelationalDAO;
@@ -102,6 +103,8 @@ public class Judicator {
     private AccessAddressService addressService;
     /** who a name or a player is for the data (UUID or name) and the {@code players} table */
     private PlayerDirectory playerDirectory;
+    /** where punishments apply ({@code scopes}) */
+    private ScopeService scopeService;
     private AddressPolicy addressPolicy;
     private HierarchyService hierarchyService;
     private TimeLimitService timeLimitService;
@@ -254,6 +257,7 @@ public class Judicator {
         this.immuneCache.initialize(this);
         this.actionCache.initialize(this);
         this.timeLimitService.reload();
+        this.scopeService.reload();
         this.addressPolicy.reload();
         this.chatHandler.reload();
     }
@@ -271,6 +275,7 @@ public class Judicator {
 
     private void registerServices(Repositories repositories) {
         this.playerDirectory = new PlayerDirectory(this, repositories.players());
+        this.scopeService = new ScopeService(this);
         this.syncService = new SyncService(this, repositories.sync());
         this.punishmentEffects = new PunishmentEffects(this);
         this.punishService = new PunishService(this, repositories.punishments());

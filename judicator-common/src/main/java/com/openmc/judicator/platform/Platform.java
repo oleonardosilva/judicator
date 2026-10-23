@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
@@ -39,6 +40,29 @@ public interface Platform {
     PlatformTask runAsyncRepeating(Runnable task, long period, TimeUnit unit);
 
     void dispatchConsoleCommand(String command);
+
+    /**
+     * The backend server the player is on (the proxy); empty on Spigot/Paper and while connecting.
+     */
+    Optional<String> serverOf(JudicatorPlayer player);
+
+    /**
+     * The backend servers the proxy knows; empty on Spigot/Paper.
+     */
+    List<String> serverNames();
+
+    /**
+     * The servers the proxy tries in order when a player joins or loses a server ({@code try} in velocity.toml);
+     * empty on Spigot/Paper.
+     */
+    List<String> fallbackServers();
+
+    /**
+     * Sends the player to another backend server (the proxy).
+     *
+     * @return completes with whether the player got there; false at once on Spigot/Paper
+     */
+    CompletableFuture<Boolean> connect(JudicatorPlayer player, String server);
 
     default void announceToServerOf(JudicatorPlayer player, Component message) {
         announceToServerOf(player, recipient -> message);

@@ -2,6 +2,7 @@ package com.openmc.judicator.discord;
 
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.punish.Punishment;
+import com.openmc.judicator.punish.scopes.ScopeService;
 import com.openmc.judicator.punish.types.PunishType;
 import com.openmc.judicator.warns.Warn;
 import org.spongepowered.configurate.ConfigurationNode;
@@ -45,7 +46,8 @@ public class DiscordWebhookService {
                 .orElse(punishment.isPaused() ? label(labels, "paused", "Paused (online time only)") : label(labels, "permanent", "Permanent"));
         final Entry entry = new Entry(punishment.getId(), punishment.getNickname(), punishment.getPlayerUUID(), punishment.getPunisher(),
                 punishment.getReason().orElse(label(labels, "no-reason", "No reason provided")), punishment.getDisplayType(),
-                punishment.getStartedAt(), punishment.getType() == PunishType.KICK ? null : expires);
+                punishment.getStartedAt(), punishment.getType() == PunishType.KICK ? null : expires,
+                punishment.getScope().map(ScopeService::displayName).orElse(null));
         send(punishment.getType().name().toLowerCase(Locale.ROOT), entry);
     }
 
@@ -53,16 +55,17 @@ public class DiscordWebhookService {
         final ConfigurationNode labels = plugin.getDiscordConfig().node("labels");
         final String expires = warn.getFinishAt().map(dt -> dt.format(FORMATTER)).orElse(label(labels, "permanent", "Permanent"));
         send("warn", new Entry(warn.getId(), warn.getNickname(), warn.getPlayerUUID(), warn.getPunisher(), warn.getReason(),
-                label(labels, "warn", "Warn"), warn.getStartedAt(), expires));
+                label(labels, "warn", "Warn"), warn.getStartedAt(), expires, null));
     }
 
     /**
      * What one embed shows, from a punishment or a warn.
      *
      * @param expires null when the end means nothing (a kick)
+     * @param scope   the server or group it is limited to; null for every server
      */
     private record Entry(Long id, String player, Optional<UUID> uuid, String punisher, String reason, String type,
-                         LocalDateTime startedAt, String expires) {
+                         LocalDateTime startedAt, String expires, String scope) {
     }
 
     private void send(String eventKey, Entry entry) {
@@ -112,6 +115,7 @@ public class DiscordWebhookService {
         fields.add(field(label(labels, "reason", "Reason"), entry.reason(), false));
         fields.add(field(label(labels, "started-at", "Started At"), entry.startedAt().format(FORMATTER), true));
         if (entry.expires() != null) fields.add(field(label(labels, "expires", "Expires"), entry.expires(), true));
+        if (entry.scope() != null) fields.add(field(label(labels, "scope", "Only on"), entry.scope(), true));
 
         final Map<String, String> embed = new LinkedHashMap<>();
         embed.put("title", jsonString(resolvePlaceholders(eventNode.node("title").getString(entry.type()), entry)));

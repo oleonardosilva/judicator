@@ -59,12 +59,67 @@ public class ConnectionHandler {
         if (judicator.getImmuneCache().isExempt(player.name(), player.uuid(), ImmuneCache.ALTS)) return Optional.empty();
         final List<PlayerRef> others = judicator.getAddressService().findAccountsByIp(address, player);
         if (others.isEmpty()) return Optional.empty();
-        final Optional<Punishment> ban = judicator.getPunishService().findActiveBans(others).stream().findFirst();
+        // a ban for some servers of the network does not keep the player's other accounts out of it
+        final Optional<Punishment> ban = judicator.getPunishService().findLoginBans(others).stream().findFirst();
         if (ban.isEmpty()) return Optional.empty();
         judicator.getStaffNotifier().sendToPermission(PunishPermissions.ALTS_NOTIFY.getPermission(),
                 messages -> PunishUtils.format(messages, Map.of("nickname", player.name(), "account", ban.get().getNickname(),
                         "id", String.valueOf(ban.get().getId())), "alts", "denied"));
         return Optional.of(PunishUtils.getMessageList(judicator.getMessagesConfig(), ban.get(), "runners", "alt-ban-kick"));
+    }
+
+    /**
+     * Where the proxy sends a player who just logged in ({@code PlayerChooseInitialServerEvent}).
+     *
+     * @param server the server to connect to, or null when {@code kick} is set
+     * @param kick   the screen to disconnect with: every server the player could join has a ban for it
+     */
+    public record InitialServer(String server, Component kick) {
+    }
+
+    /**
+     * Velocity: the server chosen for a player at login (the first of the try list, or a forced host). A ban for that
+     * server sends them to the first server of the try list it does not cover.
+     */
+    public InitialServer chooseInitialServer(JudicatorPlayer player, String chosen) {
+        final List<Punishment> bans = scopedBans(player);
+        final Optional<Punishment> ban = bannedFrom(bans, chosen);
+        if (ban.isEmpty()) return new InitialServer(chosen, null);
+        return judicator.getPlatform().fallbackServers().stream()
+                .filter(server -> bannedFrom(bans, server).isEmpty())
+                .findFirst()
+                .map(server -> new InitialServer(server, null))
+                .orElseGet(() -> new InitialServer(null,
+                        PunishUtils.getMessageList(judicator.getMessagesConfig(), ban.get(), "runners", "ban-kick")));
+    }
+
+    /**
+     * Velocity: a player connecting to another server ({@code ServerPreConnectEvent}).
+     *
+     * @return the message to send when a ban covers that server (the connection is refused)
+     */
+    public Optional<Component> checkServerSwitch(JudicatorPlayer player, String server) {
+        return bannedFrom(scopedBans(player), server)
+                .map(ban -> PunishUtils.getMessageList(judicator.messagesFor(player), ban, "runners", "ban-server"));
+    }
+
+    /**
+     * The first server of the try list that no ban keeps the player out of, other than the one they are leaving.
+     */
+    public Optional<String> fallbackFor(JudicatorPlayer player, String leaving) {
+        final List<Punishment> bans = scopedBans(player);
+        return judicator.getPlatform().fallbackServers().stream()
+                .filter(server -> !server.equalsIgnoreCase(leaving))
+                .filter(server -> bannedFrom(bans, server).isEmpty())
+                .findFirst();
+    }
+
+    private List<Punishment> scopedBans(JudicatorPlayer player) {
+        return judicator.getPunishService().findScopedBans(judicator.getPlayerDirectory().refOf(player), player.getHostAddress());
+    }
+
+    private Optional<Punishment> bannedFrom(List<Punishment> bans, String server) {
+        return bans.stream().filter(ban -> judicator.getScopeService().appliesTo(ban, server)).findFirst();
     }
 
     public void onLoginAllowed(UUID uuid, String username, String address) {

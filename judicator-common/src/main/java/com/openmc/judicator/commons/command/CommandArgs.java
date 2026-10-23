@@ -53,6 +53,21 @@ public final class CommandArgs {
         return false;
     }
 
+    /**
+     * A flag with a value, {@code -scope=survival}: the value when the next word starts with the prefix.
+     *
+     * @param prefix the flag and its {@code =}, e.g. {@code -scope=}
+     */
+    public Optional<String> consumeFlagValue(String prefix) {
+        skipSpaces();
+        if (!input.startsWith(prefix, cursor)) return Optional.empty();
+        final int start = cursor + prefix.length();
+        int end = start;
+        while (end < input.length() && input.charAt(end) != ' ') end++;
+        cursor = end;
+        return Optional.of(input.substring(start, end));
+    }
+
     public String remaining() {
         skipSpaces();
         if (cursor >= input.length()) return "";

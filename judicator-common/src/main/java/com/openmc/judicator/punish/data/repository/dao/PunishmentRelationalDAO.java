@@ -37,7 +37,7 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                             player_uuid = ?, reason = ?, punisher = ?, nickname = ?, ip_address = ?,
                             lower_nickname = ?, started_at = ?, finish_at = ?, revoked = ?, evidences = ?,
                             type = ?, permanent = ?, revoked_reason = ?, soft = ?, online_only = ?, paused_remaining = ?,
-                            punisher_uuid = ?
+                            punisher_uuid = ?, scope = ?
                         WHERE id = ?
                     """;
         } else {
@@ -45,8 +45,8 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                         INSERT INTO {punishments} (
                             player_uuid, reason, punisher, nickname, ip_address, lower_nickname,
                             started_at, finish_at, revoked, evidences, type, permanent, revoked_reason,
-                            soft, online_only, paused_remaining, punisher_uuid
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            soft, online_only, paused_remaining, punisher_uuid, scope
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """;
         }
         return sql;
@@ -78,7 +78,8 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                                     soft BOOLEAN NOT NULL DEFAULT FALSE,
                                     online_only BOOLEAN NOT NULL DEFAULT FALSE,
                                     paused_remaining BIGINT,
-                                    punisher_uuid VARCHAR(36)
+                                    punisher_uuid VARCHAR(36),
+                                    scope VARCHAR(64)
                                 );
                                 """)
                 );
@@ -102,7 +103,8 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                             soft BOOLEAN NOT NULL DEFAULT FALSE,
                             online_only BOOLEAN NOT NULL DEFAULT FALSE,
                             paused_remaining BIGINT,
-                            punisher_uuid VARCHAR(36)
+                            punisher_uuid VARCHAR(36),
+                            scope VARCHAR(64)
                         );
                         """));
             } else {
@@ -125,7 +127,8 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                             soft BOOLEAN NOT NULL DEFAULT FALSE,
                             online_only BOOLEAN NOT NULL DEFAULT FALSE,
                             paused_remaining BIGINT,
-                            punisher_uuid VARCHAR(36)
+                            punisher_uuid VARCHAR(36),
+                            scope VARCHAR(64)
                         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                         """));
             }
@@ -135,6 +138,7 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
             manager.ensureColumn(connection, "punishments", "online_only", "BOOLEAN NOT NULL DEFAULT FALSE");
             manager.ensureColumn(connection, "punishments", "paused_remaining", "BIGINT");
             manager.ensureColumn(connection, "punishments", "punisher_uuid", "VARCHAR(36)");
+            manager.ensureColumn(connection, "punishments", "scope", "VARCHAR(64)");
 
             manager.ensureIndex(connection, "punishments", "player_uuid");
             manager.ensureIndex(connection, "punishments", "ip_address");
@@ -233,6 +237,29 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
     }
 
     @Override
+    public List<Punishment> findAllActiveOfPlayerOrAddress(PlayerRef player, String ipAddress, PunishType... types) {
+        if (types.length == 0) return List.of();
+        return query(activeByTypes("SELECT *", types) + " AND (" + IdentitySql.of(player, "player_uuid", "lower_nickname") + " OR ip_address = ?)",
+                statement -> statement.setString(IdentitySql.bind(statement, bindActive(statement, types), player), ipAddress.toLowerCase()));
+    }
+
+    @Override
+    public Set<String> findActiveScopes() {
+        final Set<String> scopes = new HashSet<>();
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(manager.sql(
+                     "SELECT DISTINCT scope FROM {punishments} WHERE scope IS NOT NULL AND revoked = false AND (finish_at IS NULL OR finish_at > ?)"))) {
+            statement.setTimestamp(1, SqlTime.now());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) scopes.add(resultSet.getString(1));
+            }
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+        }
+        return scopes;
+    }
+
+    @Override
     public List<Punishment> findAllActiveOfAny(Collection<PlayerRef> players, PunishType... types) {
         if (players.isEmpty() || types.length == 0) return List.of();
         final List<PlayerRef> list = List.copyOf(players);
@@ -303,7 +330,7 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
 
             try (PreparedStatement stmt = connection.prepareStatement(manager.sql(sql), Statement.RETURN_GENERATED_KEYS)) {
                 bind(stmt, punishment);
-                if (isUpdate) stmt.setLong(18, punishment.getId());
+                if (isUpdate) stmt.setLong(19, punishment.getId());
                 stmt.executeUpdate();
 
                 if (!isUpdate) {
@@ -439,6 +466,7 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
         if (punishment.getPausedRemaining() == null) stmt.setNull(16, Types.BIGINT);
         else stmt.setLong(16, punishment.getPausedRemaining());
         stmt.setString(17, punishment.getPunisherUuid().map(UUID::toString).orElse(null));
+        stmt.setString(18, punishment.getScope().orElse(null));
     }
 
     @Override
@@ -620,6 +648,7 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
         final long paused = rs.getLong("paused_remaining");
         punishment.setPausedRemaining(rs.wasNull() ? null : paused);
         punishment.setPunisherUuid(uuid(rs.getString("punisher_uuid")));
+        punishment.setScope(rs.getString("scope"));
         return punishment;
     }
 

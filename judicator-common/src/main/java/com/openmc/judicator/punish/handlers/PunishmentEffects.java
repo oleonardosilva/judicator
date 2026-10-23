@@ -3,6 +3,7 @@ package com.openmc.judicator.punish.handlers;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.Platform;
+import com.openmc.judicator.platform.PlatformType;
 import com.openmc.judicator.punish.PunishService;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
@@ -40,8 +41,37 @@ public class PunishmentEffects {
         judicator.getStaffNotifier().notifyPunishment(punishment);
         if (!punishment.isSilent()) announce(punishment, "ban");
         final Platform platform = judicator.getPlatform();
-        platform.runSync(() -> affectedPlayers(platform, punishment).forEach(player -> player.disconnect(
-                PunishUtils.getMessageList(judicator.messagesFor(player), punishment, "runners", "ban-kick"))));
+        platform.runSync(() -> affectedPlayers(platform, punishment).forEach(player -> {
+            if (punishment.getScope().isEmpty()) {
+                kick(player, punishment);
+                return;
+            }
+            if (!judicator.getScopeService().appliesToPlayer(punishment, player)) return;
+            leaveServer(platform, player, punishment);
+        }));
+    }
+
+    private void kick(JudicatorPlayer player, Punishment punishment) {
+        player.disconnect(PunishUtils.getMessageList(judicator.messagesFor(player), punishment, "runners", "ban-kick"));
+    }
+
+    /**
+     * A ban for the server the player is on: the proxy sends them to the first server of the try list no ban keeps
+     * them out of; without one (or on Spigot/Paper) they are disconnected.
+     */
+    private void leaveServer(Platform platform, JudicatorPlayer player, Punishment punishment) {
+        final Optional<String> current = platform.serverOf(player);
+        final Optional<String> fallback = platform.getType() == PlatformType.VELOCITY && current.isPresent()
+                ? judicator.getConnectionHandler().fallbackFor(player, current.get())
+                : Optional.empty();
+        if (fallback.isEmpty()) {
+            kick(player, punishment);
+            return;
+        }
+        player.sendMessage(PunishUtils.getMessageList(judicator.messagesFor(player), punishment, "runners", "ban-server"));
+        platform.connect(player, fallback.get()).thenAccept(connected -> {
+            if (!connected) kick(player, punishment);
+        });
     }
 
     private void muted(Punishment punishment) {
@@ -62,7 +92,10 @@ public class PunishmentEffects {
     private void announce(Punishment punishment, String key) {
         if (!PunishUtils.announces(judicator.getConfig(), key)) return;
         final Platform platform = judicator.getPlatform();
-        target(platform, punishment).ifPresent(player -> platform.announceToServerOf(player,
+        target(platform, punishment)
+                // a punishment for other servers is not announced where the player is
+                .filter(player -> judicator.getScopeService().appliesToPlayer(punishment, player))
+                .ifPresent(player -> platform.announceToServerOf(player,
                 recipient -> PunishUtils.getMessageList(judicator.messagesFor(recipient), punishment, "announcements", key)));
     }
 

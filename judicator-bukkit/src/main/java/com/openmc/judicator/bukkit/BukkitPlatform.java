@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -129,6 +130,26 @@ public class BukkitPlatform implements Platform {
     @Override
     public void dispatchConsoleCommand(String command) {
         runSync(() -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command));
+    }
+
+    @Override
+    public Optional<String> serverOf(JudicatorPlayer player) {
+        return Optional.empty();
+    }
+
+    @Override
+    public List<String> serverNames() {
+        return List.of();
+    }
+
+    @Override
+    public List<String> fallbackServers() {
+        return List.of();
+    }
+
+    @Override
+    public CompletableFuture<Boolean> connect(JudicatorPlayer player, String server) {
+        return CompletableFuture.completedFuture(false);
     }
 
     @Override

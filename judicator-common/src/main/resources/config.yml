@@ -145,3 +145,6 @@ sync: # servers sharing one MySQL/PostgreSQL database: what one applies, revokes
   poll-interval: 1 # seconds between checks for changes made by the other servers, 1 to 30 (restart)
 proxy-mode: false # Spigot/Paper behind a Velocity running Judicator, with sync on both: the proxy refuses logins, kicks, announces and notifies; this server only blocks muted chat (restart)
 chat-on-backends: false # Velocity only: true when the backends run Judicator in proxy-mode, so the proxy never denies (signed) chat of muted players itself
+scopes: # punishments for one server or a group of servers of the network: /ban Steve -scope=survival hacking
+  server-name: '' # Spigot/Paper only: this server's name as velocity.toml calls it; empty = only global punishments here
+  groups: {} # e.g. survival: [survival1, survival2] (a group wins over a server with the same name)

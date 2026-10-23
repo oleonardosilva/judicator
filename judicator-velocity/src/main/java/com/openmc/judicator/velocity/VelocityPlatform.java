@@ -4,8 +4,10 @@ import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.Platform;
 import com.openmc.judicator.platform.PlatformTask;
 import com.openmc.judicator.platform.PlatformType;
+import com.velocitypowered.api.proxy.ConnectionRequestBuilder;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.velocitypowered.api.scheduler.ScheduledTask;
 import net.kyori.adventure.text.Component;
 import org.slf4j.Logger;
@@ -15,6 +17,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
@@ -95,6 +98,33 @@ public class VelocityPlatform implements Platform {
     @Override
     public void dispatchConsoleCommand(String command) {
         server.getCommandManager().executeAsync(server.getConsoleCommandSource(), command);
+    }
+
+    @Override
+    public Optional<String> serverOf(JudicatorPlayer player) {
+        return server.getPlayer(player.getUniqueId())
+                .flatMap(Player::getCurrentServer)
+                .map(connection -> connection.getServerInfo().getName());
+    }
+
+    @Override
+    public List<String> serverNames() {
+        return server.getAllServers().stream().map(registered -> registered.getServerInfo().getName()).toList();
+    }
+
+    @Override
+    public List<String> fallbackServers() {
+        return List.copyOf(server.getConfiguration().getAttemptConnectionOrder());
+    }
+
+    @Override
+    public CompletableFuture<Boolean> connect(JudicatorPlayer player, String target) {
+        final Optional<Player> online = server.getPlayer(player.getUniqueId());
+        final Optional<RegisteredServer> registered = server.getServer(target);
+        if (online.isEmpty() || registered.isEmpty()) return CompletableFuture.completedFuture(false);
+        return online.get().createConnectionRequest(registered.get()).connect()
+                .thenApply(ConnectionRequestBuilder.Result::isSuccessful)
+                .exceptionally(error -> false);
     }
 
     @Override

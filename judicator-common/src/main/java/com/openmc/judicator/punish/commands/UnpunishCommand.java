@@ -39,7 +39,7 @@ public class UnpunishCommand extends CoreCommand {
             return;
         }
         final String targetName = optTarget.get();
-        final boolean silent = args.consumeFlag(PunishTypeCommand.SILENT_FLAG);
+        final boolean silent = args.consumeFlag(PunishmentFlags.SILENT);
         final String reason = args.remaining();
         if (silent && !silentAllowed(source)) return;
 

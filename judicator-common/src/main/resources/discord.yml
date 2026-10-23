@@ -26,6 +26,7 @@ labels: # names of the embed fields, and texts for what has no value
   reason: "Reason"
   started-at: "Started At"
   expires: "Expires"
+  scope: "Only on" # a punishment for one server or group (scopes in config.yml)
   permanent: "Permanent"
   paused: "Paused (online time only)"
   no-reason: "No reason provided"

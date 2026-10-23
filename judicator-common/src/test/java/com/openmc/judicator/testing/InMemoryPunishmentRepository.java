@@ -80,6 +80,18 @@ public final class InMemoryPunishmentRepository implements PunishmentRepository 
     }
 
     @Override
+    public List<Punishment> findAllActiveOfPlayerOrAddress(PlayerRef player, String ipAddress, PunishType... types) {
+        return find(active(types).and(of(player).or(p -> p.getIpAddress().map(ip -> ip.equals(ipAddress.toLowerCase())).orElse(false))));
+    }
+
+    @Override
+    public Set<String> findActiveScopes() {
+        final Set<String> scopes = new HashSet<>();
+        find(active(PunishType.values())).forEach(p -> p.getScope().ifPresent(scopes::add));
+        return scopes;
+    }
+
+    @Override
     public List<Punishment> findAllActiveOfAny(Collection<PlayerRef> players, PunishType... types) {
         if (players.isEmpty()) return List.of();
         return find(active(types).and(p -> players.stream().anyMatch(player -> of(player).test(p))));
@@ -243,6 +255,7 @@ public final class InMemoryPunishmentRepository implements PunishmentRepository 
         Columns.maxLength(p.getIpAddress().orElse(null), 45, "ip_address");
         Columns.maxLength(String.join(",", p.getEvidences()), 255, "evidences");
         Columns.maxLength(p.getRevokedReason().orElse(null), 100, "revoked_reason");
+        Columns.maxLength(p.getScope().orElse(null), 64, "scope");
         Columns.notNull(p.getStartedAt(), "started_at");
         Columns.notNull(p.getType(), "type");
     }
@@ -260,6 +273,7 @@ public final class InMemoryPunishmentRepository implements PunishmentRepository 
         row.setOnlineOnly(p.isOnlineOnly());
         row.setPausedRemaining(p.getPausedRemaining());
         row.setPunisherUuid(p.getPunisherUuid().orElse(null));
+        row.setScope(p.getScope().orElse(null));
         return row;
     }
 

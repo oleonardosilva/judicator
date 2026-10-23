@@ -399,6 +399,27 @@ abstract class RepositoryContract {
     }
 
     @Test
+    void theBansOfAPlayerAndOfTheirAddress_comeInOneQuery_andTheScopesInForceAreListed() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final Punishment own = punishment("Steve", null, PunishType.BAN, now.minusDays(1), null, "Mod");
+        own.setScope("group:survival");
+        store.punishments().save(own);
+        final Punishment address = punishment("Other", "10.0.0.1", PunishType.BAN, now.minusDays(1), null, "Mod");
+        address.setScope("server:lobby");
+        store.punishments().save(address);
+        store.punishments().save(punishment("Other", "10.0.0.2", PunishType.BAN, now.minusDays(1), null, "Mod"));
+        final Punishment over = punishment("Steve", null, PunishType.TEMPBAN, now.minusDays(3), now.minusDays(2), "Mod");
+        over.setScope("server:old");
+        store.punishments().save(over);
+
+        assertEquals(Set.of(own.getId(), address.getId()), new java.util.HashSet<>(store.punishments()
+                .findAllActiveOfPlayerOrAddress(PlayerRef.account(uuidOf("Steve"), "Steve"), "10.0.0.1", PunishType.BAN, PunishType.TEMPBAN)
+                .stream().map(Punishment::getId).toList()));
+        assertEquals("group:survival", store.punishments().findById(own.getId()).orElseThrow().getScope().orElseThrow());
+        assertEquals(Set.of("group:survival", "server:lobby"), store.punishments().findActiveScopes());
+    }
+
+    @Test
     void aLoggedKickIsNeverActive() {
         final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
         final Punishment kick = Punishment.create(uuidOf("Steve"), "calm down", "Mod", "Steve", null, now, now, List.of(), PunishType.KICK);

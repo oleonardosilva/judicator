@@ -46,6 +46,16 @@ public interface PunishmentRepository extends Repository<Punishment, Long> {
     List<Punishment> findAllActiveOfAddress(String ipAddress, PunishType... types);
 
     /**
+     * {@link #findAllActiveOf} and {@link #findAllActiveOfAddress} in one query.
+     */
+    List<Punishment> findAllActiveOfPlayerOrAddress(PlayerRef player, String ipAddress, PunishType... types);
+
+    /**
+     * The scopes of the punishments in force, each once.
+     */
+    Set<String> findActiveScopes();
+
+    /**
      * Punishments of these types in force for any of these players, in a bounded number of queries.
      */
     List<Punishment> findAllActiveOfAny(Collection<PlayerRef> players, PunishType... types);

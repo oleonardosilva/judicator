@@ -1,5 +1,6 @@
 package com.openmc.judicator.punish.commands;
 
+import java.util.List;
 import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.commons.ChatContext;
@@ -10,7 +11,10 @@ import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.PunishmentBuilder;
 import com.openmc.judicator.punish.handlers.PunishFactory;
 import com.openmc.judicator.punish.rules.PunishCooldown;
+import com.openmc.judicator.punish.scopes.ScopeService;
 
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 final class PunishmentCommandSupport {
@@ -29,6 +33,40 @@ final class PunishmentCommandSupport {
             return false;
         }
         return judicator.getPunishCooldown().allows(source, PunishCooldown.categoryOf(builder.getType()), targetName);
+    }
+
+    /**
+     * {@code -scope=<server or group>}: where the punishment applies.
+     *
+     * @param typed what followed {@code -scope=}; null when the flag was not given (everywhere)
+     * @return false when the scope is refused: no {@code scopes.server-name} on this Spigot/Paper server, or neither a
+     * group nor a server of the network (the reason was already sent to the source)
+     */
+    static boolean applyScope(Judicator judicator, JudicatorSender source, PunishmentBuilder builder, String typed) {
+        if (typed == null) return true;
+        final ScopeService scopes = judicator.getScopeService();
+        if (!scopes.canScope()) {
+            source.sendMessage(PunishUtils.getMessage(judicator.messagesFor(source), "error", "scope-not-configured"));
+            return false;
+        }
+        final Optional<String> scope = scopes.parse(typed);
+        if (scope.isEmpty()) {
+            source.sendMessage(PunishUtils.format(judicator.messagesFor(source), Map.of("scope", typed), "error", "scope-unknown"));
+            return false;
+        }
+        builder.scope(scope.get());
+        return true;
+    }
+
+    /**
+     * Tab completion of {@code -scope=}: the groups and servers that start with what was typed.
+     */
+    static List<String> suggestScopes(Judicator judicator, String typed) {
+        final String prefix = typed.substring(PunishmentFlags.SCOPE.length()).toLowerCase(Locale.ROOT);
+        return judicator.getScopeService().suggestions().stream()
+                .filter(name -> name.startsWith(prefix))
+                .map(name -> PunishmentFlags.SCOPE + name)
+                .toList();
     }
 
     /**

@@ -11,8 +11,12 @@ import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.event.connection.PreLoginEvent;
 import com.velocitypowered.api.event.player.PlayerChatEvent;
+import com.velocitypowered.api.event.player.PlayerChooseInitialServerEvent;
+import com.velocitypowered.api.event.player.ServerPreConnectEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.velocitypowered.api.proxy.server.RegisteredServer;
+import java.util.Optional;
 import java.util.UUID;
 
 
@@ -54,6 +58,55 @@ public class VelocityListener {
                 connectionHandler.onLoginAllowed(player.getUniqueId(), username, address);
                 connectionHandler.onJoin(new VelocityPlayer(player));
             }
+        });
+    }
+
+    /**
+     * A ban for the server chosen at login sends the player to the first server of the try list it does not cover;
+     * with none left, they are disconnected with the ban screen.
+     */
+    @Subscribe
+    public EventTask onChooseInitialServer(PlayerChooseInitialServerEvent event) {
+        final Optional<RegisteredServer> chosen = event.getInitialServer();
+        if (chosen.isEmpty()) return null;
+        return EventTask.async(() -> {
+            final VelocityPlayer player = new VelocityPlayer(event.getPlayer());
+            final ConnectionHandler.InitialServer decision = connectionHandler.chooseInitialServer(player, chosen.get().getServerInfo().getName());
+            if (decision.kick() != null) {
+                event.getPlayer().disconnect(decision.kick());
+            } else if (!decision.server().equals(chosen.get().getServerInfo().getName())) {
+                server.getServer(decision.server()).ifPresent(event::setInitialServer);
+            }
+        });
+    }
+
+    /**
+     * A ban for the server a player is connecting to keeps them where they are. A connection the proxy makes on its own
+     * before the player is on a server (the chosen server is down and it tries the next one) goes to the first server
+     * of the try list no ban covers instead, or the player is disconnected.
+     */
+    @Subscribe
+    public EventTask onServerPreConnect(ServerPreConnectEvent event) {
+        if (!event.getResult().isAllowed()) return null;
+        final Optional<RegisteredServer> target = event.getResult().getServer();
+        if (target.isEmpty()) return null;
+        final String name = target.get().getServerInfo().getName();
+        return EventTask.async(() -> {
+            final VelocityPlayer player = new VelocityPlayer(event.getPlayer());
+            if (event.getPreviousServer() == null) {
+                final ConnectionHandler.InitialServer decision = connectionHandler.chooseInitialServer(player, name);
+                if (decision.kick() != null) {
+                    event.setResult(ServerPreConnectEvent.ServerResult.denied());
+                    event.getPlayer().disconnect(decision.kick());
+                } else if (!decision.server().equals(name)) {
+                    server.getServer(decision.server()).ifPresent(other -> event.setResult(ServerPreConnectEvent.ServerResult.allowed(other)));
+                }
+                return;
+            }
+            connectionHandler.checkServerSwitch(player, name).ifPresent(message -> {
+                event.setResult(ServerPreConnectEvent.ServerResult.denied());
+                event.getPlayer().sendMessage(message);
+            });
         });
     }
 

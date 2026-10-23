@@ -17,11 +17,6 @@ import java.util.Optional;
 
 public class PunishTypeCommand extends CoreCommand {
 
-    static final String SILENT_FLAG = "-s";
-    /**
-     * Temporary mutes: the time only runs while the player is online.
-     */
-    static final String ONLINE_ONLY_FLAG = "-o";
 
     private final PunishType type;
     private final boolean byAddress;
@@ -61,7 +56,7 @@ public class PunishTypeCommand extends CoreCommand {
             return;
         }
         final String targetName = optTarget.get();
-        final Flags flags = new Flags();
+        final PunishmentFlags flags = new PunishmentFlags(type == PunishType.TEMPMUTE);
         flags.read(args);
 
         String duration = null;
@@ -102,30 +97,18 @@ public class PunishTypeCommand extends CoreCommand {
                 return;
             }
         }
+        if (!PunishmentCommandSupport.applyScope(judicator, source, builder, flags.scope)) return;
 
         if (!PunishmentCommandSupport.passesStaffRules(judicator, source, builder, targetName)) return;
         if (!PunishmentCommandSupport.resolveTarget(judicator, source, builder, target, byAddress)) return;
         PunishmentCommandSupport.submit(judicator, source, builder);
     }
 
-    /**
-     * {@code -s} and, on temporary mutes, {@code -o}, in any order, before or after the duration.
-     */
-    private final class Flags {
-        private boolean silent;
-        private boolean onlineOnly;
-
-        private void read(CommandArgs args) {
-            while (true) {
-                if (args.consumeFlag(SILENT_FLAG)) silent = true;
-                else if (type == PunishType.TEMPMUTE && args.consumeFlag(ONLINE_ONLY_FLAG)) onlineOnly = true;
-                else return;
-            }
-        }
-    }
-
     @Override
     public List<String> suggest(JudicatorSender sender, String[] args) {
+        if (args.length > 1 && args[args.length - 1].startsWith(PunishmentFlags.SCOPE)) {
+            return PunishmentCommandSupport.suggestScopes(judicator, args[args.length - 1]);
+        }
         final List<String> shortcuts = ReasonShortcuts.suggest(judicator, sender, args, type.isTemp() ? 2 : 1);
         return shortcuts.isEmpty() ? super.suggest(sender, args) : shortcuts;
     }
