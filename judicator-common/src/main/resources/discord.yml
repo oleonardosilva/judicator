@@ -31,6 +31,9 @@ labels: # names of the embed fields, and texts for what has no value
   paused: "Paused (online time only)"
   no-reason: "No reason provided"
   warn: "Warn" # the type shown for warns
+  report: "Report" # the type shown for player reports
+  reporter: "Reported by"
+  server: "Server" # where the reported player was
 
 events:
   ban:
@@ -69,3 +72,9 @@ events:
     title: "⚠️ Warning Issued"
     description: "Player **{player}** received a warning from **{punisher}**."
     # webhook-url: "" # e.g. warns in a channel of their own
+
+  report: # /report: off by default, a busy server gets many
+    enabled: false
+    color: "#3498DB"
+    title: "📣 Player Reported"
+    description: "**{punisher}** reported **{player}**."

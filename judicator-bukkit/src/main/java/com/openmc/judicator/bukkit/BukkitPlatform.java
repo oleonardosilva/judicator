@@ -153,6 +153,17 @@ public class BukkitPlatform implements Platform {
     }
 
     @Override
+    public CompletableFuture<Boolean> teleport(JudicatorPlayer staff, JudicatorPlayer target) {
+        final CompletableFuture<Boolean> done = new CompletableFuture<>();
+        runSync(() -> {
+            final Player moving = Bukkit.getPlayer(staff.getUniqueId());
+            final Player destination = Bukkit.getPlayer(target.getUniqueId());
+            done.complete(moving != null && destination != null && moving.teleport(destination));
+        });
+        return done;
+    }
+
+    @Override
     public void announceToServerOf(JudicatorPlayer player, Function<JudicatorPlayer, Component> message) {
         getOnlinePlayers().forEach(recipient -> recipient.sendMessage(message.apply(recipient)));
     }

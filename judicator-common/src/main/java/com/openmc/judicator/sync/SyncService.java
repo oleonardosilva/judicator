@@ -133,6 +133,10 @@ public class SyncService {
     }
 
     private void receive(SyncKind kind, long id, List<Punishment> revoked) {
+        if (kind == SyncKind.REPORTED || kind == SyncKind.REPORT_CHANGED) {
+            judicator.getReportService().received(kind, id);
+            return;
+        }
         final PunishCache cache = judicator.getPunishCache();
         final Optional<Punishment> stored = kind == SyncKind.DELETED ? Optional.empty() : judicator.getPunishService().findById(id);
         switch (kind) {
@@ -149,6 +153,8 @@ public class SyncService {
                 else cache.forgetMute(id);
             }
             case DELETED -> cache.forgetMute(id);
+            default -> {
+            }
         }
     }
 

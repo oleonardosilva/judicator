@@ -40,6 +40,7 @@ public final class TestServer implements AutoCloseable {
     public final InMemoryNoteRepository notes;
     public final InMemorySyncRepository sync;
     public final InMemoryPlayerRepository players;
+    public final InMemoryReportRepository reports;
 
     private TestServer(Path folder, boolean onlineMode, PlatformType type, TestServer sharedDatabase) {
         this.platform = new FakePlatform(folder, onlineMode, type);
@@ -50,11 +51,12 @@ public final class TestServer implements AutoCloseable {
         this.notes = sharedDatabase == null ? new InMemoryNoteRepository() : sharedDatabase.notes;
         this.sync = sharedDatabase == null ? new InMemorySyncRepository() : sharedDatabase.sync;
         this.players = sharedDatabase == null ? new InMemoryPlayerRepository() : sharedDatabase.players;
+        this.reports = sharedDatabase == null ? new InMemoryReportRepository() : sharedDatabase.reports;
         this.judicator = boot();
     }
 
     private Judicator boot() {
-        final Judicator core = new Judicator(platform, new Judicator.Repositories(punishments, warns, addresses, levels, notes, sync, players));
+        final Judicator core = new Judicator(platform, new Judicator.Repositories(punishments, warns, addresses, levels, notes, sync, players, reports));
         core.enable();
         // A test never talks to the Mojang API: unknown names simply have no UUID.
         core.getUuidManager().setRemoteLookups(false);

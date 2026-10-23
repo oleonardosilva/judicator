@@ -1,5 +1,6 @@
 package com.openmc.judicator.velocity;
 
+import com.openmc.judicator.reports.TeleportRequest;
 import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.Platform;
 import com.openmc.judicator.platform.PlatformTask;
@@ -7,6 +8,8 @@ import com.openmc.judicator.platform.PlatformType;
 import com.velocitypowered.api.proxy.ConnectionRequestBuilder;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.velocitypowered.api.proxy.ServerConnection;
+import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.velocitypowered.api.scheduler.ScheduledTask;
 import net.kyori.adventure.text.Component;
@@ -27,6 +30,7 @@ public class VelocityPlatform implements Platform {
     private final ProxyServer server;
     private final Logger logger;
     private final Path dataDirectory;
+    static final MinecraftChannelIdentifier TELEPORT_CHANNEL = MinecraftChannelIdentifier.from(TeleportRequest.CHANNEL);
 
     public VelocityPlatform(Object plugin, ProxyServer server, Logger logger, Path dataDirectory) {
         this.plugin = plugin;
@@ -125,6 +129,25 @@ public class VelocityPlatform implements Platform {
         return online.get().createConnectionRequest(registered.get()).connect()
                 .thenApply(ConnectionRequestBuilder.Result::isSuccessful)
                 .exceptionally(error -> false);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> teleport(JudicatorPlayer staff, JudicatorPlayer target) {
+        final Optional<Player> moving = server.getPlayer(staff.getUniqueId());
+        final Optional<ServerConnection> destination = server.getPlayer(target.getUniqueId()).flatMap(Player::getCurrentServer);
+        if (moving.isEmpty() || destination.isEmpty()) return CompletableFuture.completedFuture(false);
+        final RegisteredServer there = destination.get().getServer();
+        final boolean alreadyThere = moving.get().getCurrentServer().map(current -> current.getServer().equals(there)).orElse(false);
+        final CompletableFuture<Boolean> arrived = alreadyThere ? CompletableFuture.completedFuture(true)
+                : moving.get().createConnectionRequest(there).connect().thenApply(ConnectionRequestBuilder.Result::isSuccessful)
+                .exceptionally(error -> false);
+        return arrived.thenApply(connected -> {
+            if (connected) {
+                moving.get().getCurrentServer().ifPresent(connection -> connection.sendPluginMessage(TELEPORT_CHANNEL,
+                        new TeleportRequest(staff.getUniqueId(), target.getUniqueId()).encode()));
+            }
+            return connected;
+        });
     }
 
     @Override

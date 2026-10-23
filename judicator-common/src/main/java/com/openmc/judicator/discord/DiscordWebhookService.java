@@ -4,6 +4,7 @@ import com.openmc.judicator.Judicator;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.scopes.ScopeService;
 import com.openmc.judicator.punish.types.PunishType;
+import com.openmc.judicator.reports.Report;
 import com.openmc.judicator.warns.Warn;
 import org.spongepowered.configurate.ConfigurationNode;
 
@@ -47,7 +48,7 @@ public class DiscordWebhookService {
         final Entry entry = new Entry(punishment.getId(), punishment.getNickname(), punishment.getPlayerUUID(), punishment.getPunisher(),
                 punishment.getReason().orElse(label(labels, "no-reason", "No reason provided")), punishment.getDisplayType(),
                 punishment.getStartedAt(), punishment.getType() == PunishType.KICK ? null : expires,
-                punishment.getScope().map(ScopeService::displayName).orElse(null));
+                punishment.getScope().map(ScopeService::displayName).orElse(null), false);
         send(punishment.getType().name().toLowerCase(Locale.ROOT), entry);
     }
 
@@ -55,17 +56,28 @@ public class DiscordWebhookService {
         final ConfigurationNode labels = plugin.getDiscordConfig().node("labels");
         final String expires = warn.getFinishAt().map(dt -> dt.format(FORMATTER)).orElse(label(labels, "permanent", "Permanent"));
         send("warn", new Entry(warn.getId(), warn.getNickname(), warn.getPlayerUUID(), warn.getPunisher(), warn.getReason(),
-                label(labels, "warn", "Warn"), warn.getStartedAt(), expires, null));
+                label(labels, "warn", "Warn"), warn.getStartedAt(), expires, null, false));
+    }
+
+    /**
+     * {@code events.report} (off by default): a player reported another.
+     */
+    public void sendReport(Report report) {
+        final ConfigurationNode labels = plugin.getDiscordConfig().node("labels");
+        send("report", new Entry(report.getId(), report.getTargetName(), report.getTargetUuid(), report.getReporterName(), report.getReason(),
+                label(labels, "report", "Report"), report.getCreatedAt(), null, report.getServer().orElse(null), true));
     }
 
     /**
      * What one embed shows, from a punishment or a warn.
      *
      * @param expires null when the end means nothing (a kick)
-     * @param scope   the server or group it is limited to; null for every server
+     * @param scope   the server or group it is limited to (for a report, the server of the reported player); null for
+     *                every server
+     * @param report  {@code punisher} is who reported, and {@code scope} where the reported player was
      */
     private record Entry(Long id, String player, Optional<UUID> uuid, String punisher, String reason, String type,
-                         LocalDateTime startedAt, String expires, String scope) {
+                         LocalDateTime startedAt, String expires, String scope, boolean report) {
     }
 
     private void send(String eventKey, Entry entry) {
@@ -110,12 +122,16 @@ public class DiscordWebhookService {
 
         final List<String> fields = new ArrayList<>();
         fields.add(field(label(labels, "player", "Player"), entry.player(), true));
-        fields.add(field(label(labels, "punisher", "Punisher"), entry.punisher(), true));
+        fields.add(entry.report() ? field(label(labels, "reporter", "Reported by"), entry.punisher(), true)
+                : field(label(labels, "punisher", "Punisher"), entry.punisher(), true));
         fields.add(field(label(labels, "type", "Type"), entry.type(), true));
         fields.add(field(label(labels, "reason", "Reason"), entry.reason(), false));
         fields.add(field(label(labels, "started-at", "Started At"), entry.startedAt().format(FORMATTER), true));
         if (entry.expires() != null) fields.add(field(label(labels, "expires", "Expires"), entry.expires(), true));
-        if (entry.scope() != null) fields.add(field(label(labels, "scope", "Only on"), entry.scope(), true));
+        if (entry.scope() != null) {
+            fields.add(entry.report() ? field(label(labels, "server", "Server"), entry.scope(), true)
+                    : field(label(labels, "scope", "Only on"), entry.scope(), true));
+        }
 
         final Map<String, String> embed = new LinkedHashMap<>();
         embed.put("title", jsonString(resolvePlaceholders(eventNode.node("title").getString(entry.type()), entry)));
@@ -152,7 +168,9 @@ public class DiscordWebhookService {
     }
 
     private String field(String name, String value, boolean inline) {
-        return "{ \"name\": " + jsonString(name) + ", \"value\": " + jsonString("`" + (value == null ? "N/A" : value) + "`")
+        // a backtick in a reason would close the code span and let Discord markdown (masked links) through
+        final String shown = value == null ? "N/A" : value.replace('`', '\'');
+        return "{ \"name\": " + jsonString(name) + ", \"value\": " + jsonString("`" + shown + "`")
                 + ", \"inline\": " + inline + " }";
     }
 

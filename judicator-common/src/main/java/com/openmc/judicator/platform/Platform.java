@@ -64,6 +64,15 @@ public interface Platform {
      */
     CompletableFuture<Boolean> connect(JudicatorPlayer player, String server);
 
+    /**
+     * Takes a staff member to a player ({@code /reports tp}): on Spigot/Paper, a teleport; on the proxy, to the
+     * player's server and then, when that backend runs Judicator in {@code proxy-mode}, to the player there
+     * ({@link com.openmc.judicator.reports.TeleportRequest}).
+     *
+     * @return completes with whether the staff member got there (on the proxy: to the server)
+     */
+    CompletableFuture<Boolean> teleport(JudicatorPlayer staff, JudicatorPlayer target);
+
     default void announceToServerOf(JudicatorPlayer player, Component message) {
         announceToServerOf(player, recipient -> message);
     }

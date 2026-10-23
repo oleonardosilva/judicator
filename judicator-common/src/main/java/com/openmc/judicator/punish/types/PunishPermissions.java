@@ -41,7 +41,13 @@ public enum PunishPermissions {
     ALTS_NOTIFY("judicator.alts.notify"),
     SILENT("judicator.silent"),
     NOTIFY("judicator.notify"),
-    NOTIFY_SILENT("judicator.notify.silent");
+    NOTIFY_SILENT("judicator.notify.silent"),
+    REPORT("judicator.report"),
+    REPORT_OFFLINE("judicator.report.offline"),
+    REPORTS("judicator.reports"),
+    REPORTS_MANAGE("judicator.reports.manage"),
+    REPORTS_TP("judicator.reports.tp"),
+    REPORTS_NOTIFY("judicator.reports.notify");
 
     public static final String LEVEL_PREFIX = "judicator.level.";
 

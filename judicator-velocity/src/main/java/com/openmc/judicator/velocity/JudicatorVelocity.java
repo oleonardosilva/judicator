@@ -83,6 +83,7 @@ public class JudicatorVelocity {
 
         registerCommands(core.getCommands());
         server.getEventManager().register(this, new VelocityListener(core, server));
+        server.getChannelRegistrar().register(VelocityPlatform.TELEPORT_CHANNEL);
         logger.info("Plugin has been initialized successfully!");
     }
 

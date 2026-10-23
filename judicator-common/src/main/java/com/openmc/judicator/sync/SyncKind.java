@@ -14,7 +14,11 @@ public enum SyncKind {
     /** end or reason changed, online-only mute paused or resumed */
     CHANGED,
     /** deleted from the database */
-    DELETED;
+    DELETED,
+    /** a player report was made (the id is the report's): the staff of the other instances hear of it */
+    REPORTED,
+    /** a report was assigned, given back or closed (the id is the report's): its reporter hears of it where they are */
+    REPORT_CHANGED;
 
     public static Optional<SyncKind> parse(String name) {
         for (SyncKind kind : values()) {

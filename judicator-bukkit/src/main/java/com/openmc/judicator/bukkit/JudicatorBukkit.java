@@ -3,6 +3,7 @@ package com.openmc.judicator.bukkit;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.api.JudicatorApi;
 import com.openmc.judicator.commons.command.CoreCommand;
+import com.openmc.judicator.reports.TeleportRequest;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.ServicePriority;
@@ -44,6 +45,10 @@ public class JudicatorBukkit extends JavaPlugin {
         }
 
         getServer().getPluginManager().registerEvents(new BukkitListener(core, platform), this);
+        // /reports tp on the proxy: the backend teleports the staff member it was sent
+        if (core.isProxyMode()) {
+            getServer().getMessenger().registerIncomingPluginChannel(this, TeleportRequest.CHANNEL, new BukkitTeleportListener());
+        }
         // Also reachable through JudicatorProvider.get(), set by Judicator.enable().
         getServer().getServicesManager().register(JudicatorApi.class, core.getApi(), this, ServicePriority.Normal);
         getLogger().info("Plugin has been initialized successfully!");

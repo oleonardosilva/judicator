@@ -43,6 +43,7 @@ public final class FakePlatform implements Platform {
     private final Map<UUID, String> serverOfPlayer = new HashMap<>();
     /** servers that refuse connections (down, full) */
     private final Set<String> refusing = new HashSet<>();
+    private final List<String> teleports = new ArrayList<>();
 
     public FakePlatform(Path dataDirectory, boolean onlineMode) {
         this(dataDirectory, onlineMode, PlatformType.VELOCITY);
@@ -189,6 +190,22 @@ public final class FakePlatform implements Platform {
         }
         serverOfPlayer.put(player.getUniqueId(), server);
         return CompletableFuture.completedFuture(true);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> teleport(JudicatorPlayer staff, JudicatorPlayer target) {
+        if (getPlayer(staff.getUniqueId()).isEmpty() || getPlayer(target.getUniqueId()).isEmpty()) {
+            return CompletableFuture.completedFuture(false);
+        }
+        teleports.add(staff.getName() + " -> " + target.getName());
+        return CompletableFuture.completedFuture(true);
+    }
+
+    /**
+     * The teleports made, as "staff -> target".
+     */
+    public List<String> teleports() {
+        return teleports;
     }
 
     @Override

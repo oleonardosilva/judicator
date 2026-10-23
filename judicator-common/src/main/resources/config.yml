@@ -133,6 +133,7 @@ retention:
   finished-warns: 0 # temporary warns that ended this long ago
   addresses: 0 # IPs no account used for this long (/alts and offline IP bans no longer find them)
   notes: 0 # staff notes written this long ago
+  reports: 0 # player reports closed this long ago
 
 # ------------------------------------------------------------
 #  Networks: proxy and several servers (see "Networks and Multiple Servers" in the README)
@@ -148,3 +149,7 @@ chat-on-backends: false # Velocity only: true when the backends run Judicator in
 scopes: # punishments for one server or a group of servers of the network: /ban Steve -scope=survival hacking
   server-name: '' # Spigot/Paper only: this server's name as velocity.toml calls it; empty = only global punishments here
   groups: {} # e.g. survival: [survival1, survival2] (a group wins over a server with the same name)
+reports: # /report and /reports
+  require-permission: false # true: only players with judicator.report can use /report (on Velocity nobody has it without a permissions plugin)
+  cooldown: 60 # seconds a player waits between two reports
+  notify-on-join: true # staff with judicator.reports.notify hear how many reports are open when they join

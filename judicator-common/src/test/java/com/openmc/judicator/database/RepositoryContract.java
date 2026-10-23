@@ -1,5 +1,6 @@
 package com.openmc.judicator.database;
 
+import com.openmc.judicator.reports.Report;
 import com.openmc.judicator.notes.Note;
 import com.openmc.judicator.notes.repository.NoteRepository;
 import com.openmc.judicator.notes.repository.dao.NoteRelationalDAO;
@@ -13,6 +14,8 @@ import com.openmc.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.judicator.punish.data.repository.dao.PunishmentRelationalDAO;
 import com.openmc.judicator.punish.hierarchy.PlayerLevelRepository;
 import com.openmc.judicator.punish.types.PunishType;
+import com.openmc.judicator.reports.ReportState;
+import com.openmc.judicator.reports.repository.ReportRepository;
 import com.openmc.judicator.sync.SyncMessage;
 import com.openmc.judicator.sync.repository.SyncRepository;
 import com.openmc.judicator.warns.Warn;
@@ -48,7 +51,7 @@ abstract class RepositoryContract {
      */
     protected record Store(PunishmentRepository punishments, WarnRepository warns, PlayerAddressRepository addresses,
                            PlayerLevelRepository levels, NoteRepository notes, SyncRepository sync, PlayerRepository players,
-                           Runnable close) {
+                           ReportRepository reports, Runnable close) {
     }
 
     @TempDir
@@ -69,6 +72,74 @@ abstract class RepositoryContract {
         store.notes().initialize();
         store.sync().initialize();
         store.players().initialize();
+        store.reports().initialize();
+    }
+
+    // --- reports ---
+
+    private Report report(UUID reporter, String reporterName, UUID target, String targetName, LocalDateTime createdAt) {
+        final Report report = Report.create(reporter, reporterName, target, targetName, "reason of " + reporterName, "lobby");
+        report.setCreatedAt(createdAt);
+        report.setUpdatedAt(createdAt);
+        return store.reports().insert(report);
+    }
+
+    @Test
+    void reportsAreStoredPagedByStateAndChangedOnlyFromTheStateTheChangeWasDecidedOn() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final UUID alex = UUID.randomUUID();
+        final UUID steve = UUID.randomUUID();
+        final Report older = report(alex, "Alex", steve, "Steve", now.minusHours(2));
+        final Report newer = report(UUID.randomUUID(), "Bob", steve, "Steve", now.minusHours(1));
+
+        final Report read = store.reports().findById(older.getId()).orElseThrow();
+        assertEquals("Alex", read.getReporterName());
+        assertEquals(steve, read.getTargetUuid().orElseThrow());
+        assertEquals("lobby", read.getServer().orElseThrow());
+        assertEquals(ReportState.OPEN, read.getState());
+        assertEquals(now.minusHours(2), read.getCreatedAt());
+        assertEquals(List.of(newer.getId(), older.getId()),
+                store.reports().findByStates(List.of(ReportState.OPEN), 10, 0).stream().map(Report::getId).toList());
+        assertEquals(List.of(older.getId()),
+                store.reports().findByStates(List.of(ReportState.OPEN), 1, 1).stream().map(Report::getId).toList());
+
+        read.setState(ReportState.ASSIGNED);
+        read.setAssigneeUuid(UUID.randomUUID());
+        read.setAssigneeName("Mod");
+        read.setUpdatedAt(now);
+        assertTrue(store.reports().update(read, ReportState.OPEN));
+        assertFalse(store.reports().update(read, ReportState.OPEN), "someone changed it meanwhile");
+        read.setState(ReportState.CLOSED);
+        read.setClosedAt(now);
+        read.setCloseComment("banned");
+        assertTrue(store.reports().update(read, ReportState.ASSIGNED));
+
+        final Report closed = store.reports().findById(older.getId()).orElseThrow();
+        assertEquals("Mod", closed.getAssigneeName().orElseThrow());
+        assertEquals("banned", closed.getCloseComment().orElseThrow());
+        assertEquals(1, store.reports().countByStates(List.of(ReportState.CLOSED)));
+        assertEquals(2, store.reports().countByStates(List.of(ReportState.values())));
+        assertTrue(store.reports().findById(999).isEmpty());
+    }
+
+    @Test
+    void reportsAreFoundByReporterAndTarget_andDeletedForAPlayerOrWhenClosedLongAgo() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final UUID alex = UUID.randomUUID();
+        final UUID steve = UUID.randomUUID();
+        report(alex, "Alex", steve, "Steve", now);
+        final Report closed = report(UUID.randomUUID(), "Bob", null, "Ghost", now.minusDays(40));
+        closed.setState(ReportState.CLOSED);
+        closed.setClosedAt(now.minusDays(40));
+        closed.setUpdatedAt(now.minusDays(40));
+        store.reports().update(closed, ReportState.OPEN);
+
+        assertTrue(store.reports().hasOpen(alex, PlayerRef.account(steve, "Steve")));
+        assertFalse(store.reports().hasOpen(alex, PlayerRef.account(UUID.randomUUID(), "Steve")), "another account named Steve");
+        assertEquals(1, store.reports().countAgainst(byName("ghost")));
+        assertEquals(1, store.reports().deleteClosedBefore(now.minusDays(30)));
+        assertEquals(1, store.reports().deleteAllOf(PlayerRef.account(alex, "Alex")), "as the reporter");
+        assertEquals(0, store.reports().countByStates(List.of(ReportState.values())));
     }
 
     // --- sync notices ---

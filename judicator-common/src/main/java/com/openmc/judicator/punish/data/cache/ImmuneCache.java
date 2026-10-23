@@ -3,7 +3,6 @@ package com.openmc.judicator.punish.data.cache;
 import java.util.ArrayList;
 import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.Judicator;
-import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.punish.PunishUtils;
 import org.spongepowered.configurate.ConfigurationNode;
@@ -14,15 +13,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.function.Supplier;
 
 /**
  * Who cannot be punished: {@code players} in {@code immune.yml}, a UUID (or a name) and what it is exempt from —
- * {@code all}, {@code ban}, {@code mute}, {@code kick}, {@code warn} or {@code alts} (may join even when
- * {@code alts.deny-if-banned} would refuse it). A UUID keeps working after a name change, and in offline mode a name
- * proves nothing. The {@code users} list of 1.0.0 (names exempt from everything) is still honoured, with a warning, so
+ * {@code all}, {@code ban}, {@code mute}, {@code kick}, {@code warn}, {@code alts} (may join even when
+ * {@code alts.deny-if-banned} would refuse it) or {@code report} (cannot be reported). A UUID keeps working after a
+ * name change, and in offline mode a name proves nothing. The {@code users} list of 1.0.0 (names exempt from everything) is still honoured, with a warning, so
  * an upgrade does not leave anyone punishable by surprise.
  */
 public class ImmuneCache {
@@ -33,7 +31,9 @@ public class ImmuneCache {
     public static final String KICK = "kick";
     public static final String WARN = "warn";
     public static final String ALTS = "alts";
-    private static final Set<String> TYPES = Set.of(ALL, BAN, MUTE, KICK, WARN, ALTS);
+    /** cannot be reported with {@code /report} */
+    public static final String REPORT = "report";
+    private static final Set<String> TYPES = Set.of(ALL, BAN, MUTE, KICK, WARN, ALTS, REPORT);
 
     private volatile Map<String, Set<String>> byName = Map.of();
     private volatile Map<UUID, Set<String>> byUuid = Map.of();
@@ -74,7 +74,7 @@ public class ImmuneCache {
             for (String type : listed) {
                 final String normalized = type.trim().toLowerCase(Locale.ROOT);
                 if (TYPES.contains(normalized)) types.add(normalized);
-                else judicator.getLogger().warn("immune.yml: ignoring '{}' for {} (use all, ban, mute, kick, warn or alts)", type, id);
+                else judicator.getLogger().warn("immune.yml: ignoring '{}' for {} (use all, ban, mute, kick, warn, alts or report)", type, id);
             }
         } catch (Exception e) {
             judicator.getLogger().warn("immune.yml: ignoring {}: give a list such as [ban, mute]", id);
@@ -99,6 +99,17 @@ public class ImmuneCache {
         if (byUuid.isEmpty()) return false;
         final UUID id = uuid.get();
         return id != null && covers(byUuid.get(id), type);
+    }
+
+    /**
+     * {@link #isExempt} counting only the type itself, not {@code all}: being unpunishable does not make a player
+     * unreportable.
+     */
+    public boolean isExemptFrom(String name, UUID uuid, String type) {
+        final Set<String> named = byName.get(name.toLowerCase(Locale.ROOT));
+        if (named != null && named.contains(type)) return true;
+        final Set<String> byAccount = uuid == null ? null : byUuid.get(uuid);
+        return byAccount != null && byAccount.contains(type);
     }
 
     private static boolean covers(Set<String> types, String type) {

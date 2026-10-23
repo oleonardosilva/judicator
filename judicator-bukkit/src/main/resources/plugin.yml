@@ -126,6 +126,12 @@ commands:
   tempsoftmute:
     description: Temporarily mutes a player without them noticing.
     permission: judicator.command.tempsoftmute
+  report:
+    description: Reports a player to the staff.
+    permission: judicator.command.report
+  reports:
+    description: Lists, assigns and closes player reports.
+    permission: judicator.command.reports
 permissions:
   judicator.admin:
     description: Full access to every Judicator command.
@@ -165,6 +171,12 @@ permissions:
       judicator.notes.notify: true
       judicator.command.softmute: true
       judicator.command.tempsoftmute: true
+      judicator.command.report: true
+      judicator.command.reports: true
+      judicator.report.offline: true
+      judicator.reports.manage: true
+      judicator.reports.tp: true
+      judicator.reports.notify: true
       judicator.alts.notify: true
       judicator.notify: true
       judicator.notify.silent: true
@@ -394,3 +406,29 @@ permissions:
       judicator.command.tempsoftmute: true
   judicator.command.tempsoftmute:
     default: false
+  judicator.report:
+    description: /report (only checked with reports.require-permission in config.yml).
+    default: true
+    children:
+      judicator.command.report: true
+  judicator.command.report:
+    default: false
+  judicator.report.offline:
+    description: /report a player who is not online.
+    default: op
+  judicator.reports:
+    description: /reports list and info.
+    default: op
+    children:
+      judicator.command.reports: true
+  judicator.command.reports:
+    default: false
+  judicator.reports.manage:
+    description: /reports assign, unassign and close.
+    default: op
+  judicator.reports.tp:
+    description: /reports tp (go to the reported player).
+    default: op
+  judicator.reports.notify:
+    description: Told about new reports and, when joining, how many are open.
+    default: op

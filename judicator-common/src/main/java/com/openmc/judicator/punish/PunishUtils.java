@@ -1,5 +1,6 @@
 package com.openmc.judicator.punish;
 
+import java.util.regex.Matcher;
 import com.openmc.judicator.commons.DateTimeOffsetParser;
 import com.openmc.judicator.punish.scopes.ScopeService;
 import net.kyori.adventure.text.Component;
@@ -17,16 +18,30 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class PunishUtils {
 
+    private static final Pattern PLACEHOLDER = Pattern.compile("\\{([A-Za-z]+)}");
+
+    /**
+     * The message at the path with its placeholders replaced in one pass: a value (a reason typed by a player) is never
+     * read as a placeholder itself.
+     */
     public static TextComponent format(ConfigurationNode node, Map<String, String> placeholders, Object... path) {
-        String content = node.node(path).getString("§cFind Message Error").replace("&", "§");
-        for (Map.Entry<String, String> entry : placeholders.entrySet()) {
-            content = content.replace("{" + entry.getKey() + "}", entry.getValue() == null ? "None" : entry.getValue());
+        final String content = node.node(path).getString("§cFind Message Error").replace("&", "§");
+        final Matcher matcher = PLACEHOLDER.matcher(content);
+        final StringBuilder text = new StringBuilder();
+        while (matcher.find()) {
+            final String key = matcher.group(1);
+            final String value = placeholders.containsKey(key)
+                    ? (placeholders.get(key) == null ? "None" : placeholders.get(key))
+                    : matcher.group();
+            matcher.appendReplacement(text, Matcher.quoteReplacement(value));
         }
-        return Component.text(content);
+        matcher.appendTail(text);
+        return Component.text(text.toString());
     }
 
     public static Optional<Long> parseId(String raw) {

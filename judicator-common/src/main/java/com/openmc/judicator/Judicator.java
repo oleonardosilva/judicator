@@ -1,5 +1,8 @@
 package com.openmc.judicator;
 
+import com.openmc.judicator.reports.ReportService;
+import com.openmc.judicator.reports.commands.ReportCommand;
+import com.openmc.judicator.reports.commands.ReportsCommand;
 import com.openmc.judicator.players.PlayerDirectory;
 import com.openmc.judicator.commons.DataRetentionService;
 import com.openmc.judicator.commons.JudicatorCommand;
@@ -45,6 +48,8 @@ import com.openmc.judicator.punish.handlers.PunishmentEffects;
 import com.openmc.judicator.punish.listeners.ChatHandler;
 import com.openmc.judicator.punish.listeners.ConnectionHandler;
 import com.openmc.judicator.punish.scopes.ScopeService;
+import com.openmc.judicator.reports.repository.ReportRepository;
+import com.openmc.judicator.reports.repository.dao.ReportRelationalDAO;
 import com.openmc.judicator.sync.SyncService;
 import com.openmc.judicator.sync.repository.SyncRepository;
 import com.openmc.judicator.sync.repository.dao.SyncRelationalDAO;
@@ -105,6 +110,8 @@ public class Judicator {
     private PlayerDirectory playerDirectory;
     /** where punishments apply ({@code scopes}) */
     private ScopeService scopeService;
+    /** player reports ({@code /report}, {@code /reports}) */
+    private ReportService reportService;
     private AddressPolicy addressPolicy;
     private HierarchyService hierarchyService;
     private TimeLimitService timeLimitService;
@@ -130,7 +137,7 @@ public class Judicator {
      */
     public record Repositories(PunishmentRepository punishments, WarnRepository warns,
                                PlayerAddressRepository addresses, PlayerLevelRepository levels, NoteRepository notes,
-                               SyncRepository sync, PlayerRepository players) {
+                               SyncRepository sync, PlayerRepository players, ReportRepository reports) {
     }
 
     private final Repositories providedRepositories;
@@ -185,7 +192,8 @@ public class Judicator {
                     new PlayerLevelRelationalDAO(relationalDBManager, logger),
                     new NoteRelationalDAO(relationalDBManager, logger),
                     new SyncRelationalDAO(relationalDBManager, logger),
-                    new PlayerRelationalDAO(relationalDBManager, logger));
+                    new PlayerRelationalDAO(relationalDBManager, logger),
+                    new ReportRelationalDAO(relationalDBManager, logger));
         } else {
             repositories = providedRepositories;
         }
@@ -283,6 +291,7 @@ public class Judicator {
         this.addressPolicy = new AddressPolicy(this);
         this.warnService = new WarnService(repositories.warns());
         this.noteService = new NoteService(repositories.notes());
+        this.reportService = new ReportService(this, repositories.reports());
         this.hierarchyService = new HierarchyService(this, repositories.levels());
         this.timeLimitService = new TimeLimitService(this);
         this.punishCooldown = new PunishCooldown(this);
@@ -361,6 +370,8 @@ public class Judicator {
         list.add(new NotesCommand(this));
         list.add(new DelNoteCommand(this));
         list.add(new PlayerInfoCommand(this));
+        list.add(new ReportCommand(this));
+        list.add(new ReportsCommand(this));
         list.add(new JudicatorCommand(this));
         return List.copyOf(list);
     }

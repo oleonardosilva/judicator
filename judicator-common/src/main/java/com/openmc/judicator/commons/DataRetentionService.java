@@ -72,6 +72,7 @@ public class DataRetentionService {
         days(retention, "finished-warns").ifPresent(days -> deleted.put("finished-warns", repositories.warns().deleteFinishedBefore(now.minusDays(days))));
         days(retention, "addresses").ifPresent(days -> deleted.put("addresses", repositories.addresses().deleteUnusedBefore(now.minusDays(days))));
         days(retention, "notes").ifPresent(days -> deleted.put("notes", repositories.notes().deleteBefore(now.minusDays(days))));
+        days(retention, "reports").ifPresent(days -> deleted.put("reports", repositories.reports().deleteClosedBefore(now.minusDays(days))));
         deleted.forEach((kind, count) -> {
             if (count > 0) judicator.getLogger().info("Retention: deleted {} {} older than retention.{}", count, kind, kind);
         });
@@ -97,8 +98,10 @@ public class DataRetentionService {
         final int notes = repositories.notes().countOf(player);
         final int addresses = judicator.getAddressService().countAddresses(player);
         final boolean level = repositories.levels().findLevel(player).isPresent();
+        final int reports = judicator.getReportService().countAllOf(player);
         final String summary = punishments.size() + " punishment(s) (" + inForce + " in force), " + warns.size() + " warn(s), "
-                + notes + " staff note(s), " + addresses + " IP address record(s)" + (level ? ", a staff level" : "");
+                + notes + " staff note(s), " + addresses + " IP address record(s), " + reports + " report(s) made or received"
+                + (level ? ", a staff level" : "");
 
         if (!confirm) {
             send(sender, "§eStored about " + username + (uuid == null ? "" : " (" + uuid + ")") + ": §f" + summary + "§e.");
@@ -110,6 +113,7 @@ public class DataRetentionService {
         repositories.punishments().deleteAllOf(player);
         repositories.warns().deleteAllOf(player);
         repositories.notes().deleteAllOf(player);
+        repositories.reports().deleteAllOf(player);
         judicator.getAddressService().removeAccount(player);
         repositories.levels().delete(player);
         judicator.getPlayerDirectory().forget(player);

@@ -2,6 +2,7 @@ package com.openmc.judicator.punish.listeners;
 
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.platform.JudicatorPlayer;
+import com.openmc.judicator.platform.PlatformType;
 import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
@@ -142,6 +143,8 @@ public class ConnectionHandler {
         judicator.getPunishService().resumeOnlineOnlyMutes(judicator.getPlayerDirectory().refOf(player));
         judicator.getHierarchyService().recordLevel(player);
         notifyNotes(player);
+        // the proxy can only talk to the player once they are on a server: VelocityListener does it then
+        if (judicator.getPlatform().getType() != PlatformType.VELOCITY) judicator.getReportService().notifyOnJoin(player);
     }
 
     /**

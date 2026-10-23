@@ -1,5 +1,6 @@
 package com.openmc.judicator.velocity;
 
+import com.velocitypowered.api.event.connection.PluginMessageEvent;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.punish.listeners.ChatHandler;
 import com.openmc.judicator.punish.listeners.ConnectionHandler;
@@ -12,6 +13,7 @@ import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.event.connection.PreLoginEvent;
 import com.velocitypowered.api.event.player.PlayerChatEvent;
 import com.velocitypowered.api.event.player.PlayerChooseInitialServerEvent;
+import com.velocitypowered.api.event.player.ServerPostConnectEvent;
 import com.velocitypowered.api.event.player.ServerPreConnectEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
@@ -108,6 +110,25 @@ public class VelocityListener {
                 event.getPlayer().sendMessage(message);
             });
         });
+    }
+
+    /**
+     * The first server of a staff member after login: the open reports are told now (at login the client cannot get
+     * chat yet).
+     */
+    @Subscribe
+    public EventTask onServerPostConnect(ServerPostConnectEvent event) {
+        if (event.getPreviousServer() != null) return null;
+        return EventTask.async(() -> judicator.getReportService().notifyOnJoin(new VelocityPlayer(event.getPlayer())));
+    }
+
+    /**
+     * Only the proxy talks on Judicator's plugin channel ({@code /reports tp}): what a client (or a backend) sends on it
+     * is never passed on, so no player can make a backend teleport them.
+     */
+    @Subscribe
+    public void onPluginMessage(PluginMessageEvent event) {
+        if (event.getIdentifier().equals(VelocityPlatform.TELEPORT_CHANNEL)) event.setResult(PluginMessageEvent.ForwardResult.handled());
     }
 
     @Subscribe

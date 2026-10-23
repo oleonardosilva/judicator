@@ -72,6 +72,7 @@ public class PlayerInfoCommand extends CoreCommand {
         placeholders.put("warns", String.valueOf(warns.size()));
         placeholders.put("activeWarns", String.valueOf(warns.stream().filter(w -> w.getStatus() == WarnStatus.ACTIVE).count()));
         placeholders.put("notes", String.valueOf(notes));
+        placeholders.put("reports", String.valueOf(judicator.getReportService().countAgainst(player)));
         placeholders.put("alts", String.valueOf(judicator.getAddressService().findAlts(player, judicator.getAddressPolicy()::isExempt).size()));
         placeholders.put("lastSeen", online.isPresent()
                 ? messages.node("info", "now").getString("now").replace("&", "§")
@@ -86,6 +87,7 @@ public class PlayerInfoCommand extends CoreCommand {
         text.append(line(messages, placeholders, "warns", "/whistory " + nickname));
         text.append(line(messages, placeholders, "notes", "/notes " + nickname));
         text.append(line(messages, placeholders, "alts", "/alts " + nickname));
+        text.append(PunishUtils.format(messages, placeholders, "info", "reports"));
         text.append(PunishUtils.format(messages, placeholders, "info", "last-seen"));
         final boolean seesAddresses = source.hasPermission(PunishPermissions.HISTORY.getPermission())
                 || source.hasPermission(PunishPermissions.ADMIN.getPermission());
