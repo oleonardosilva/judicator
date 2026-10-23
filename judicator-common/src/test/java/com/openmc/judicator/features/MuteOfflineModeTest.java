@@ -21,7 +21,7 @@ class MuteOfflineModeTest {
 
     @Test
     void trustUuids_checksBansByUuidOnABackendBehindAProxy(@TempDir Path backend) {
-        try (TestServer proxied = TestServer.in(backend).offlineMode().config("trust-uuids: false", "trust-uuids: true").start()) {
+        try (TestServer proxied = TestServer.in(backend).offlineMode().set("trust-uuids", true).start()) {
             final UUID account = UUID.randomUUID();
             proxied.online(new FakePlayer("Steve", account, "10.0.0.1"));
             proxied.command(proxied.console, "ban Steve xray");

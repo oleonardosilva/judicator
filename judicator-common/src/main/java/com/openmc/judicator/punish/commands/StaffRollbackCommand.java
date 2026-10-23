@@ -9,9 +9,11 @@ import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.punish.PunishService;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
+import com.openmc.judicator.punish.handlers.RevokeHandler;
 import com.openmc.judicator.punish.types.PunishPermissions;
 import com.openmc.judicator.punish.types.PunishStatus;
 import com.openmc.judicator.warns.Warn;
+import com.openmc.judicator.warns.handlers.UnwarnHandler;
 import com.openmc.judicator.warns.types.WarnStatus;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -19,7 +21,6 @@ import net.kyori.adventure.text.event.HoverEvent;
 import org.spongepowered.configurate.ConfigurationNode;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -92,17 +93,12 @@ public class StaffRollbackCommand extends CoreCommand {
         final String author = source.asPlayer().map(JudicatorPlayer::getName).orElse("Console");
         final String reason = PunishUtils.format(judicator.getMessagesConfig(), Map.of("staff", staff.get(), "author", author),
                 "rollback", "revoke-reason").content();
-        final List<Punishment> revoked = new ArrayList<>();
-        for (Punishment punishment : punishments) {
-            if (!punishService.revokeNow(punishment.getId(), reason)) continue;
-            revoked.add(punishment);
-            judicator.getPunishCache().forgetMute(punishment.getId());
-        }
-        judicator.getPunishmentEffects().pardoned(revoked);
+        final List<Punishment> revoked = new RevokeHandler(judicator).revoke(punishments, reason, author, false);
+        final UnwarnHandler unwarnHandler = new UnwarnHandler(judicator);
         for (Warn warn : warns) {
             judicator.getLogger().info("Rollback by {}: deleting warn #{} of {} applied by {} at {}: {}",
                     author, warn.getId(), warn.getNickname(), warn.getPunisher(), warn.getStartedAt(), warn.getReason());
-            judicator.getWarnService().deleteById(warn.getId());
+            unwarnHandler.remove(warn, author, false);
         }
 
         source.sendMessage(PunishUtils.format(messages, Map.of(

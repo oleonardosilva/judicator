@@ -18,13 +18,11 @@ import java.util.UUID;
 import java.util.function.Supplier;
 
 /**
- * Who cannot be punished, from {@code immune.yml}:
- * <ul>
- *     <li>{@code users}: names exempt from everything (the format of older versions);</li>
- *     <li>{@code players}: a UUID (or a name) and what it is exempt from — {@code all}, {@code ban}, {@code mute},
- *     {@code kick}, {@code warn} or {@code alts} (may join even when {@code alts.deny-if-banned} would refuse it).
- *     A UUID keeps working after a name change, and in offline mode a name proves nothing.</li>
- * </ul>
+ * Who cannot be punished: {@code players} in {@code immune.yml}, a UUID (or a name) and what it is exempt from —
+ * {@code all}, {@code ban}, {@code mute}, {@code kick}, {@code warn} or {@code alts} (may join even when
+ * {@code alts.deny-if-banned} would refuse it). A UUID keeps working after a name change, and in offline mode a name
+ * proves nothing. The {@code users} list of 1.0.0 (names exempt from everything) is still honoured, with a warning, so
+ * an upgrade does not leave anyone punishable by surprise.
  */
 public class ImmuneCache {
 
@@ -48,8 +46,11 @@ public class ImmuneCache {
         final Map<String, Set<String>> names = new HashMap<>();
         final Map<UUID, Set<String>> uuids = new HashMap<>();
         try {
-            final List<String> users = judicator.getImmuneConfig().node("users").getList(String.class);
-            if (users != null) users.forEach(name -> names.computeIfAbsent(name.toLowerCase(Locale.ROOT), k -> new HashSet<>()).add(ALL));
+            final List<String> users = judicator.getImmuneConfig().node("users").getList(String.class, List.of());
+            if (!users.isEmpty()) {
+                judicator.getLogger().warn("immune.yml: 'users' is deprecated; move each name to 'players' as \"<name or UUID>\": [all]");
+                users.forEach(name -> names.computeIfAbsent(name.toLowerCase(Locale.ROOT), k -> new HashSet<>()).add(ALL));
+            }
         } catch (Exception e) {
             judicator.getLogger().error(e.getMessage(), e);
         }

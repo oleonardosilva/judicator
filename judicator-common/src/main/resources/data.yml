@@ -1,8 +1,23 @@
+# ============================================================
+#  Judicator — database
+# ============================================================
+# /judicator reload reconnects with these settings; changing 'type' needs a restart.
+# To move the data to another database (e.g. SQLite -> MySQL), see 'judicator' in import.yml.
+
 database:
+  type: 'postgres' # postgres, mysql (also for MariaDB) or sqlite
+
+  # --- sqlite: one file, no database server (only 'file' is read) ---
+  file: 'judicator.db' # relative to the plugin folder
+
+  # --- postgres / mysql ---
+  host: 'localhost'
+  port: '' # empty: the default port of the type (5432 for postgres, 3306 for mysql)
+  database: 'postgres'
   user: 'postgres'
   password: 'password'
-  host: 'localhost'
-  port: '5432'
-  database: 'postgres'
-  type: 'postgres' # postgres, mysql or sqlite (sqlite needs no server: user, password, host, port and database are ignored)
-  file: 'judicator.db' # sqlite only: database file, relative to the plugin folder
+  properties: # extra JDBC driver properties, e.g. MySQL: useSSL: 'false' / PostgreSQL: sslmode: 'require'
+  pool:
+    maximum-size: 10 # most connections open at once
+    minimum-idle: 2 # connections kept open while idle
+    connection-timeout: 30 # seconds to wait for a free connection before failing

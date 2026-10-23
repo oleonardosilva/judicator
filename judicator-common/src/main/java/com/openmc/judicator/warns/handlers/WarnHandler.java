@@ -1,6 +1,9 @@
 package com.openmc.judicator.warns.handlers;
 
 import com.openmc.judicator.Judicator;
+import com.openmc.judicator.api.event.WarnAppliedEvent;
+import com.openmc.judicator.integration.ApiViews;
+import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.warns.*;
 import net.kyori.adventure.text.TextComponent;
 
@@ -20,6 +23,7 @@ public class WarnHandler {
         try {
             final Warn warn = judicator.getWarnService().save(warnBuilder.build());
             this.announce(warn);
+            judicator.getEventBus().post(() -> new WarnAppliedEvent(ApiViews.warn(warn), warn.isSilent()));
             this.calc(warn);
 
             judicator.getPlatform().getPlayer(warn.getPunisher()).ifPresent(
@@ -66,7 +70,7 @@ public class WarnHandler {
         judicator.getDiscordWebhookService().sendWarn(warn);
 
         judicator.getStaffNotifier().notifyWarn(warn);
-        if (!warn.isSilent() && judicator.getConfig().node("announce").getBoolean(true)) {
+        if (!warn.isSilent() && PunishUtils.announces(judicator.getConfig(), "warn")) {
             judicator.getPlatform().getPlayer(warn.getNickname()).ifPresent(player -> judicator.getPlatform().announceToServerOf(player,
                     recipient -> WarnUtils.getMessageList(judicator.messagesFor(recipient), warn, "announcements", "warn")));
         }

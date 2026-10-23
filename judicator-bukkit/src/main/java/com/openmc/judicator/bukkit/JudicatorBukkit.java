@@ -1,9 +1,11 @@
 package com.openmc.judicator.bukkit;
 
 import com.openmc.judicator.Judicator;
+import com.openmc.judicator.api.JudicatorApi;
 import com.openmc.judicator.commons.command.CoreCommand;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.logging.Level;
@@ -42,11 +44,14 @@ public class JudicatorBukkit extends JavaPlugin {
         }
 
         getServer().getPluginManager().registerEvents(new BukkitListener(core, platform), this);
+        // Also reachable through JudicatorProvider.get(), set by Judicator.enable().
+        getServer().getServicesManager().register(JudicatorApi.class, core.getApi(), this, ServicePriority.Normal);
         getLogger().info("Plugin has been initialized successfully!");
     }
 
     @Override
     public void onDisable() {
+        getServer().getServicesManager().unregisterAll(this);
         if (judicator != null) {
             judicator.disable();
             judicator = null;

@@ -187,4 +187,13 @@ public class PunishUtils {
 
     }
 
+    /**
+     * {@code announce} in {@code config.yml}: {@code true}/{@code false} for every kind, or one value per kind
+     * ({@code ban}, {@code mute}, {@code kick}, {@code warn}; a kind left out is announced).
+     */
+    public static boolean announces(ConfigurationNode config, String kind) {
+        final ConfigurationNode announce = config.node("announce");
+        return announce.isMap() ? announce.node(kind).getBoolean(true) : announce.getBoolean(true);
+    }
+
 }

@@ -112,7 +112,7 @@ class NotesAndInfoTest {
 
     @Test
     void joining_withNotifyOff_saysNothing() {
-        server = TestServer.in(folder).config("notes:\n  notify-on-join: true", "notes:\n  notify-on-join: false").start();
+        server = TestServer.in(folder).set("notes.notify-on-join", false).start();
         final FakePlayer staff = server.online(new FakePlayer("Mod", "10.0.0.2", "judicator.notes.notify"));
         server.notes.save(Note.create(null, "Steve", "Mod", "x"));
 
@@ -133,7 +133,7 @@ class NotesAndInfoTest {
 
     @Test
     void playerInfo_summarizesThePlayer() {
-        server = TestServer.in(folder).config("log-kicks: false", "log-kicks: true").start();
+        server = TestServer.in(folder).set("log-kicks", true).start();
         final FakePlayer viewer = server.online(new FakePlayer("Viewer", "10.0.0.9", "judicator.info"));
         server.online(new FakePlayer("Steve", "10.0.0.1"));
         server.online(new FakePlayer("SteveAlt", "10.0.0.1"));

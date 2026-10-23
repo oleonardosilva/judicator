@@ -2,6 +2,7 @@ package com.openmc.judicator.discord;
 
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.punish.Punishment;
+import com.openmc.judicator.punish.types.PunishType;
 import com.openmc.judicator.warns.Warn;
 import org.spongepowered.configurate.ConfigurationNode;
 
@@ -10,13 +11,24 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Posts an embed per punishment and warn to the webhook of {@code discord.yml}: the event's own {@code webhook-url},
+ * or the top-level one.
+ */
 public class DiscordWebhookService {
 
-    private static final String SKIN_FACE_URL = "https://mc-heads.net/avatar/%s";
+    private static final String DEFAULT_THUMBNAIL = "https://mc-heads.net/avatar/{uuid}";
     private final DateTimeFormatter FORMATTER;
 
     private final Judicator plugin;
@@ -27,171 +39,123 @@ public class DiscordWebhookService {
     }
 
     public void sendPunishment(Punishment punishment) {
-        final ConfigurationNode discordConfig = plugin.getDiscordConfig();
-        if (!discordConfig.node("enabled").getBoolean(false)) return;
-
-        final String eventKey = resolveEventKey(punishment);
-        final ConfigurationNode eventNode = discordConfig.node("events", eventKey);
-        if (!eventNode.node("enabled").getBoolean(false)) return;
-
-        final String webhookUrl = eventNode.node("webhook-url").getString("");
-        if (!isConfigured(webhookUrl)) return;
-
-        CompletableFuture.runAsync(() -> {
-            try {
-                final String json = buildPunishmentPayload(punishment, eventNode);
-                post(webhookUrl, json);
-            } catch (Exception e) {
-                plugin.getLogger().error("[Discord] Failed to send punishment webhook: {}", e.getMessage(), e);
-            }
-        });
+        final ConfigurationNode labels = plugin.getDiscordConfig().node("labels");
+        final String expires = punishment.getFinishAt()
+                .map(dt -> dt.format(FORMATTER))
+                .orElse(punishment.isPaused() ? label(labels, "paused", "Paused (online time only)") : label(labels, "permanent", "Permanent"));
+        final Entry entry = new Entry(punishment.getId(), punishment.getNickname(), punishment.getPlayerUUID(), punishment.getPunisher(),
+                punishment.getReason().orElse(label(labels, "no-reason", "No reason provided")), punishment.getDisplayType(),
+                punishment.getStartedAt(), punishment.getType() == PunishType.KICK ? null : expires);
+        send(punishment.getType().name().toLowerCase(Locale.ROOT), entry);
     }
 
     public void sendWarn(Warn warn) {
+        final ConfigurationNode labels = plugin.getDiscordConfig().node("labels");
+        final String expires = warn.getFinishAt().map(dt -> dt.format(FORMATTER)).orElse(label(labels, "permanent", "Permanent"));
+        send("warn", new Entry(warn.getId(), warn.getNickname(), warn.getPlayerUUID(), warn.getPunisher(), warn.getReason(),
+                label(labels, "warn", "Warn"), warn.getStartedAt(), expires));
+    }
+
+    /**
+     * What one embed shows, from a punishment or a warn.
+     *
+     * @param expires null when the end means nothing (a kick)
+     */
+    private record Entry(Long id, String player, Optional<UUID> uuid, String punisher, String reason, String type,
+                         LocalDateTime startedAt, String expires) {
+    }
+
+    private void send(String eventKey, Entry entry) {
         final ConfigurationNode discordConfig = plugin.getDiscordConfig();
         if (!discordConfig.node("enabled").getBoolean(false)) return;
 
-        final ConfigurationNode eventNode = discordConfig.node("events", "warn");
+        final ConfigurationNode eventNode = discordConfig.node("events", eventKey);
         if (!eventNode.node("enabled").getBoolean(false)) return;
 
-        final String webhookUrl = eventNode.node("webhook-url").getString("");
+        final String webhookUrl = webhookUrl(discordConfig, eventNode);
         if (!isConfigured(webhookUrl)) return;
 
         CompletableFuture.runAsync(() -> {
             try {
-                final String json = buildWarnPayload(warn, eventNode);
-                post(webhookUrl, json);
+                post(webhookUrl, buildPayload(discordConfig, eventNode, entry));
             } catch (Exception e) {
-                plugin.getLogger().error("[Discord] Failed to send warn webhook: {}", e.getMessage(), e);
+                plugin.getLogger().error("[Discord] Failed to send the {} webhook: {}", eventKey, e.getMessage(), e);
             }
         });
     }
 
     /**
-     * The default {@code discord.yml} ships with a placeholder URL; posting to it only fills the log with errors.
+     * The event's {@code webhook-url} when set, otherwise the top-level one (older files had one per event only).
+     */
+    static String webhookUrl(ConfigurationNode discordConfig, ConfigurationNode eventNode) {
+        final String own = eventNode.node("webhook-url").getString("");
+        return own.isBlank() ? discordConfig.node("webhook-url").getString("") : own;
+    }
+
+    /**
+     * The default {@code discord.yml} of older versions shipped with a placeholder URL; posting to it only fills the
+     * log with errors.
      */
     public static boolean isConfigured(String webhookUrl) {
         return webhookUrl != null && !webhookUrl.isBlank() && !webhookUrl.contains("YOUR_WEBHOOK_HERE");
     }
 
-    private String resolveEventKey(Punishment punishment) {
-        return punishment.getType().name().toLowerCase();
+    private String buildPayload(ConfigurationNode discordConfig, ConfigurationNode eventNode, Entry entry) {
+        final ConfigurationNode labels = discordConfig.node("labels");
+        final String uuid = entry.uuid().map(UUID::toString).orElse("MHF_Steve");
+        final String thumbnail = discordConfig.node("thumbnail-url").getString(DEFAULT_THUMBNAIL).replace("{uuid}", uuid);
+
+        final List<String> fields = new ArrayList<>();
+        fields.add(field(label(labels, "player", "Player"), entry.player(), true));
+        fields.add(field(label(labels, "punisher", "Punisher"), entry.punisher(), true));
+        fields.add(field(label(labels, "type", "Type"), entry.type(), true));
+        fields.add(field(label(labels, "reason", "Reason"), entry.reason(), false));
+        fields.add(field(label(labels, "started-at", "Started At"), entry.startedAt().format(FORMATTER), true));
+        if (entry.expires() != null) fields.add(field(label(labels, "expires", "Expires"), entry.expires(), true));
+
+        final Map<String, String> embed = new LinkedHashMap<>();
+        embed.put("title", jsonString(resolvePlaceholders(eventNode.node("title").getString(entry.type()), entry)));
+        embed.put("description", jsonString(resolvePlaceholders(eventNode.node("description").getString(""), entry)));
+        embed.put("color", String.valueOf(hexToInt(eventNode.node("color").getString("#FF0000"))));
+        if (!thumbnail.isBlank()) embed.put("thumbnail", "{ \"url\": " + jsonString(thumbnail) + " }");
+        embed.put("fields", "[" + String.join(", ", fields) + "]");
+        final String footer = resolvePlaceholders(discordConfig.node("footer").getString("Judicator • ID #{id}"), entry);
+        if (!footer.isBlank()) embed.put("footer", "{ \"text\": " + jsonString(footer) + " }");
+        embed.put("timestamp", jsonString(entry.startedAt().toString()));
+
+        final Map<String, String> payload = new LinkedHashMap<>();
+        final String username = discordConfig.node("username").getString("");
+        final String avatar = discordConfig.node("avatar-url").getString("");
+        if (!username.isBlank()) payload.put("username", jsonString(username));
+        if (!avatar.isBlank()) payload.put("avatar_url", jsonString(avatar));
+        payload.put("embeds", "[" + object(embed) + "]");
+        return object(payload);
     }
 
-    private String buildPunishmentPayload(Punishment punishment, ConfigurationNode eventNode) {
-        final String skinUrl = String.format(SKIN_FACE_URL, punishment.getPlayerUUID().map(UUID::toString).orElse("MHF_Steve"));
-        final int color = hexToInt(eventNode.node("color").getString("#FF0000"));
-
-        final String title = resolvePlaceholders(eventNode.node("title").getString("Punishment"), punishment, null);
-        final String description = resolvePlaceholders(eventNode.node("description").getString(""), punishment, null);
-
-        final String finishAt = punishment.getFinishAt()
-                .map(dt -> dt.format(FORMATTER))
-                .orElse(punishment.isPaused() ? "Paused (online time only)" : "Permanent");
-
-        final String reason = punishment.getReason().orElse("No reason provided");
-        final String avatarUrl = "https://i.imgur.com/TMpUuSu.png";
-
-        return """
-                {
-                  "embeds": [{
-                    "title": %s,
-                    "avatar_url": %s,
-                    "description": %s,
-                    "color": %d,
-                    "thumbnail": { "url": "%s" },
-                    "fields": [
-                      { "name": "Player", "value": "`%s`", "inline": true },
-                      { "name": "Punisher", "value": "`%s`", "inline": true },
-                      { "name": "Type", "value": "`%s`", "inline": true },
-                      { "name": "Reason", "value": "`%s`", "inline": false },
-                      { "name": "Started At", "value": "`%s`", "inline": true },
-                      { "name": "Duration", "value": "`%s`", "inline": true }
-                    ],
-                    "footer": { "text": "Judicator • ID #%d" },
-                    "timestamp": "%s"
-                  }]
-                }
-                """.formatted(
-                jsonString(title),
-                jsonString(avatarUrl),
-                jsonString(description),
-                color,
-                skinUrl,
-                escape(punishment.getNickname()),
-                escape(punishment.getPunisher()),
-                punishment.getDisplayType(),
-                escape(reason),
-                punishment.getStartedAt().format(FORMATTER),
-                escape(finishAt),
-                punishment.getId() != null ? punishment.getId() : 0,
-                punishment.getStartedAt().toString()
-        );
-    }
-
-    private String buildWarnPayload(Warn warn, ConfigurationNode eventNode) {
-        final String skinUrl = String.format(SKIN_FACE_URL, warn.getPlayerUUID().map(UUID::toString).orElse("MHF_Steve"));
-        final int color = hexToInt(eventNode.node("color").getString("#FFA500"));
-
-        final String title = resolvePlaceholders(eventNode.node("title").getString("Warning"), null, warn);
-        final String description = resolvePlaceholders(eventNode.node("description").getString(""), null, warn);
-
-        final String finishAt = warn.getFinishAt()
-                .map(dt -> dt.format(FORMATTER))
-                .orElse("Permanent");
-
-        return """
-                {
-                  "embeds": [{
-                    "title": %s,
-                    "description": %s,
-                    "color": %d,
-                    "thumbnail": { "url": "%s" },
-                    "fields": [
-                      { "name": "Player", "value": "`%s`", "inline": true },
-                      { "name": "Punisher", "value": "`%s`", "inline": true },
-                      { "name": "Reason", "value": "`%s`", "inline": false },
-                      { "name": "Duration", "value": "`%s`", "inline": true },
-                      { "name": "Started At", "value": "`%s`", "inline": true }
-                    ],
-                    "footer": { "text": "Judicator • ID #%d" },
-                    "timestamp": "%s"
-                  }]
-                }
-                """.formatted(
-                jsonString(title),
-                jsonString(description),
-                color,
-                skinUrl,
-                escape(warn.getNickname()),
-                escape(warn.getPunisher()),
-                escape(warn.getReason()),
-                escape(finishAt),
-                warn.getStartedAt().format(FORMATTER),
-                warn.getId() != null ? warn.getId() : 0,
-                warn.getStartedAt().toString()
-        );
-    }
-
-    private String resolvePlaceholders(String template, Punishment punishment, Warn warn) {
+    private String resolvePlaceholders(String template, Entry entry) {
         if (template == null) return "";
-        String result = template;
-        if (punishment != null) {
-            result = result
-                    .replace("{player}", punishment.getNickname())
-                    .replace("{punisher}", punishment.getPunisher())
-                    .replace("{reason}", punishment.getReason().orElse("N/A"))
-                    .replace("{type}", punishment.getDisplayType())
-                    .replace("{id}", String.valueOf(punishment.getId() != null ? punishment.getId() : 0));
-        }
-        if (warn != null) {
-            result = result
-                    .replace("{player}", warn.getNickname())
-                    .replace("{punisher}", warn.getPunisher())
-                    .replace("{reason}", warn.getReason())
-                    .replace("{id}", String.valueOf(warn.getId() != null ? warn.getId() : 0));
-        }
-        return result;
+        return template
+                .replace("{player}", entry.player())
+                .replace("{punisher}", entry.punisher())
+                .replace("{reason}", entry.reason())
+                .replace("{type}", entry.type())
+                .replace("{id}", entry.id() != null ? String.valueOf(entry.id()) : "-")
+                .replace("{expires}", entry.expires() != null ? entry.expires() : "-");
+    }
+
+    private static String label(ConfigurationNode labels, String key, String fallback) {
+        return labels.node(key).getString(fallback);
+    }
+
+    private String field(String name, String value, boolean inline) {
+        return "{ \"name\": " + jsonString(name) + ", \"value\": " + jsonString("`" + (value == null ? "N/A" : value) + "`")
+                + ", \"inline\": " + inline + " }";
+    }
+
+    private static String object(Map<String, String> members) {
+        final List<String> parts = new ArrayList<>();
+        members.forEach((key, value) -> parts.add("\"" + key + "\": " + value));
+        return "{ " + String.join(", ", parts) + " }";
     }
 
     private void post(String webhookUrl, String json) throws IOException {
@@ -223,12 +187,25 @@ public class DiscordWebhookService {
         }
     }
 
-    private String escape(String value) {
-        if (value == null) return "N/A";
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
-
-    private String jsonString(String value) {
-        return "\"" + escape(value) + "\"";
+    /**
+     * A JSON string literal: quotes, backslashes and control characters (a line break in a reason) escaped.
+     */
+    static String jsonString(String value) {
+        if (value == null) return "\"N/A\"";
+        final StringBuilder out = new StringBuilder("\"");
+        for (char c : value.toCharArray()) {
+            switch (c) {
+                case '"' -> out.append("\\\"");
+                case '\\' -> out.append("\\\\");
+                case '\n' -> out.append("\\n");
+                case '\r' -> out.append("\\r");
+                case '\t' -> out.append("\\t");
+                default -> {
+                    if (c < 0x20) out.append(String.format("\\u%04x", (int) c));
+                    else out.append(c);
+                }
+            }
+        }
+        return out.append('"').toString();
     }
 }

@@ -3,11 +3,12 @@ package com.openmc.judicator.punish.commands;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.commons.command.CommandArgs;
 import com.openmc.judicator.commons.command.CoreCommand;
+import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.punish.PunishService;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
-import com.openmc.judicator.punish.rules.PunishCooldown;
+import com.openmc.judicator.punish.handlers.RevokeHandler;
 import com.openmc.judicator.punish.types.PunishPermissions;
 import org.spongepowered.configurate.ConfigurationNode;
 
@@ -44,12 +45,13 @@ public class RevokeCommand extends CoreCommand {
             return;
         }
 
-        punishService.revoke(id, reason, () -> {
-            source.sendMessage(PunishUtils.getMessage(messages, "success", "pardon"));
-            judicator.getPunishCache().forgetMute(id);
-            judicator.getPunishCooldown().release(PunishCooldown.categoryOf(punishment.getType()), punishment.getNickname());
-            judicator.getPunishmentEffects().pardoned(List.of(punishment));
-        }, () -> source.sendMessage(PunishUtils.getMessage(messages, "error", "unknown")));
+        final String author = source.asPlayer().map(JudicatorPlayer::getName).orElse("Console");
+        judicator.getPlatform().runAsync(() -> {
+            final boolean revoked = !new RevokeHandler(judicator).revoke(List.of(punishment), reason, author, true).isEmpty();
+            source.sendMessage(revoked
+                    ? PunishUtils.getMessage(messages, "success", "pardon")
+                    : PunishUtils.getMessage(messages, "error", "unknown"));
+        });
     }
 
     @Override

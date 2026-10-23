@@ -1,32 +1,38 @@
-# Used only by /judicator import <source> [confirm], run from the server console.
-# Back up your database first. Without "confirm" the command only reports what it would import.
-# Running it again is safe: punishments already in Judicator (same target, type and start) are skipped.
-# Judicator only reads the source; nothing is changed there.
+# ============================================================
+#  Judicator — importing from other plugins
+# ============================================================
+# Used only by /judicator import <source> [confirm], from the server console. Read when the command runs.
 #
-# Embedded databases (H2, HSQLDB): stop the source plugin or, better, copy its files and point the URL at the copy;
-# use the user/password the source plugin created them with (shown below for each default); add ;IFEXISTS=TRUE
-# (H2) or ;ifexists=true (HSQLDB) so a mistyped path fails instead of creating an empty database.
+# - Back up your database first. Without "confirm" the command only reports what it would import.
+# - Running it again is safe: punishments already in Judicator (same target, type and start) are skipped.
+# - Judicator only reads the source; nothing is changed there.
+#
+# Each source takes:
+#   jdbc-url, user, password  the source plugin's database (MySQL/MariaDB: jdbc:mysql://host:3306/<db>,
+#                             PostgreSQL: jdbc:postgresql://host:5432/<db>)
+#   table-prefix              where the plugin has one
+#   driver-jar, driver-class  only for a database whose driver Judicator does not ship (H2, HSQLDB): put the driver
+#                             jar in plugins/<Judicator folder>/drivers, set driver-jar to its file name and
+#                             driver-class to its class (H2: org.h2.Driver, HSQLDB: org.hsqldb.jdbc.JDBCDriver)
+#
+# Embedded databases (H2, HSQLDB): stop the source plugin or, better, copy its files and point the URL at the COPY —
+# an embedded file cannot be opened by two programs at once. Use the user/password the source plugin created it with
+# (shown below for each default) and add ;IFEXISTS=TRUE (H2) or ;ifexists=true (HSQLDB), so a mistyped path fails
+# instead of creating an empty database.
 
 litebans:
-  # Same database LiteBans uses, e.g. MySQL/MariaDB: jdbc:mysql://localhost:3306/litebans
-  #                                   PostgreSQL:    jdbc:postgresql://localhost:5432/litebans
+  # Default storage: H2 (LibertyBans' import guide uses h2-1.4.199.jar for it). URL: jdbc:h2:<path to the copy of
+  # LiteBans' database file>;ACCESS_MODE_DATA=r (read-only).
   jdbc-url: ''
   user: ''
   password: ''
   table-prefix: 'litebans_'
-  # LiteBans' default storage is H2, whose driver Judicator does not ship. Put the H2 driver jar in
-  # plugins/<Judicator folder>/drivers (LibertyBans' import guide uses h2-1.4.199.jar for LiteBans), set driver-jar
-  # to its file name, driver-class to 'org.h2.Driver' and jdbc-url to a jdbc:h2: URL pointing at LiteBans' database
-  # file, ending in ;ACCESS_MODE_DATA=r so the file is opened read-only. Stop LiteBans first: an embedded database
-  # file cannot be opened by two programs at once.
   driver-jar: ''
   driver-class: ''
 
 advancedban:
-  # MySQL: jdbc:mysql://localhost:3306/advancedban. AdvancedBan's default storage is HSQLDB (files
-  # plugins/AdvancedBan/data/storage.*, user 'SA', empty password): use driver-jar/driver-class
-  # ('org.hsqldb.jdbc.JDBCDriver') with an HSQLDB driver jar and point a jdbc:hsqldb:file: URL at a COPY of those
-  # files, so the originals are never opened by another program.
+  # Default storage: HSQLDB, files plugins/AdvancedBan/data/storage.*, user 'SA', empty password.
+  # URL: jdbc:hsqldb:file:<path to the copy>/storage
   jdbc-url: ''
   user: ''
   password: ''
@@ -34,10 +40,8 @@ advancedban:
   driver-class: ''
 
 libertybans:
-  # MySQL/MariaDB: jdbc:mysql://localhost:3306/libertybans   PostgreSQL: jdbc:postgresql://localhost:5432/libertybans
-  # LibertyBans' default storage is HSQLDB 2.7 (files plugins/LibertyBans/internal/hypersql/punishments-database.*):
-  # use driver-jar/driver-class ('org.hsqldb.jdbc.JDBCDriver') with an HSQLDB driver jar and point a
-  # jdbc:hsqldb:file: URL at a COPY of those files.
+  # Default storage: HSQLDB 2.7, files plugins/LibertyBans/internal/hypersql/punishments-database.*.
+  # URL: jdbc:hsqldb:file:<path to the copy>/punishments-database
   jdbc-url: ''
   user: ''
   password: ''
@@ -46,9 +50,8 @@ libertybans:
   driver-class: ''
 
 banmanager:
-  # MySQL/MariaDB: jdbc:mysql://localhost:3306/local_bans (the database in BanManager's config.yml, databases.local).
-  # BanManager's default storage is H2 1.4.200 (file plugins/BanManager/local_bans): use driver-jar/driver-class
-  # ('org.h2.Driver') with the H2 1.4.200 driver jar and a jdbc:h2: URL pointing at a COPY of that file.
+  # MySQL/MariaDB: the database of databases.local in BanManager's config.yml.
+  # Default storage: H2 1.4.200, file plugins/BanManager/local_bans (use the H2 1.4.200 driver jar).
   # Only the table prefix is supported: tables renamed one by one in BanManager's config are not found.
   jdbc-url: ''
   user: ''
@@ -63,11 +66,10 @@ vanilla:
 
 judicator:
   # Another Judicator database, e.g. to move from SQLite to MySQL/PostgreSQL: set data.yml to the new database,
-  # restart, then import the old one here. Copies punishments, warns and the IP history used by /alts.
+  # restart, then import the old one here. Copies punishments, warns, staff notes and the IP history used by /alts.
   # SQLite: jdbc:sqlite:plugins/Judicator/judicator-old.db (a COPY of the old file). On Velocity the SQLite driver is
-  # only downloaded while data.yml uses SQLite: otherwise put sqlite-jdbc-3.46.1.2.jar in the drivers folder and set
-  # driver-jar to its file name and driver-class to 'org.sqlite.JDBC'.
-  # MySQL: jdbc:mysql://localhost:3306/judicator   PostgreSQL: jdbc:postgresql://localhost:5432/judicator
+  # only downloaded while data.yml uses SQLite: otherwise put sqlite-jdbc-3.46.1.2.jar in the drivers folder, with
+  # driver-class 'org.sqlite.JDBC'.
   jdbc-url: ''
   user: ''
   password: ''

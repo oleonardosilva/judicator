@@ -7,18 +7,27 @@ import java.util.Locale;
  */
 public enum Dialect {
 
-    POSTGRESQL("org.postgresql.Driver"),
-    MYSQL("com.mysql.cj.jdbc.Driver"),
-    SQLITE("org.sqlite.JDBC");
+    POSTGRESQL("org.postgresql.Driver", "5432"),
+    MYSQL("com.mysql.cj.jdbc.Driver", "3306"),
+    SQLITE("org.sqlite.JDBC", "");
 
     private final String driverClass;
+    private final String defaultPort;
 
-    Dialect(String driverClass) {
+    Dialect(String driverClass, String defaultPort) {
         this.driverClass = driverClass;
+        this.defaultPort = defaultPort;
     }
 
     public String getDriverClass() {
         return driverClass;
+    }
+
+    /**
+     * The port used when {@code database.port} is empty.
+     */
+    public String getDefaultPort() {
+        return defaultPort;
     }
 
     /**

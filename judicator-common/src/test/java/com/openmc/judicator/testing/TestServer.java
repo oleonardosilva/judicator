@@ -6,6 +6,9 @@ import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.platform.PlatformType;
 import net.kyori.adventure.text.Component;
+import org.spongepowered.configurate.CommentedConfigurationNode;
+import org.spongepowered.configurate.yaml.NodeStyle;
+import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -193,9 +196,9 @@ public final class TestServer implements AutoCloseable {
 
         private final Path folder;
         private boolean onlineMode = true;
-        private final Map<String, String> configChanges = new LinkedHashMap<>();
-        private List<String> immune = List.of();
+        private final Map<String, Object> configValues = new LinkedHashMap<>();
         private String immunePlayers = "";
+        private String immuneFile;
         private PlatformType type = PlatformType.VELOCITY;
         private TestServer sharedDatabase;
 
@@ -209,11 +212,21 @@ public final class TestServer implements AutoCloseable {
         }
 
         /**
-         * Replaces text in the plugin's default {@code config.yml} (e.g. {@code "announce: true"} →
-         * {@code "announce: false"}); fails if the text is not there, so a changed default breaks the test loudly.
+         * Sets a value of the plugin's default {@code config.yml}, e.g. {@code set("ip-limits.max-online", 2)} or
+         * {@code set("time-limits.senior.ban", "30:d")}; lists and maps are written as given. Fails when the setting,
+         * or the section of a new one, is not in the default file, so a renamed setting breaks the test loudly.
          */
-        public Builder config(String from, String to) {
-            configChanges.put(from, to);
+        public Builder set(String path, Object value) {
+            configValues.put(path, value);
+            return this;
+        }
+
+        /**
+         * Removes a setting or a whole section of the default {@code config.yml}, as in a file written by an older
+         * version.
+         */
+        public Builder remove(String path) {
+            configValues.put(path, null);
             return this;
         }
 
@@ -233,11 +246,6 @@ public final class TestServer implements AutoCloseable {
             return this;
         }
 
-        public Builder immune(String... names) {
-            this.immune = List.of(names);
-            return this;
-        }
-
         /**
          * Entries of the {@code players:} section of {@code immune.yml}, e.g. {@code "  Steve: [mute]\n"}.
          */
@@ -246,26 +254,42 @@ public final class TestServer implements AutoCloseable {
             return this;
         }
 
+        /**
+         * The whole {@code immune.yml}, e.g. one written by an older version.
+         */
+        public Builder immuneFile(String yaml) {
+            this.immuneFile = yaml;
+            return this;
+        }
+
         public TestServer start() {
             try {
                 Files.createDirectories(folder);
-                String config = resource("/config.yml").replace("\r\n", "\n");
-                for (Map.Entry<String, String> change : configChanges.entrySet()) {
-                    if (!config.contains(change.getKey())) throw new AssertionError("config.yml has no '" + change.getKey() + "'");
-                    config = config.replace(change.getKey(), change.getValue());
-                }
-                Files.writeString(folder.resolve("config.yml"), config, StandardCharsets.UTF_8);
+                Files.writeString(folder.resolve("config.yml"), resource("/config.yml"), StandardCharsets.UTF_8);
+                if (!configValues.isEmpty()) applyConfigValues(folder.resolve("config.yml"));
                 // Never post to Discord from a test.
                 Files.writeString(folder.resolve("discord.yml"), "enabled: false\n", StandardCharsets.UTF_8);
-                final StringBuilder immuneYml = new StringBuilder("users:\n");
-                immune.forEach(name -> immuneYml.append("  - \"").append(name).append("\"\n"));
-                if (immune.isEmpty()) immuneYml.setLength(0);
-                final String players = immunePlayers.isEmpty() ? "" : "players:\n" + immunePlayers;
-                Files.writeString(folder.resolve("immune.yml"), (immune.isEmpty() ? "users: []\n" : immuneYml.toString()) + players, StandardCharsets.UTF_8);
+                Files.writeString(folder.resolve("immune.yml"), immuneFile != null ? immuneFile : "players:\n" + immunePlayers,
+                        StandardCharsets.UTF_8);
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
             return new TestServer(folder, onlineMode, type, sharedDatabase);
+        }
+
+        private void applyConfigValues(Path file) throws IOException {
+            final YamlConfigurationLoader loader = YamlConfigurationLoader.builder().path(file).nodeStyle(NodeStyle.BLOCK).build();
+            final CommentedConfigurationNode root = loader.load();
+            for (Map.Entry<String, Object> change : configValues.entrySet()) {
+                final String path = change.getKey();
+                final int dot = path.lastIndexOf('.');
+                final boolean known = !root.node((Object[]) path.split("\\.")).virtual()
+                        || (dot > 0 && !root.node((Object[]) path.substring(0, dot).split("\\.")).virtual());
+                if (!known) throw new AssertionError("config.yml has no '" + path + "'");
+                if (change.getValue() == null) root.node((Object[]) path.split("\\.")).set(null);
+                else root.node((Object[]) path.split("\\.")).raw(change.getValue());
+            }
+            loader.save(root);
         }
 
         private static String resource(String path) throws IOException {

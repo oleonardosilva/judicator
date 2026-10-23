@@ -12,6 +12,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -51,6 +52,21 @@ class KickTest {
     }
 
     @Test
+    void announcePerKind_silencesOnlyTheKindsTurnedOff() {
+        server.close();
+        server = TestServer.in(folder.resolve("per-kind")).set("announce", Map.of("kick", false)).start();
+        final FakePlayer bystander = server.online(new FakePlayer("Alex", "10.0.0.2"));
+        server.online(new FakePlayer("Steve", "10.0.0.1"));
+        server.online(new FakePlayer("Bob", "10.0.0.3"));
+
+        server.command(server.console, "kick Steve calm down");
+        server.command(server.console, "ban Bob hacking");
+
+        assertFalse(bystander.received("User Steve was kicked by Console."), bystander.messages().toString());
+        assertTrue(bystander.received("User Bob was banned by Console."), bystander.messages().toString());
+    }
+
+    @Test
     void kickWithoutReason_usesNone() {
         final FakePlayer steve = server.online(new FakePlayer("Steve", "10.0.0.1"));
         server.command(server.console, "kick Steve");
@@ -77,7 +93,7 @@ class KickTest {
     @Test
     void withLogKicks_theKickGoesToTheHistoryAsAFinishedEntry() {
         server.close();
-        server = TestServer.in(folder.resolve("logged")).config("log-kicks: false", "log-kicks: true").start();
+        server = TestServer.in(folder.resolve("logged")).set("log-kicks", true).start();
         server.online(new FakePlayer("Steve", "10.0.0.1"));
         final FakePlayer mod = server.online(new FakePlayer("Mod", "10.0.0.2", "judicator.kick", "judicator.history"));
 
@@ -101,7 +117,7 @@ class KickTest {
     @Test
     void loggedKicksDoNotCountForProgressiveReasons() {
         server.close();
-        server = TestServer.in(folder.resolve("logged")).config("log-kicks: false", "log-kicks: true").start();
+        server = TestServer.in(folder.resolve("logged")).set("log-kicks", true).start();
         server.online(new FakePlayer("Steve", "10.0.0.1"));
 
         server.command(server.console, "kick Steve Player Offense");

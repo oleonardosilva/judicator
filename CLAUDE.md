@@ -34,6 +34,8 @@ Tests live in `judicator-common/src/test/java`:
   `ChatHandler` calls the Velocity/Bukkit listeners make: `server.online(player)`, `server.command(sender, "ban
   Steve x")`, `server.chat(player, "confirm")`, `server.quit(player)`, `server.restart()`. Assert on the text of
   `messages_en.yml` (`player.received("...")`). Mojang lookups are off in `TestServer`.
+  Change settings with `TestServer.in(folder).set("ip-limits.max-online", 2)` / `.remove("cooldowns")` (fails
+  if the setting is not in the bundled `config.yml`); exemptions with `.immunePlayers(...)`.
 - `database/RepositoryContract` runs the same tests on the in-memory repositories and on the SQLite DAOs, so the
   test doubles cannot drift from the SQL. The in-memory repositories reject what the tables reject (NOT NULL,
   VARCHAR lengths) with an exception, where the DAOs would only log it and lose the row.
@@ -46,6 +48,7 @@ There is no lint task.
 
 | Module | Responsibility |
 |---|---|
+| `judicator-api` | Public API for other plugins, package `com.openmc.judicator.api`: `JudicatorApi` (async lookups, apply/revoke), `JudicatorProvider`, immutable views (`PunishmentView`, `WarnView`), requests, `ActionResult`, the `EventBus` and its events. Plain Java 17 with no dependencies (no Velocity, Bukkit, Adventure, Configurate or core types). Shipped unrelocated inside both platform JARs (never add it to a `relocate`). |
 | `judicator-common` | Platform-independent core: `Judicator` (bootstrap of configs, caches, DB and services), commands, services, repositories/DAOs, caches, messages, resources (`*.yml`) and the `platform/` abstraction. Must not import Velocity or Bukkit APIs. |
 | `judicator-velocity` | Velocity entry point (`JudicatorVelocity`, `@Plugin`), `VelocityPlatform`, command adapter (`SimpleCommand`), event listener, runtime `DependencyManager` (Maven Central only; every jar has a SHA-256 fixed in `JudicatorVelocity` and is not loaded if it does not match — changing a version means changing its hash). |
 | `judicator-bukkit` | Spigot/Paper entry point (`JudicatorBukkit`, `plugin.yml`), `BukkitPlatform`, command adapter (`TabExecutor`), event listener. Shades and relocates Adventure and Configurate; JDBC drivers, HikariCP and Caffeine come from `libraries:` in `plugin.yml`. |
@@ -76,12 +79,21 @@ There is no lint task.
    (`AccessAddressService`); `onJoin` records the staff level and tells `judicator.notes.notify` about staff notes.
    `onDisconnect` (and `Judicator.disable`) pauses online-only mutes.
 3. **Chat/Command** — `ChatHandler` blocks muted players and handles the evidence prompt of staff members.
-4. **Command** → staff rules (`ImmuneCache.canPunish(source, target, type)`: self, `immune.yml` `users`/`players`, hierarchy; `punish/rules/`:
+4. **Command** → staff rules (`ImmuneCache.canPunish(source, target, type)`: self, `immune.yml` `players` (the 1.0.0 `users` list is still honoured), hierarchy; `punish/rules/`:
    `TimeLimitService` and `PunishCooldown`; `AddressPolicy.isExempt` for IP punishments) → `PunishFactory` (checks the
    cooldown again at confirmation) → `BanHandler`/`MuteHandler` → `PunishService.save()` → DB → Discord webhook.
    `ReasonShortcuts` expands `#key` reasons; list commands page with `commons/Pagination` (clickable footer).
    Changes to a stored punishment go through `PunishService.changeEnd`/`changeReason` (an `UPDATE` that leaves revoked
    rows alone and refreshes the mute cache), never a full `save` that could undo a revocation.
+
+### API (`judicator-api`)
+
+The core side lives in `integration/`: `JudicatorApiService` (the `JudicatorApi`; an API caller is an `ApiSender`, which
+the staff rules treat as the console, but `ImmuneCache`/`AddressPolicy` exemptions still refuse), `JudicatorEventBus`
+and `ApiViews` (core model → API views, `LocalDateTime` → `Instant`). `Judicator.enable()` registers the API in
+`JudicatorProvider`; `disable()` clears it. Events are posted, after the change is stored and only on the instance
+that made it (never from `SyncService`), by `PunishFactory`, `KickHandler`, `WarnHandler`, `RevokeHandler`,
+`UnwarnHandler` and `EditPunishmentCommand`: a new way of applying or revoking must go through those handlers.
 
 ### Database
 

@@ -49,7 +49,7 @@ class StaffRollbackTest {
 
     @Test
     void withoutConfirm_onlyShowsWhatWouldBeUndone() {
-        server = TestServer.in(folder).config("ban: 30\n  mute: 30\n  warn: 30", "ban: 0\n  mute: 0\n  warn: 0").start();
+        server = TestServer.in(folder).set("cooldowns.ban", 0).set("cooldowns.mute", 0).set("cooldowns.warn", 0).start();
         final FakePlayer rogue = rogue();
         server.online(new FakePlayer("Steve", "10.0.0.1"));
         server.online(new FakePlayer("Alex", "10.0.0.2"));
@@ -68,7 +68,7 @@ class StaffRollbackTest {
 
     @Test
     void confirm_revokesBansAndMutesAndDeletesActiveWarns() {
-        server = TestServer.in(folder).config("ban: 30\n  mute: 30\n  warn: 30", "ban: 0\n  mute: 0\n  warn: 0").start();
+        server = TestServer.in(folder).set("cooldowns.ban", 0).set("cooldowns.mute", 0).set("cooldowns.warn", 0).start();
         final FakePlayer rogue = rogue();
         final FakePlayer mod = server.online(new FakePlayer("Mod", "10.0.0.3", "judicator.notify"));
         server.online(new FakePlayer("Steve", "10.0.0.1"));

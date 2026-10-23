@@ -58,7 +58,7 @@ public class PunishmentEffects {
     }
 
     private void announce(Punishment punishment, String key) {
-        if (!judicator.getConfig().node("announce").getBoolean(true)) return;
+        if (!PunishUtils.announces(judicator.getConfig(), key)) return;
         final Platform platform = judicator.getPlatform();
         platform.getPlayer(punishment.getNickname()).ifPresent(player -> platform.announceToServerOf(player,
                 recipient -> PunishUtils.getMessageList(judicator.messagesFor(recipient), punishment, "announcements", key)));

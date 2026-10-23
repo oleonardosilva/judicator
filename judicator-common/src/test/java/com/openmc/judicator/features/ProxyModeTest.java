@@ -17,8 +17,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.openmc.judicator.features.CrossServerSyncTest.SYNC_OFF;
-import static com.openmc.judicator.features.CrossServerSyncTest.SYNC_ON;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,8 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ProxyModeTest {
 
-    private static final String PROXY_MODE_OFF = "proxy-mode: false #";
-    private static final String PROXY_MODE_ON = "proxy-mode: true #";
 
     @TempDir
     Path folder;
@@ -42,9 +38,9 @@ class ProxyModeTest {
 
     @BeforeEach
     void start() {
-        proxy = track(TestServer.in(folder.resolve("proxy")).config(SYNC_OFF, SYNC_ON).start());
+        proxy = track(TestServer.in(folder.resolve("proxy")).set("sync.enabled", true).start());
         backend = track(TestServer.in(folder.resolve("backend")).platform(PlatformType.BUKKIT)
-                .config(SYNC_OFF, SYNC_ON).config(PROXY_MODE_OFF, PROXY_MODE_ON)
+                .set("sync.enabled", true).set("proxy-mode", true)
                 .sharingDatabaseWith(proxy).start());
     }
 
@@ -190,7 +186,7 @@ class ProxyModeTest {
         proxy.notes.save(new Note(null, null, "Steve", "Mod", "old", LocalDateTime.now().minusDays(30)));
 
         track(TestServer.in(folder.resolve("backend2")).platform(PlatformType.BUKKIT)
-                .config(SYNC_OFF, SYNC_ON).config(PROXY_MODE_OFF, PROXY_MODE_ON).config("  notes: 0 #", "  notes: 1 #")
+                .set("sync.enabled", true).set("proxy-mode", true).set("retention.notes", 1)
                 .sharingDatabaseWith(proxy).start());
 
         assertEquals(1, proxy.notes.countByUsername("Steve"));
@@ -198,7 +194,7 @@ class ProxyModeTest {
 
     @Test
     void proxyModeIsIgnoredOnVelocity() {
-        final TestServer velocity = track(TestServer.in(folder.resolve("velocity")).config(PROXY_MODE_OFF, PROXY_MODE_ON).start());
+        final TestServer velocity = track(TestServer.in(folder.resolve("velocity")).set("proxy-mode", true).start());
 
         assertFalse(velocity.judicator.isProxyMode());
         assertTrue(backend.judicator.isProxyMode());

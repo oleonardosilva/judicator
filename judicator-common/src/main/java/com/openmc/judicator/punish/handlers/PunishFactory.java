@@ -1,6 +1,8 @@
 package com.openmc.judicator.punish.handlers;
 
 import com.openmc.judicator.Judicator;
+import com.openmc.judicator.api.event.PunishmentAppliedEvent;
+import com.openmc.judicator.integration.ApiViews;
 import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
@@ -35,6 +37,7 @@ public class PunishFactory {
             final Punishment punishment;
             if (punishmentBuilder.isBan()) punishment = new BanHandler(judicator, punishmentBuilder).handle();
             else punishment = new MuteHandler(judicator, punishmentBuilder).handle();
+            judicator.getEventBus().post(() -> new PunishmentAppliedEvent(ApiViews.punishment(punishment), punishment.isSilent()));
 
             judicator.getPlatform().getPlayer(punishmentBuilder.getPunisher()).ifPresent(
                     player -> player

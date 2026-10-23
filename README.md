@@ -34,6 +34,10 @@ driver; on Velocity it is downloaded on the first start with `type: 'sqlite'`. U
 small network; a network with several Spigot/Paper servers sharing punishments needs PostgreSQL or MySQL. Changing
 `type` requires a restart (it is not applied by `/judicator reload`).
 
+For PostgreSQL/MySQL, an empty `port` means the default of the type (5432/3306). `properties` passes options to the
+JDBC driver (`useSSL: 'false'` for MySQL, `sslmode: 'require'` for PostgreSQL...) and `pool` sizes the connection
+pool.
+
 ### Networks and Multiple Servers
 
 Every server running Judicator on the same MySQL/PostgreSQL database reads the same punishments. To make a change made
@@ -297,6 +301,24 @@ The following commands are used to apply, remove, or check punishments for playe
   `/tempban Steve -s 7:d cheating`. **Permission:** `judicator.silent`
 * Staff with **`judicator.notify`** receive a notification for every punishment; silent ones are only shown to
   **`judicator.notify.silent`** (`staff-notifications` in `config.yml`).
+* `announce` in `config.yml` turns the public announcement off for every kind (`false`) or only for some:
+
+  ```yaml
+  announce:
+    ban: true
+    mute: true
+    kick: false
+    warn: false
+  ```
+
+---
+
+### 📢 Discord Webhook
+
+Set `enabled: true` and `webhook-url` in `discord.yml` and every ban, mute, kick and warn is posted to that channel as
+an embed (once, by the server that applied it). An event can post to another channel with its own `webhook-url`, or
+be turned off with `enabled: false`. Title, description and colour are set per event; the author's name and picture,
+the player picture, the footer and the field names (to translate them) are shared by all.
 
 ---
 
@@ -314,7 +336,6 @@ The following commands are used to apply, remove, or check punishments for playe
 
 ### 🚷 Exemptions (`immune.yml`)
 
-* `users:` — names that cannot get any punishment (the format of older versions, still read).
 * `players:` — a UUID (preferred: it survives a name change, and a name proves nothing in offline mode) or a name,
   and what it is exempt from: `all`, `ban`, `mute`, `kick`, `warn`, `alts` (may join despite `alts.deny-if-banned`).
 
@@ -462,6 +483,14 @@ the server language.
   [Networks and Multiple Servers](#networks-and-multiple-servers)). With `sync.enabled: true` the plugin creates the
   `sync_messages` table on the first start; they are read at startup only (`/judicator reload` warns that a restart is
   needed).
+* The bundled configuration files were reorganised and commented; your files keep working as they are. To see the
+  new layout, rename yours, restart and copy your values into the new ones.
+* `immune.yml`: the `users:` list is deprecated. It is still honoured (with a warning in the console); move each name
+  to `players:` as `"<name or UUID>": [all]`.
+* `discord.yml`: a top-level `webhook-url` serves every event (an event's own `webhook-url` still wins), and
+  `username`, `avatar-url`, `thumbnail-url`, `footer` and `labels` are new. Kicks are now posted too (`events.kick`).
+* `data.yml`: new `properties` and `pool`; new files leave `port` empty (the default of the type).
+* `announce` in `config.yml` also takes one value per kind (`ban`, `mute`, `kick`, `warn`).
 
 ---
 
@@ -488,3 +517,55 @@ the server language.
 
 * **`judicator.admin`**
   Full access to all administrative functions of the plugin.
+
+---
+
+## 🔌 API for Plugin Developers
+
+Other plugins (an anticheat, a report system, a Discord bot) can look up, apply and revoke punishments and listen to
+what happens, on Velocity and Spigot/Paper alike, through the `judicator-api` module (package
+`com.openmc.judicator.api`, plain Java 17, no dependencies). Both Judicator JARs ship it; **do not shade it** into
+your plugin.
+
+**Dependency.** It is not on a Maven repository yet: build it with `./gradlew :judicator-api:jar` (sources and javadoc
+JARs: `:judicator-api:sourcesJar`, `:judicator-api:javadocJar`) and compile against it:
+
+```groovy
+dependencies {
+    compileOnly files('libs/judicator-api-1.0.0.jar')
+}
+```
+
+Declare Judicator as a dependency: `depend: [Judicator]` (or `softdepend`) in `plugin.yml`, or
+`@Plugin(..., dependencies = @Dependency(id = "judicator"))` on Velocity.
+
+**Usage.** Get the API in your enable step (on Spigot/Paper it is also in the `ServicesManager`):
+
+```java
+JudicatorApi judicator = JudicatorProvider.get(); // IllegalStateException if Judicator is not loaded
+
+// Every method is asynchronous: never join() on the server thread.
+judicator.getActiveBan(player.getUniqueId()).thenAccept(ban -> ban.ifPresent(b ->
+        getLogger().info(b.targetName() + " is banned until " + b.endsAt().map(Object::toString).orElse("forever"))));
+
+// Applied as from the console: stored, synced, announced, staff notified, Discord, events.
+judicator.tempban("Steve", Duration.ofDays(3), "Fly hack", "AntiCheat").thenAccept(result -> {
+    if (result.status() == ActionStatus.TARGET_EXEMPT) getLogger().info("Steve is exempt in immune.yml");
+});
+
+// Events (bans, mutes, kicks, warns, revocations, edits), from commands and the API alike.
+Subscription subscription = judicator.getEventBus().subscribe(PunishmentAppliedEvent.class, event ->
+        getLogger().info(event.punishment().punisher() + " applied " + event.punishment().type()
+                + " to " + event.punishment().targetName()));
+// in onDisable: subscription.unsubscribe();
+```
+
+Rules worth knowing (details in the Javadoc of `JudicatorApi` and `JudicatorEvent`):
+
+* An API call is treated like the console: no staff hierarchy, time limits, cooldown wait or evidence prompt. The
+  `punisher` is any name you choose (up to 20 characters, no spaces). Exemptions still apply: players in `immune.yml`
+  and addresses in `exempt-addresses` are refused with a status, not an exception.
+* `PunishmentRequest` covers IP, silent, soft, online-only and evidence options; `WarnRequest` covers temporary warns.
+* Events are posted after the change is stored, on the thread that made it (usually not the server thread), and only
+  on the server where it was made, not on the servers that learn about it through `sync`. A listener that throws is
+  logged and never stops a punishment. There is no cancellable "before" event.

@@ -1,29 +1,45 @@
-announce: true # Announces the punishment on the server that the player was connected
+# ============================================================
+#  Judicator — main configuration
+# ============================================================
+# /judicator reload applies every change, except the settings marked "restart".
+# A setting missing from this file keeps its default, so an older config.yml keeps working.
+#
+# Durations: "<amount>:<unit>", several joined by commas — "30:m", "7:d,2:h", "1:mo".
+#   units: s, m, h, d, w, mo, y (or second(s), minute(s), hour(s), day(s), week(s), month(s), year(s))
+# Permissions are listed in the README.
+
+# ------------------------------------------------------------
+#  Language
+# ------------------------------------------------------------
+language: en # messages_<language>.yml: en, es or pt are bundled; for another one, create messages_<xx>.yml in this folder
+per-player-language: false # true: each player gets the messages in their game language when it is en, es or pt (the console, Discord and login screens use 'language')
+
+# ------------------------------------------------------------
+#  Punishments
+# ------------------------------------------------------------
+# Tells the players of the target's server about the punishment (silent ones, with -s, never are).
+# true/false for every kind, or one line per kind:
+#   announce:
+#     ban: true
+#     mute: true
+#     kick: false
+#     warn: false
+announce: true
+staff-notifications: true # players with judicator.notify see every punishment; silent (-s) ones only judicator.notify.silent
 log-kicks: false # true: /kick is stored in the punishment history (/phistory, /pview, /blame, /activity)
-block-global-chat: true # a message entered without no command
-soft-mute-format: "<{player}> {message}" # Velocity only: what a soft-muted player sees of their own message (Bukkit keeps the server's chat format)
-language: en # native languages: en, es or pt
-trust-uuids: false # Spigot/Paper behind Velocity/BungeeCord with UUID forwarding (online-mode=false): true checks bans by UUID, as in online mode. Never on a real offline-mode server.
-per-player-language: false # true: each player gets the messages in their game language when it is en, es or pt (console, Discord and login screens use 'language')
-sync: # servers sharing one MySQL/PostgreSQL database (several Spigot/Paper, or Velocity + backends): what one applies, revokes or edits reaches the players of the others
-  enabled: false # true on every server of the network; requires a restart
-  poll-interval: 1 # seconds between checks for changes made by the other servers (1 to 30)
-proxy-mode: false # Spigot/Paper only, behind a Velocity that runs Judicator (with sync enabled on both): the proxy refuses logins, kicks, announces and notifies; this server only blocks muted chat
-chat-on-backends: false # Velocity only: true when the backends run Judicator in proxy-mode, so the proxy never denies (signed) chat of muted players itself
-commands-locked-when-silenced:
-  - "/g"
-  - "/l"
-  - "/tell"
-warns:
-  tree:
-    warns: 3
-    commands:
-      - "tempban {player} '3:d' got three warns"
-require-reason-permission: false # true: /punish only lets staff use a reason if they have its 'permission' (or judicator.admin)
-reasons: # These will be the predefined reasons to use on /punish
-  reason1: # progressive: 1st time 7 days, 2nd time 30 days, from the 3rd time on permanent
+
+# Predefined reasons for /punish <player>, also usable in any command as #<key> (/ban Steve #reason2 x-ray).
+#   reason: the text stored as the punishment's reason
+#   permission: needed to use it when require-reason-permission is true (judicator.admin always can)
+#   type: BAN, TEMPBAN, MUTE or TEMPMUTE      duration: for TEMPBAN/TEMPMUTE
+#   ip: true punishes the player's IP address instead of the account
+#   steps: progressive punishment instead of type/duration — the 1st offence uses the 1st step, the 2nd the 2nd...
+#          and the last step repeats from then on
+require-reason-permission: false
+reasons:
+  reason1: # 1st time 7 days and 2 hours, 2nd time 30 days, from the 3rd time on permanent
     reason: "Player Offense"
-    permission: 'punish.helper'
+    permission: "punish.helper"
     ip: false
     steps:
       - type: TEMPMUTE
@@ -33,44 +49,99 @@ reasons: # These will be the predefined reasons to use on /punish
       - type: MUTE
   reason2:
     reason: "Cheating"
-    permission: 'punish.moderator'
+    permission: "punish.moderator"
     type: TEMPBAN
-    ip: false
     duration: "7:months,2:weeks"
+    ip: false
   reason3:
     reason: "Serious Dissemination"
     permission: "punish.moderator"
     type: BAN
     ip: false
 
+# ------------------------------------------------------------
+#  Staff rules
+# ------------------------------------------------------------
+# The console skips all of these; judicator.admin skips time-limits and cooldowns, but not the hierarchy.
 hierarchy:
   enabled: true # staff can only punish players with a lower judicator.level.<N>; players without a level can always be punished
   max-level: 100 # highest N checked in judicator.level.<N>
-time-limits: # longest ban/mute a staff group may apply; give the group the permission judicator.timelimit.<group>
-  helper:    # e.g. judicator.timelimit.helper: bans up to 1 day, mutes up to 7 days, nothing permanent (ranks inheriting helper must set it to false)
+
+# Longest ban/mute a staff group may apply, given by the explicit permission judicator.timelimit.<group>.
+# A limited staff member cannot apply a permanent punishment; with several groups the longest limit wins.
+# Ranks that inherit a limited group must set its permission to false.
+time-limits:
+  helper: # judicator.timelimit.helper
     ban: "1:d"
     mute: "7:d"
-cooldowns: # seconds before the same player can get another punishment of the same kind (0 = off); console and judicator.admin are not blocked
+
+# Seconds before the same player can get another punishment of the same kind (0 = off).
+# Stops two staff members from punishing the same player twice at once.
+cooldowns:
   ban: 30
   mute: 30
   warn: 30
   kick: 0
-staff-notifications: true # players with judicator.notify see every punishment; silent (-s) ones only judicator.notify.silent
-exempt-addresses: # IPs or CIDR ranges shared by many players (a school network, the proxy itself): never IP-punished, ignored by alt warnings and account limits
+
+# ------------------------------------------------------------
+#  Muted players
+# ------------------------------------------------------------
+block-global-chat: true # false: muted players can still chat (mutes are only recorded, and locked commands below are still blocked)
+commands-locked-when-silenced: # commands muted players cannot use; also caught with a namespace (/minecraft:tell) or without the slash
+  - "/g"
+  - "/l"
+  - "/tell"
+soft-mute-format: "<{player}> {message}" # Velocity only: what a soft-muted player sees of their own message (Spigot/Paper keeps the server's chat format)
+
+# ------------------------------------------------------------
+#  Warns
+# ------------------------------------------------------------
+# Console commands run when a player reaches a number of active warns. One entry per step, with any name;
+# {player} is the warned player.
+warns:
+  tree:
+    warns: 3
+    commands:
+      - "tempban {player} '3:d' got three warns"
+
+# ------------------------------------------------------------
+#  Accounts and IP addresses
+# ------------------------------------------------------------
+# IPs or CIDR ranges shared by many players (a school network, the proxy itself): never IP-punished, ignored by alt
+# warnings, alts.deny-if-banned and ip-limits.
+exempt-addresses:
   - "127.0.0.1"
   - "::1"
-ip-limits: # 0 = off; addresses in exempt-addresses are never limited
+ip-limits: # 0 = off
   max-online: 0 # most accounts online at the same time from one IP
   max-recent-accounts: 0 # most different accounts that may join from one IP within recent-period
   recent-period: "1:d"
-notes:
-  notify-on-join: true # players with judicator.notes.notify are told when someone with staff notes (/note) joins
-retention: # days to keep old records, then they are deleted at startup and every 12 hours (0 = keep forever); IPs and histories are personal data
-  kicks: 0 # logged kicks (log-kicks)
-  finished-punishments: 0 # bans/mutes that ended, or were revoked, this long ago (counted from the end, or from the start when revoked)
-  finished-warns: 0 # temporary warns that ended this long ago
-  addresses: 0 # IP addresses no account used for this long (/alts and offline IP bans no longer find them)
-  notes: 0 # staff notes written this long ago
 alts:
   notify-on-join: true # players with judicator.alts.notify are warned when someone shares an IP with a banned/muted account
-  deny-if-banned: false # true: an account cannot join while another account that used the same IP is banned (exempt-addresses and 'alts' in immune.yml pass)
+  deny-if-banned: false # true: an account cannot join while another account that used the same IP is banned ('alts' in immune.yml passes)
+notes:
+  notify-on-join: true # players with judicator.notes.notify are told when someone with staff notes (/note) joins
+
+# ------------------------------------------------------------
+#  Data retention
+# ------------------------------------------------------------
+# Days to keep old records (0 = forever); older ones are deleted at startup and every 12 hours.
+# Player names, IPs and histories are personal data. /judicator clear <player> deletes one player's data.
+retention:
+  kicks: 0 # logged kicks (log-kicks)
+  finished-punishments: 0 # bans/mutes that ended or were revoked this long ago; nothing in force is deleted
+  finished-warns: 0 # temporary warns that ended this long ago
+  addresses: 0 # IPs no account used for this long (/alts and offline IP bans no longer find them)
+  notes: 0 # staff notes written this long ago
+
+# ------------------------------------------------------------
+#  Networks: proxy and several servers (see "Networks and Multiple Servers" in the README)
+# ------------------------------------------------------------
+# Spigot/Paper behind Velocity/BungeeCord with UUID forwarding (they report online-mode=false): true checks bans by
+# UUID, as in online mode. Never on a real offline-mode server, where anyone can join with any UUID.
+trust-uuids: false
+sync: # servers sharing one MySQL/PostgreSQL database: what one applies, revokes or edits reaches the players of the others
+  enabled: false # true on every server of the network (restart)
+  poll-interval: 1 # seconds between checks for changes made by the other servers, 1 to 30 (restart)
+proxy-mode: false # Spigot/Paper behind a Velocity running Judicator, with sync on both: the proxy refuses logins, kicks, announces and notifies; this server only blocks muted chat (restart)
+chat-on-backends: false # Velocity only: true when the backends run Judicator in proxy-mode, so the proxy never denies (signed) chat of muted players itself

@@ -10,6 +10,9 @@ configurations {
 }
 
 dependencies {
+    // Shipped in both platform JARs, unrelocated: other plugins compile against it.
+    api project(':judicator-api')
+
     compileOnly 'net.kyori:adventure-api:4.17.0'
     compileOnly 'net.kyori:adventure-text-serializer-legacy:4.17.0'
     compileOnly 'org.spongepowered:configurate-yaml:4.1.2'

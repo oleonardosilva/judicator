@@ -1,9 +1,12 @@
 package com.openmc.judicator.punish.commands;
 
 import com.openmc.judicator.Judicator;
+import com.openmc.judicator.api.event.PunishmentEditedEvent;
+import com.openmc.judicator.api.punishment.PunishmentView;
 import com.openmc.judicator.commons.DateTimeOffsetParser;
 import com.openmc.judicator.commons.command.CommandArgs;
 import com.openmc.judicator.commons.command.CoreCommand;
+import com.openmc.judicator.integration.ApiViews;
 import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.punish.PunishUtils;
@@ -70,6 +73,8 @@ public class EditPunishmentCommand extends CoreCommand {
             return;
         }
 
+        // a snapshot: storing the change updates the punishment object itself
+        final Optional<PunishmentView> previous = judicator.getEventBus().capture(() -> ApiViews.punishment(punishment));
         final Optional<Boolean> changed = extend ? extend(source, messages, punishment, value.get()) : changeReason(source, punishment, value.get());
         if (changed.isEmpty()) return;
         if (!changed.get()) {
@@ -79,6 +84,9 @@ public class EditPunishmentCommand extends CoreCommand {
         source.sendMessage(PunishUtils.getMessageList(messages, punishment, "edit", extend ? "extended" : "reason-changed"));
         final String author = source.asPlayer().map(JudicatorPlayer::getName).orElse("Console");
         judicator.getStaffNotifier().notifyEdit(author, punishment, extend ? "change-duration" : "change-reason");
+        judicator.getEventBus().post(() -> previous
+                .map(before -> new PunishmentEditedEvent(before, ApiViews.punishment(punishment), author))
+                .orElse(null));
     }
 
     /**

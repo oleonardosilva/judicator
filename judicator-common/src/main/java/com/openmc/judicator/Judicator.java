@@ -8,6 +8,9 @@ import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.commons.db.RelationalDBManager;
 import com.openmc.judicator.discord.DiscordWebhookService;
 import com.openmc.judicator.importer.ImportService;
+import com.openmc.judicator.api.JudicatorProvider;
+import com.openmc.judicator.integration.JudicatorApiService;
+import com.openmc.judicator.integration.JudicatorEventBus;
 import com.openmc.judicator.notes.NoteService;
 import com.openmc.judicator.notes.commands.DelNoteCommand;
 import com.openmc.judicator.notes.commands.NoteCommand;
@@ -102,6 +105,10 @@ public class Judicator {
     private DataRetentionService dataRetentionService;
     private PunishmentEffects punishmentEffects;
     private SyncService syncService;
+    /** events for other plugins ({@code judicator-api}) */
+    private JudicatorEventBus eventBus;
+    /** what other plugins get from {@link JudicatorProvider} */
+    private JudicatorApiService api;
     /** {@code proxy-mode} as read at startup (not reloadable) */
     private boolean proxyMode;
     private ConnectionHandler connectionHandler;
@@ -141,6 +148,7 @@ public class Judicator {
         this.dbConfig = loadConfig("data.yml");
         this.discordConfig = loadConfig("discord.yml");
         this.proxyMode = readProxyMode();
+        this.eventBus = new JudicatorEventBus(logger);
 
         this.discordWebhookService = new DiscordWebhookService(this);
 
@@ -175,6 +183,8 @@ public class Judicator {
         this.connectionHandler = new ConnectionHandler(this);
         this.chatHandler = new ChatHandler(this);
         this.commands = createCommands();
+        this.api = new JudicatorApiService(this);
+        JudicatorProvider.register(api);
         this.syncService.start();
         if (proxyMode && !syncService.isEnabled()) {
             logger.warn("proxy-mode without sync.enabled: punishments applied on the proxy reach this server only at the player's next login.");
@@ -202,6 +212,7 @@ public class Judicator {
     }
 
     public void disable() {
+        if (api != null) JudicatorProvider.unregister(api);
         // Players still online when the server stops never send a disconnect to the plugin: stop their online-only mutes here.
         if (punishService != null && !proxyMode) {
             platform.getOnlinePlayers().forEach(player -> {

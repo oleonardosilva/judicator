@@ -78,7 +78,7 @@ class ReasonShortcutTest {
 
     @Test
     void worksInWarnsAndKicks() {
-        server = TestServer.in(folder).config("log-kicks: false", "log-kicks: true").start();
+        server = TestServer.in(folder).set("log-kicks", true).start();
         final FakePlayer steve = server.online(new FakePlayer("Steve", "10.0.0.1"));
 
         server.command(server.console, "warn Steve #reason3");
@@ -91,7 +91,7 @@ class ReasonShortcutTest {
 
     @Test
     void withReasonPermissions_aShortcutNeedsItsPermission() {
-        server = TestServer.in(folder).config("require-reason-permission: false", "require-reason-permission: true").start();
+        server = TestServer.in(folder).set("require-reason-permission", true).start();
         final FakePlayer helper = server.online(new FakePlayer("Helper", "10.0.0.2", "judicator.ban", "punish.helper"));
         server.online(new FakePlayer("Steve", "10.0.0.1"));
 
@@ -104,7 +104,7 @@ class ReasonShortcutTest {
 
     @Test
     void tabCompletionSuggestsShortcutsTheSenderCanUse() {
-        server = TestServer.in(folder).config("require-reason-permission: false", "require-reason-permission: true").start();
+        server = TestServer.in(folder).set("require-reason-permission", true).start();
         final FakePlayer helper = server.online(new FakePlayer("Helper", "10.0.0.2", "judicator.ban", "judicator.tempban", "punish.helper"));
 
         assertEquals(List.of("#reason1"), server.suggest(helper, "ban Steve #"));

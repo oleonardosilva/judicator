@@ -40,6 +40,20 @@ class ExemptionsTest {
     }
 
     @Test
+    void theUsersListOfVersion1_stillExemptsFromEverything() {
+        // 1.0.0 shipped immune.yml with 'users:'; an upgrade must not make those players punishable.
+        server = TestServer.in(folder).immuneFile("users:\n  - \"Notch\"\n").start();
+        server.online(new FakePlayer("Notch", "10.0.0.1"));
+
+        server.command(server.console, "ban Notch hacking");
+        server.command(server.console, "warn Notch spam");
+
+        assertTrue(server.console.received(IMMUNE));
+        assertEquals(0, active("Notch", PunishType.BAN));
+        assertTrue(server.warns.findAllByUsername("Notch").isEmpty());
+    }
+
+    @Test
     void exemptFromOneType_canStillGetTheOthers() {
         server = TestServer.in(folder).immunePlayers("  Steve: [mute]\n").start();
         server.online(new FakePlayer("Steve", "10.0.0.1"));

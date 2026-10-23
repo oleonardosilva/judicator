@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -116,7 +117,7 @@ class StaffLimitsTest {
     @Test
     void withSeveralGroups_theLongestLimitWins() {
         server = TestServer.in(folder)
-                .config("cooldowns:", "  senior:\n    ban: \"30:d\"\ncooldowns:")
+                .set("time-limits.senior", Map.of("ban", "30:d"))
                 .start();
         final FakePlayer staff = server.online(new FakePlayer("Staff", "10.0.0.2", "judicator.tempban",
                 "judicator.timelimit.helper", "judicator.timelimit.senior"));
@@ -130,7 +131,7 @@ class StaffLimitsTest {
 
     @Test
     void anImpossibleDurationIsIgnoredInsteadOfBreakingTheStartup() {
-        server = TestServer.in(folder).config("    ban: \"1:d\"\n", "    ban: \"999999999:y\"\n").start();
+        server = TestServer.in(folder).set("time-limits.helper.ban", "999999999:y").start();
         final FakePlayer helper = server.online(new FakePlayer("Helper", "10.0.0.2", "judicator.ban", "judicator.timelimit.helper"));
         server.online(new FakePlayer("Steve", "10.0.0.1"));
 
@@ -143,7 +144,7 @@ class StaffLimitsTest {
     @Test
     void aGroupWithoutTheCategory_doesNotLimitIt() {
         server = TestServer.in(folder)
-                .config("    ban: \"1:d\"\n", "")
+                .remove("time-limits.helper.ban")
                 .start();
         final FakePlayer helper = server.online(new FakePlayer("Helper", "10.0.0.2", "judicator.ban", "judicator.timelimit.helper"));
         server.online(new FakePlayer("Steve", "10.0.0.1"));
@@ -326,7 +327,7 @@ class StaffLimitsTest {
 
     @Test
     void kicksHaveTheirOwnCooldownWhenEnabled() {
-        server = TestServer.in(folder).config("  kick: 0", "  kick: 10").start();
+        server = TestServer.in(folder).set("cooldowns.kick", 10).start();
         final FakePlayer mod = server.online(new FakePlayer("Mod", "10.0.0.2", "judicator.kick"));
         server.online(new FakePlayer("Steve", "10.0.0.1"));
 
@@ -340,7 +341,7 @@ class StaffLimitsTest {
 
     @Test
     void zeroSeconds_turnsTheCooldownOff() {
-        server = TestServer.in(folder).config("  ban: 30", "  ban: 0").start();
+        server = TestServer.in(folder).set("cooldowns.ban", 0).start();
         final FakePlayer mod = server.online(new FakePlayer("Mod", "10.0.0.2", "judicator.ban"));
         final FakePlayer mod2 = server.online(new FakePlayer("Mod2", "10.0.0.3", "judicator.ban"));
         server.online(new FakePlayer("Steve", "10.0.0.1"));
@@ -356,8 +357,8 @@ class StaffLimitsTest {
     @Test
     void anOldConfigWithoutTheNewKeys_keepsTheOldBehaviour() {
         server = TestServer.in(folder)
-                .config("cooldowns:", "old-cooldowns:")
-                .config("time-limits:", "old-time-limits:")
+                .remove("cooldowns")
+                .remove("time-limits")
                 .start();
         final FakePlayer helper = server.online(new FakePlayer("Helper", "10.0.0.2", "judicator.ban", "judicator.timelimit.helper"));
         final FakePlayer mod2 = server.online(new FakePlayer("Mod2", "10.0.0.3", "judicator.ban"));

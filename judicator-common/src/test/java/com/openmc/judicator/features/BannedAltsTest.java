@@ -9,6 +9,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -20,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class BannedAltsTest {
 
-    private static final String DENY_ON = "deny-if-banned: true";
 
     @TempDir
     Path folder;
@@ -33,7 +33,7 @@ class BannedAltsTest {
     }
 
     private TestServer denying(TestServer.Builder builder) {
-        return builder.config("deny-if-banned: false", DENY_ON).start();
+        return builder.set("alts.deny-if-banned", true).start();
     }
 
     private Punishment banSteve() {
@@ -76,7 +76,7 @@ class BannedAltsTest {
 
     @Test
     void exemptAddress_passes() {
-        server = denying(TestServer.in(folder).config("  - \"127.0.0.1\"", "  - \"127.0.0.1\"\n  - \"10.0.0.0/24\""));
+        server = denying(TestServer.in(folder).set("exempt-addresses", List.of("127.0.0.1", "::1", "10.0.0.0/24")));
         banSteve();
 
         assertTrue(server.join(new FakePlayer("SteveAlt", "10.0.0.1")).isEmpty());

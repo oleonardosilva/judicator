@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -21,6 +22,19 @@ public class WarnBuilder {
 
     public WarnBuilder punisher(JudicatorPlayer player) {
         this.punisher = player.getName();
+        return this;
+    }
+
+    /**
+     * An author that is not a player online here (a plugin through the API).
+     */
+    public WarnBuilder punisher(String name) {
+        this.punisher = name;
+        return this;
+    }
+
+    public WarnBuilder duration(Duration duration) {
+        this.finishAt = startedAt.plus(duration);
         return this;
     }
 

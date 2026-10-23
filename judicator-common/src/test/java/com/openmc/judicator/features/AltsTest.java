@@ -78,7 +78,7 @@ class AltsTest {
         assertFalse(watcher.received("[Alts]"));
         server.close();
 
-        server = TestServer.in(folder.resolve("off")).config("  notify-on-join: true", "  notify-on-join: false").start();
+        server = TestServer.in(folder.resolve("off")).set("alts.notify-on-join", false).start();
         final FakePlayer watcher2 = server.online(new FakePlayer("Watcher", "10.0.0.5", "judicator.alts.notify"));
         server.quit(server.online(new FakePlayer("Banned", "10.0.0.1")));
         server.command(server.console, "ban Banned hacking");

@@ -6,6 +6,7 @@ import com.openmc.judicator.platform.JudicatorPlayer;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,6 +42,15 @@ public class PunishmentBuilder {
         return this;
     }
 
+    /**
+     * An author that is not a player online here (a plugin through the API): treated as the console by the rules.
+     */
+    public PunishmentBuilder punisher(String name) {
+        this.staff = null;
+        this.punisher = name;
+        return this;
+    }
+
     public PunishmentBuilder silent(boolean silent) {
         this.silent = silent;
         return this;
@@ -73,6 +83,11 @@ public class PunishmentBuilder {
         return this;
     }
 
+    public PunishmentBuilder duration(Duration duration) {
+        this.finishAt = startedAt.plus(duration);
+        return this;
+    }
+
     public PunishmentBuilder target(JudicatorPlayer player) {
         this.playerUUID = player.getUniqueId();
         this.nickname = player.getName();
@@ -93,6 +108,11 @@ public class PunishmentBuilder {
 
     public PunishmentBuilder appendEvidences(String evidence) {
         this.evidences.addAll(Arrays.asList(evidence.split(" ")));
+        return this;
+    }
+
+    public PunishmentBuilder evidences(List<String> links) {
+        this.evidences.addAll(links);
         return this;
     }
 

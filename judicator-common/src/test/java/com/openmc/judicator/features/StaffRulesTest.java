@@ -55,7 +55,7 @@ class StaffRulesTest {
 
     @Test
     void immunePlayers_cannotBePunishedEvenByTheConsole() {
-        server = TestServer.in(folder).immune("Notch").start();
+        server = TestServer.in(folder).immunePlayers("  Notch: [all]\n").start();
         server.online(new FakePlayer("Notch", "10.0.0.1"));
         server.command(server.console, "ban notch hacking");
         server.command(server.console, "mute Notch spam");
@@ -131,7 +131,7 @@ class StaffRulesTest {
     @Test
     void hierarchyCanBeTurnedOff() {
         server = TestServer.in(folder)
-                .config("  enabled: true # staff can only punish", "  enabled: false # staff can only punish")
+                .set("hierarchy.enabled", false)
                 .start();
         final FakePlayer helper = server.online(new FakePlayer("Helper", "10.0.0.2", "judicator.ban", "judicator.level.10"));
         server.online(new FakePlayer("Admin", "10.0.0.3", "judicator.level.50"));
@@ -191,7 +191,7 @@ class StaffRulesTest {
 
     @Test
     void staffNotificationsCanBeTurnedOff() {
-        server = TestServer.in(folder).config("staff-notifications: true", "staff-notifications: false").start();
+        server = TestServer.in(folder).set("staff-notifications", false).start();
         final FakePlayer staff = server.online(new FakePlayer("Helper", "10.0.0.3", "judicator.notify"));
         server.online(new FakePlayer("Steve", "10.0.0.1"));
 

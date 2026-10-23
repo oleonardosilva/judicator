@@ -108,7 +108,7 @@ class PunishReasonsTest {
         server.close();
 
         server = TestServer.in(folder.resolve("enforced"))
-                .config("require-reason-permission: false", "require-reason-permission: true")
+                .set("require-reason-permission", true)
                 .start();
         final FakePlayer helper2 = server.online(new FakePlayer("Helper", "10.0.0.2", "judicator.punish"));
         server.online(new FakePlayer("Steve", "10.0.0.1"));

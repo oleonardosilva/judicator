@@ -26,4 +26,10 @@ class DialectTest {
         assertEquals(Dialect.MYSQL, Dialect.fromConfig("mariadb"));
         assertEquals(Dialect.MYSQL, Dialect.fromConfig(""));
     }
+
+    @Test
+    void anEmptyPortMeansTheDefaultOfTheType() {
+        assertEquals("5432", Dialect.POSTGRESQL.getDefaultPort());
+        assertEquals("3306", Dialect.MYSQL.getDefaultPort());
+    }
 }

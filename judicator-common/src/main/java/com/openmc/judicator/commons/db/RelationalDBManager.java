@@ -9,6 +9,7 @@ import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 import javax.sql.DataSource;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.TimeUnit;
 
 public class RelationalDBManager {
 
@@ -60,14 +61,20 @@ public class RelationalDBManager {
                 logger.info("Using SQLite database file {}", file.toAbsolutePath());
             } else {
                 final String host = config.node("host").getString("localhost");
-                final String port = config.node("port").getString("5432");
+                final String port = config.node("port").getString("").trim();
                 final String database = config.node("database").getString("postgres");
                 hikari.setJdbcUrl((configured == Dialect.POSTGRESQL ? "jdbc:postgresql://" : "jdbc:mysql://")
-                        + host + ":" + port + "/" + database);
+                        + host + ":" + (port.isEmpty() ? configured.getDefaultPort() : port) + "/" + database);
                 hikari.setUsername(config.node("user").getString("postgres"));
                 hikari.setPassword(config.node("password").getString("password"));
-                hikari.setMaximumPoolSize(10);
-                hikari.setMinimumIdle(2);
+                final ConfigurationNode pool = config.node("pool");
+                hikari.setMaximumPoolSize(Math.max(1, pool.node("maximum-size").getInt(10)));
+                hikari.setMinimumIdle(Math.max(0, Math.min(hikari.getMaximumPoolSize(), pool.node("minimum-idle").getInt(2))));
+                hikari.setConnectionTimeout(TimeUnit.SECONDS.toMillis(Math.max(1, pool.node("connection-timeout").getLong(30))));
+                // Passed to the driver as connection properties, e.g. useSSL for MySQL or sslmode for PostgreSQL.
+                config.node("properties").childrenMap().forEach((key, value) -> {
+                    if (value.getString() != null) hikari.addDataSourceProperty(String.valueOf(key), value.getString());
+                });
             }
 
             this.dataSource = new HikariDataSource(hikari);

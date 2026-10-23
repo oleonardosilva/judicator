@@ -95,18 +95,12 @@ public class PunishService {
     }
 
     /**
-     * revoked_reason is VARCHAR(100): a longer reason would make PostgreSQL/MySQL reject the update.
+     * The revocation reason as it is stored: revoked_reason is VARCHAR(100), and a longer reason would make
+     * PostgreSQL/MySQL reject the update.
      */
-    private static String revokeReason(String reason) {
+    public static String storedRevokeReason(String reason) {
         if (reason == null) return null;
         return reason.length() <= 100 ? reason : reason.substring(0, 100);
-    }
-
-    public void revoke(Long id, String reason, Runnable onSuccess, Runnable onFailure) {
-        judicator.getPlatform().runAsync(() -> {
-            if (revokeNow(id, reason)) onSuccess.run();
-            else onFailure.run();
-        });
     }
 
     public String statusOf(String username) {
@@ -118,7 +112,7 @@ public class PunishService {
     }
 
     public boolean revokeNow(Long id, String reason) {
-        if (!repository.revoke(id, revokeReason(reason))) return false;
+        if (!repository.revoke(id, storedRevokeReason(reason))) return false;
         judicator.getSyncService().publish(SyncKind.REVOKED, id);
         return true;
     }
@@ -152,6 +146,14 @@ public class PunishService {
 
     public List<Punishment> findAllByUsername(String username) {
         return repository.findAllByUsername(username);
+    }
+
+    public List<Punishment> findAllByUUID(UUID uuid) {
+        return repository.findAllByUUID(uuid);
+    }
+
+    public List<Punishment> findAllActiveByUUIDAndTypes(UUID uuid, PunishType... types) {
+        return repository.findAllActiveByUUIDAndTypes(uuid, types);
     }
 
     public List<Punishment> findAllActiveByUsernameAndTypes(String username, PunishType... types) {

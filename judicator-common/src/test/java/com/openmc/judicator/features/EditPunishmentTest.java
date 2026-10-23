@@ -74,7 +74,7 @@ class EditPunishmentTest {
 
     @Test
     void extend_refusesPermanentFinishedRevokedAndKicks() {
-        server = TestServer.in(folder).config("log-kicks: false", "log-kicks: true").start();
+        server = TestServer.in(folder).set("log-kicks", true).start();
         server.online(new FakePlayer("Steve", "10.0.0.1"));
         server.online(new FakePlayer("Alex", "10.0.0.2"));
         final Punishment ban = byConsole("ban Steve xray", "Steve");

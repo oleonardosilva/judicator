@@ -27,9 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class AddressPolicyTest {
 
-    private static final String SCHOOL = "exempt-addresses: # IPs or CIDR ranges shared by many players (a school network, the proxy itself): never IP-punished, ignored by alt warnings and account limits\n"
-            + "  - \"127.0.0.1\"\n";
-
     @TempDir
     Path folder;
 
@@ -41,7 +38,7 @@ class AddressPolicyTest {
     }
 
     private TestServer.Builder withSchoolNetwork() {
-        return TestServer.in(folder).config(SCHOOL, SCHOOL + "  - \"10.20.0.0/16\"\n");
+        return TestServer.in(folder).set("exempt-addresses", List.of("127.0.0.1", "::1", "10.20.0.0/16"));
     }
 
     // --- exempt addresses ---
@@ -138,7 +135,7 @@ class AddressPolicyTest {
 
     @Test
     void invalidEntriesAreIgnored() {
-        server = TestServer.in(folder).config(SCHOOL, SCHOOL + "  - \"school.example.com\"\n  - \"10.0.0.0/99\"\n").start();
+        server = TestServer.in(folder).set("exempt-addresses", List.of("127.0.0.1", "school.example.com", "10.0.0.0/99")).start();
         server.online(new FakePlayer("Steve", "10.0.0.1"));
 
         server.command(server.console, "banip Steve griefing");
@@ -150,7 +147,7 @@ class AddressPolicyTest {
 
     @Test
     void maxOnline_refusesOneAccountTooMany() {
-        server = TestServer.in(folder).config("  max-online: 0", "  max-online: 2").start();
+        server = TestServer.in(folder).set("ip-limits.max-online", 2).start();
         server.online(new FakePlayer("One", "10.0.0.1"));
         final FakePlayer two = server.online(new FakePlayer("Two", "10.0.0.1"));
 
@@ -165,7 +162,7 @@ class AddressPolicyTest {
 
     @Test
     void maxRecentAccounts_refusesNewAccountsWithinThePeriod() {
-        server = TestServer.in(folder).config("  max-recent-accounts: 0", "  max-recent-accounts: 3").start();
+        server = TestServer.in(folder).set("ip-limits.max-recent-accounts", 3).start();
         final MutableClock clock = new MutableClock();
         server.judicator.getAddressPolicy().setClock(clock);
         for (String name : new String[]{"Bot1", "Bot2", "Bot3"}) {
@@ -181,7 +178,7 @@ class AddressPolicyTest {
 
     @Test
     void namesThatNeverLogIn_doNotUseUpTheRecentAccounts() {
-        server = TestServer.in(folder).config("  max-recent-accounts: 0", "  max-recent-accounts: 2").start();
+        server = TestServer.in(folder).set("ip-limits.max-recent-accounts", 2).start();
         // On Velocity the pre-login runs before authentication: anyone can send any name there.
         for (String fake : new String[]{"fake1", "fake2", "fake3"}) {
             assertTrue(server.judicator.getConnectionHandler().checkPreLogin(fake, "10.0.0.1").isEmpty());
@@ -194,7 +191,7 @@ class AddressPolicyTest {
 
     @Test
     void aLoginRefusedByABan_doesNotUseUpTheRecentAccounts() {
-        server = TestServer.in(folder).config("  max-recent-accounts: 0", "  max-recent-accounts: 1").start();
+        server = TestServer.in(folder).set("ip-limits.max-recent-accounts", 1).start();
         final FakePlayer banned = new FakePlayer("Banned", "10.0.0.9");
         server.online(banned);
         server.command(server.console, "ban Banned hacking");
@@ -205,14 +202,14 @@ class AddressPolicyTest {
 
     @Test
     void exemptAddressesAreNeverLimited() {
-        server = withSchoolNetwork().config("  max-online: 0", "  max-online: 1").start();
+        server = withSchoolNetwork().set("ip-limits.max-online", 1).start();
         server.online(new FakePlayer("Student1", "10.20.3.4"));
         assertTrue(server.join(new FakePlayer("Student2", "10.20.3.4")).isEmpty());
     }
 
     @Test
     void aBannedAccountSeesItsBanNotTheLimit() {
-        server = TestServer.in(folder).config("  max-online: 0", "  max-online: 1").start();
+        server = TestServer.in(folder).set("ip-limits.max-online", 1).start();
         server.online(new FakePlayer("One", "10.0.0.1"));
         server.command(server.console, "ban Two hacking");
 
@@ -223,8 +220,8 @@ class AddressPolicyTest {
     @Test
     void anOldConfigWithoutTheNewKeys_limitsNothingAndExemptsNothing() {
         server = TestServer.in(folder)
-                .config("exempt-addresses:", "old-exempt-addresses:")
-                .config("ip-limits:", "old-ip-limits:")
+                .remove("exempt-addresses")
+                .remove("ip-limits")
                 .start();
         for (int i = 0; i < 5; i++) server.online(new FakePlayer("Local" + i, "127.0.0.1"));
 
@@ -257,3 +254,4 @@ class AddressPolicyTest {
         }
     }
 }
+ 

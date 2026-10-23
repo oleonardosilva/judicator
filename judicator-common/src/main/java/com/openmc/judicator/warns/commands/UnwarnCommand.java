@@ -3,12 +3,14 @@ package com.openmc.judicator.warns.commands;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.commons.command.CommandArgs;
 import com.openmc.judicator.commons.command.CoreCommand;
+import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.types.PunishPermissions;
 import com.openmc.judicator.warns.Warn;
 import com.openmc.judicator.warns.WarnService;
 import com.openmc.judicator.warns.WarnUtils;
+import com.openmc.judicator.warns.handlers.UnwarnHandler;
 import org.spongepowered.configurate.ConfigurationNode;
 
 import java.util.List;
@@ -37,13 +39,10 @@ public class UnwarnCommand extends CoreCommand {
             return;
         }
 
-        final Warn warn = optWarn.get();
-        warnService.deleteById(id);
+        final String author = source.asPlayer().map(JudicatorPlayer::getName).orElse("Console");
+        new UnwarnHandler(judicator).remove(optWarn.get(), author, true);
 
         source.sendMessage(WarnUtils.getMessage(messages, "success", "unwarn"));
-
-        judicator.getPlatform().getPlayer(warn.getNickname())
-                .ifPresent(player -> player.sendMessage(WarnUtils.getMessage(judicator.messagesFor(player), "success", "got-unwarn")));
     }
 
     @Override

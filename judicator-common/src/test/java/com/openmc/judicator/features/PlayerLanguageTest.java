@@ -31,7 +31,7 @@ class PlayerLanguageTest {
     }
 
     private TestServer perPlayer() {
-        return TestServer.in(folder).config("per-player-language: false", "per-player-language: true").start();
+        return TestServer.in(folder).set("per-player-language", true).start();
     }
 
     @Test

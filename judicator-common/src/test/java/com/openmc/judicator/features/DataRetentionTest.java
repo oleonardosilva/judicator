@@ -26,11 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class DataRetentionTest {
 
-    private static final String RETENTION = """
-            retention: # days to keep old records, then they are deleted at startup and every 12 hours (0 = keep forever); IPs and histories are personal data
-              kicks: 0 # logged kicks (log-kicks)
-              finished-punishments: 0""";
-
     @TempDir
     Path folder;
 
@@ -50,7 +45,7 @@ class DataRetentionTest {
 
     @Test
     void configuredRetention_deletesOldRecordsAtStartup() {
-        server = TestServer.in(folder).config(RETENTION, RETENTION.replace("kicks: 0", "kicks: 30")).start();
+        server = TestServer.in(folder).set("retention.kicks", 30).start();
         final Punishment kick = oldKick("Steve");
 
         server.restart();
@@ -60,8 +55,7 @@ class DataRetentionTest {
 
     @Test
     void retentionRun_reportsWhatEachSettingDeleted() {
-        server = TestServer.in(folder).config(RETENTION, RETENTION.replace("kicks: 0", "kicks: 30")
-                .replace("finished-punishments: 0", "finished-punishments: 30")).start();
+        server = TestServer.in(folder).set("retention.kicks", 30).set("retention.finished-punishments", 30).start();
         oldKick("Steve");
         final LocalDateTime old = LocalDateTime.now().minusDays(60);
         server.punishments.save(Punishment.create(null, "x", "Mod", "Alex", null, old, old.plusDays(1), List.of(), PunishType.TEMPBAN));
@@ -75,7 +69,7 @@ class DataRetentionTest {
 
     @Test
     void retention_runsAgainPeriodically() {
-        server = TestServer.in(folder).config(RETENTION, RETENTION.replace("kicks: 0", "kicks: 30")).start();
+        server = TestServer.in(folder).set("retention.kicks", 30).start();
         final Punishment kick = oldKick("Steve");
 
         server.platform.runRepeatingTasks();
@@ -85,7 +79,7 @@ class DataRetentionTest {
 
     @Test
     void finishedPunishmentsRetention_keepsKicksWhenTheirRetentionIsOff() {
-        server = TestServer.in(folder).config(RETENTION, RETENTION.replace("finished-punishments: 0", "finished-punishments: 30")).start();
+        server = TestServer.in(folder).set("retention.finished-punishments", 30).start();
         final Punishment kick = oldKick("Steve");
 
         server.judicator.getDataRetentionService().run(LocalDateTime.now());

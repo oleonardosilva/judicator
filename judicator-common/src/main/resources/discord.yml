@@ -1,59 +1,70 @@
 # ============================================================
-#  Judicator — Discord Webhook Configuration
+#  Judicator — Discord webhook
 # ============================================================
-# Available placeholders for title and description:
-#   {player}    — punished/warned player's nickname
-#   {punisher}  — staff member who applied the punishment
-#   {reason}    — punishment reason
-#   {type}      — punishment type (BAN, MUTE, etc.)
-#   {id}        — punishment/warn ID in the database
+# Posts an embed to a Discord channel for every punishment. Applied with /judicator reload.
+# Create the webhook in Discord (channel settings > Integrations > Webhooks) and paste its URL below.
+# The embed is posted once, by the server that applied the punishment.
 #
-# Colors: use hex format, e.g. "#FF0000" for red.
-# webhook-url: the full webhook URL of the Discord channel.
-# ============================================================
+# Placeholders for title, description and footer:
+#   {player}   punished player          {punisher}  staff member who applied it
+#   {reason}   reason                   {type}      BAN, TEMPBAN, MUTE, SOFTMUTE, KICK... (labels.warn for warns)
+#   {id}       id in the database       {expires}   end date, or the 'permanent'/'paused' label below
+# Colours: hex, e.g. "#FF0000".
 
-enabled: true
+enabled: false
+
+webhook-url: "" # channel for every event; an event can post to another one with its own webhook-url
+username: "" # name shown as the author of the message (empty: the webhook's name)
+avatar-url: "" # picture of the author (empty: the webhook's picture)
+thumbnail-url: "https://mc-heads.net/avatar/{uuid}" # picture of the player; {uuid} is their UUID (MHF_Steve when unknown)
+footer: "Judicator • ID #{id}"
+
+labels: # names of the embed fields, and texts for what has no value
+  player: "Player"
+  punisher: "Punisher"
+  type: "Type"
+  reason: "Reason"
+  started-at: "Started At"
+  expires: "Expires"
+  permanent: "Permanent"
+  paused: "Paused (online time only)"
+  no-reason: "No reason provided"
+  warn: "Warn" # the type shown for warns
 
 events:
-
   ban:
     enabled: true
-    webhook-url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE"
     color: "#E74C3C"
     title: "🔨 Player Banned"
     description: "Player **{player}** was permanently banned by **{punisher}**."
 
   tempban:
     enabled: true
-    webhook-url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE"
     color: "#E67E22"
     title: "⏱️ Temporary Ban"
     description: "Player **{player}** received a temporary ban from **{punisher}**."
 
   mute:
     enabled: true
-    webhook-url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE"
     color: "#9B59B6"
     title: "🔇 Player Muted"
     description: "Player **{player}** was permanently muted by **{punisher}**."
 
   tempmute:
     enabled: true
-    webhook-url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE"
     color: "#8E44AD"
     title: "⏱️ Temporary Mute"
     description: "Player **{player}** received a temporary mute from **{punisher}**."
 
   kick:
     enabled: true
-    webhook-url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE"
     color: "#F39C12"
     title: "👢 Player Kicked"
     description: "Player **{player}** was kicked by **{punisher}**."
 
   warn:
     enabled: true
-    webhook-url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_HERE"
     color: "#F1C40F"
     title: "⚠️ Warning Issued"
     description: "Player **{player}** received a warning from **{punisher}**."
+    # webhook-url: "" # e.g. warns in a channel of their own

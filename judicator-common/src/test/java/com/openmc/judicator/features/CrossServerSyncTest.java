@@ -26,8 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class CrossServerSyncTest {
 
-    static final String SYNC_OFF = "  enabled: false # true on every server of the network; requires a restart";
-    static final String SYNC_ON = "  enabled: true # true on every server of the network; requires a restart";
 
     @TempDir
     Path folder;
@@ -43,7 +41,7 @@ class CrossServerSyncTest {
     }
 
     private TestServer server(String name, TestServer sharing) {
-        final TestServer.Builder builder = TestServer.in(folder.resolve(name)).config(SYNC_OFF, SYNC_ON);
+        final TestServer.Builder builder = TestServer.in(folder.resolve(name)).set("sync.enabled", true);
         if (sharing != null) builder.sharingDatabaseWith(sharing);
         final TestServer server = builder.start();
         servers.add(server);

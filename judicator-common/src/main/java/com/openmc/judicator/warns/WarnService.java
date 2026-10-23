@@ -6,6 +6,7 @@ import com.openmc.judicator.warns.repository.WarnRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public class WarnService {
 
@@ -22,6 +23,10 @@ public class WarnService {
 
     public List<Warn> findAllByUsername(String username) {
         return repository.findAllByUsername(username);
+    }
+
+    public List<Warn> findAllByUUID(UUID uuid) {
+        return repository.findAllByUUID(uuid);
     }
 
     public Warn save(Warn punishment) {

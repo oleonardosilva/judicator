@@ -85,7 +85,7 @@ class SoftAndOnlineOnlyMuteTest {
 
     @Test
     void softMute_doesNothingToChatWhenGlobalChatIsNotBlocked() {
-        server = TestServer.in(folder).config("block-global-chat: true", "block-global-chat: false").start();
+        server = TestServer.in(folder).set("block-global-chat", false).start();
         final FakePlayer steve = server.online(new FakePlayer("Steve", "10.0.0.1"));
         server.command(server.console, "softmute Steve spam");
 
@@ -94,7 +94,7 @@ class SoftAndOnlineOnlyMuteTest {
 
     @Test
     void softMuteEcho_usesTheConfiguredFormatAndKeepsThePlayersTextPlain() {
-        server = TestServer.in(folder).config("soft-mute-format: \"<{player}> {message}\"", "soft-mute-format: \"&7{player}: {message}\"").start();
+        server = TestServer.in(folder).set("soft-mute-format", "&7{player}: {message}").start();
         final FakePlayer steve = server.online(new FakePlayer("Steve", "10.0.0.1"));
 
         assertEquals("Steve: &cfree &lgems", Texts.plain(server.judicator.getChatHandler().softMuteEcho(steve, "&cfree &lgems")));
