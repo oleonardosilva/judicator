@@ -46,18 +46,29 @@ public class JudicatorVelocity {
         logger.info("Initializing plugin with automatic dependency download...");
         final DependencyManager dependencyManager = new DependencyManager(this, server.getPluginManager(), logger, dataDirectory);
 
+        // SHA-256 of each jar on Maven Central. Changing a version means changing its hash too.
         final List<DependencyManager.Dependency> dependencies = new ArrayList<>(Arrays.asList(
-                new DependencyManager.Dependency("com.mysql:mysql-connector-j:9.3.0"),
-                new DependencyManager.Dependency("org.postgresql:postgresql:42.7.7"),
-                new DependencyManager.Dependency("com.github.ben-manes.caffeine:caffeine:3.1.8"),
-                new DependencyManager.Dependency("com.zaxxer", "HikariCP", "6.3.0")
+                new DependencyManager.Dependency("com.mysql:mysql-connector-j:9.3.0",
+                        "6c8e6692b521376d89bc5618c16cdeaf8c61854329f4fa25677ed08776c5bb76"),
+                new DependencyManager.Dependency("org.postgresql:postgresql:42.7.7",
+                        "157963d60ae66d607e09466e8c0cdf8087e9cb20d0159899ffca96bca2528460"),
+                new DependencyManager.Dependency("com.github.ben-manes.caffeine:caffeine:3.1.8",
+                        "7dd15f9df1be238ffaa367ce6f556737a88031de4294dad18eef57c474ddf1d3"),
+                new DependencyManager.Dependency("com.zaxxer:HikariCP:6.3.0",
+                        "07c6344059af30a135144209c7c8bd666b8823124422ec859864d209d4ab7ca1")
         ));
         // The SQLite driver bundles native libraries (~13 MB): only fetch it when data.yml asks for SQLite.
         if (RelationalDBManager.readConfiguredDialect(dataDirectory) == Dialect.SQLITE) {
-            dependencies.add(new DependencyManager.Dependency("org.xerial:sqlite-jdbc:3.46.1.2"));
+            dependencies.add(new DependencyManager.Dependency("org.xerial:sqlite-jdbc:3.46.1.2",
+                    "f94550638a187cb8dd34391594303aa04ed3f168b31ab8026fe1e57db3a78c62"));
         }
 
-        dependencyManager.downloadAndLoadDependencies(dependencies);
+        try {
+            dependencyManager.downloadAndLoadDependencies(dependencies);
+        } catch (IllegalStateException e) {
+            logger.error("Judicator was not enabled: {}", e.getMessage());
+            return;
+        }
 
         final VelocityPlatform platform = new VelocityPlatform(this, server, logger, dataDirectory);
         final Judicator core = new Judicator(platform);

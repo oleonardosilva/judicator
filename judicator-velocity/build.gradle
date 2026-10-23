@@ -3,14 +3,27 @@ plugins {
     id 'xyz.jpenilla.run-velocity'
 }
 
+configurations {
+    testImplementation.extendsFrom compileOnly
+}
+
 dependencies {
     implementation project(':judicator-common')
 
     compileOnly 'com.velocitypowered:velocity-api:3.4.0-SNAPSHOT'
     annotationProcessor 'com.velocitypowered:velocity-api:3.4.0-SNAPSHOT'
+
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testRuntimeOnly 'org.slf4j:slf4j-nop:2.0.16'
 }
 
 tasks {
+    test {
+        useJUnitPlatform()
+    }
+
     runVelocity {
         velocityVersion("3.4.0-SNAPSHOT")
     }

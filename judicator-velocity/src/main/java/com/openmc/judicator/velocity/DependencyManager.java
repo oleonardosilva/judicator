@@ -1,228 +1,168 @@
 package com.openmc.judicator.velocity;
 
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import com.velocitypowered.api.plugin.PluginManager;
 import org.slf4j.Logger;
 
-import java.io.*;
-import java.net.URL;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URLConnection;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Stream;
+import java.util.Locale;
+import java.util.regex.Pattern;
 
+/**
+ * Downloads the libraries Velocity does not provide (JDBC drivers, HikariCP, Caffeine) into {@code libs/} and adds
+ * them to the plugin class path. Every library has a SHA-256 fixed in the code: a jar that does not match is never
+ * loaded, so a compromised repository or network cannot run code in the proxy.
+ */
 public class DependencyManager {
+
+    static final String MAVEN_CENTRAL = "https://repo1.maven.org/maven2/";
+    private static final int CONNECT_TIMEOUT_MILLIS = 10_000;
+    private static final int READ_TIMEOUT_MILLIS = 60_000;
 
     private final Object plugin;
     private final PluginManager pluginManager;
     private final Logger logger;
     private final Path libsDirectory;
-    private final Path dataDirectory;
-    private final Set<String> loadedDependencies = ConcurrentHashMap.newKeySet();
-    private final List<Repository> repositories = new ArrayList<>();
-    private final Gson gson = new Gson();
+    private final String repository;
 
     public DependencyManager(Object plugin, PluginManager pluginManager, Logger logger, Path dataDirectory) {
+        this(plugin, pluginManager, logger, dataDirectory, MAVEN_CENTRAL);
+    }
+
+    DependencyManager(Object plugin, PluginManager pluginManager, Logger logger, Path dataDirectory, String repository) {
         this.plugin = plugin;
         this.pluginManager = pluginManager;
         this.logger = logger;
-        this.dataDirectory = dataDirectory;
         this.libsDirectory = dataDirectory.resolve("libs");
+        this.repository = repository.endsWith("/") ? repository : repository + "/";
+    }
 
+    /**
+     * Makes sure every dependency is in {@code libs/} with the expected hash (downloading it otherwise) and loads
+     * exactly those jars; other files in the folder are ignored.
+     *
+     * @throws IllegalStateException if a dependency could not be obtained with the expected hash
+     */
+    public void downloadAndLoadDependencies(List<Dependency> dependencies) {
         try {
             Files.createDirectories(libsDirectory);
         } catch (IOException e) {
-            logger.error("Error creating libs directory", e);
+            throw new IllegalStateException("Could not create " + libsDirectory, e);
         }
 
-        addRepository(new Repository("central", "https://repo1.maven.org/maven2/"));
-        addRepository(new Repository("jitpack", "https://jitpack.io/"));
-        addRepository(new Repository("sonatype", "https://oss.sonatype.org/content/repositories/snapshots/"));
-    }
-
-    public void addRepository(Repository repository) {
-        repositories.add(repository);
-        logger.info("Repository added: {} - {}", repository.getName(), repository.getUrl());
-    }
-
-    public void downloadAndLoadDependencies(List<Dependency> dependencies) {
-        logger.info("Starting download of {} dependencies...", dependencies.size());
-
+        final List<String> failed = new ArrayList<>();
+        final List<Path> verified = new ArrayList<>();
         for (Dependency dependency : dependencies) {
             try {
-                downloadDependency(dependency);
-            } catch (Exception e) {
-                logger.error("Error when downloading dependence: {}", dependency.getCoordinate(), e);
+                verified.add(ensure(dependency));
+            } catch (IOException | IllegalStateException e) {
+                logger.error("Dependency {} was not loaded: {}", dependency.getCoordinate(), e.getMessage());
+                failed.add(dependency.getCoordinate());
             }
         }
+        if (!failed.isEmpty()) {
+            throw new IllegalStateException("Dependencies not loaded: " + String.join(", ", failed));
+        }
 
-        loadAllJars();
+        for (Path jar : verified) {
+            pluginManager.addToClasspath(plugin, jar);
+        }
+        logger.info("Loaded {} verified dependencies", verified.size());
     }
 
-    private void downloadDependency(Dependency dependency) throws Exception {
-        final String fileName = dependency.getFileName();
-        final Path jarPath = libsDirectory.resolve(fileName);
-
-        if (Files.exists(jarPath)) {
-            if (dependency.getSha1() != null && validateChecksum(jarPath, dependency.getSha1())) {
-                logger.debug("Dependence {} already exists and is valid", dependency.getCoordinate());
-                return;
-            } else if (dependency.getSha1() == null) {
-                logger.debug("Dependence {} already exists (no checksum validation)", dependency.getCoordinate());
-                return;
-            }
+    /**
+     * @return the jar in {@code libs/}, already checked against the dependency's SHA-256
+     */
+    Path ensure(Dependency dependency) throws IOException {
+        final Path jar = libsDirectory.resolve(dependency.getFileName());
+        if (Files.isRegularFile(jar)) {
+            if (dependency.matches(sha256(jar))) return jar;
+            logger.warn("{} does not match the expected SHA-256; downloading it again", jar.getFileName());
         }
 
-        boolean downloaded = false;
-        for (Repository repo : repositories) {
-            try {
-                final String downloadUrl = repo.getUrl() + dependency.getPath();
-                logger.info("Trying to download: {}", downloadUrl);
-
-                if (downloadFile(downloadUrl, jarPath)) {
-                    if (dependency.getSha1() != null) {
-                        if (validateChecksum(jarPath, dependency.getSha1())) {
-                            logger.info("Dependence {} successfully downloaded from {}",
-                                    dependency.getCoordinate(), repo.getName());
-                            downloaded = true;
-                            break;
-                        } else {
-                            logger.warn("Invalid checksum for {}, trying to next repository",
-                                    dependency.getCoordinate());
-                            Files.deleteIfExists(jarPath);
-                        }
-                    } else {
-                        logger.info("Dependence {} successfully downloaded from {} (no checksum validation)",
-                                dependency.getCoordinate(), repo.getName());
-                        downloaded = true;
-                        break;
-                    }
-                }
-            } catch (Exception e) {
-                logger.debug("Failure to downlaod {}: {}", repo.getName(), e.getMessage());
-            }
-        }
-
-        if (!downloaded) {
-            throw new RuntimeException("It was not possible to download the dependence: " + dependency.getCoordinate());
-        }
-    }
-
-    private boolean downloadFile(String url, Path destination) throws Exception {
-        try (final ReadableByteChannel channel = Channels.newChannel(new URL(url).openStream());
-             final FileOutputStream fos = new FileOutputStream(destination.toFile())) {
-
-            fos.getChannel().transferFrom(channel, 0, Long.MAX_VALUE);
-            return true;
-        }
-    }
-
-    private boolean validateChecksum(Path file, String expectedSha1) {
+        final Path partial = libsDirectory.resolve(dependency.getFileName() + ".part");
+        final String url = repository + dependency.getPath();
+        logger.info("Downloading {}", url);
         try {
-            final MessageDigest digest = MessageDigest.getInstance("SHA-1");
-            try (InputStream fis = Files.newInputStream(file)) {
-                byte[] buffer = new byte[8192];
-                int bytesRead;
-                while ((bytesRead = fis.read(buffer)) != -1) {
-                    digest.update(buffer, 0, bytesRead);
-                }
+            download(url, partial);
+            final String actual = sha256(partial);
+            if (!dependency.matches(actual)) {
+                throw new IllegalStateException("SHA-256 mismatch for " + url + " (expected " + dependency.getSha256()
+                        + ", got " + actual + ")");
             }
-
-            final StringBuilder sb = new StringBuilder();
-            for (byte b : digest.digest()) {
-                sb.append(String.format("%02x", b));
-            }
-
-            return expectedSha1.equals(sb.toString());
-        } catch (Exception e) {
-            logger.error("Error Validation Checksum", e);
-            return false;
+            Files.move(partial, jar, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            return jar;
+        } finally {
+            Files.deleteIfExists(partial);
         }
     }
 
-    private void loadAllJars() {
-        try {
-            final List<Path> jarUrls = new ArrayList<>();
-
-            final Stream<Path> walk = Files.walk(libsDirectory);
-            walk.filter(path -> path.toString().endsWith(".jar"))
-                    .forEach(jarPath -> {
-                        try {
-                            String jarName = jarPath.getFileName().toString();
-                            if (!loadedDependencies.contains(jarName)) {
-                                jarUrls.add(jarPath);
-                                loadedDependencies.add(jarName);
-                                logger.info("Preparing to load: {}", jarName);
-                            }
-                        } catch (Exception e) {
-                            logger.error("Error preparing JAR: {}", jarPath, e);
-                        }
-                    });
-            walk.close();
-            if (!jarUrls.isEmpty()) {
-                for (Path jarUrl : jarUrls) {
-                    pluginManager.addToClasspath(plugin, jarUrl);
-                }
-                logger.info("Successfully loaded {} dependencies", jarUrls.size());
-            }
-        } catch (Exception e) {
-            logger.error("Error loading dependencies", e);
-            throw new RuntimeException("Dependency loading failed", e);
+    private static void download(String url, Path destination) throws IOException {
+        final URLConnection connection = URI.create(url).toURL().openConnection();
+        connection.setConnectTimeout(CONNECT_TIMEOUT_MILLIS);
+        connection.setReadTimeout(READ_TIMEOUT_MILLIS);
+        try (InputStream in = connection.getInputStream()) {
+            Files.copy(in, destination, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
-    public void saveDependencyCache(List<Dependency> dependencies) {
+    static String sha256(Path file) throws IOException {
+        final MessageDigest digest;
         try {
-            final Path cacheFile = dataDirectory.resolve("dependency-cache.json");
-            try (FileWriter writer = new FileWriter(cacheFile.toFile())) {
-                gson.toJson(dependencies, writer);
-            }
-        } catch (IOException e) {
-            logger.error("Error saving dependencies cache", e);
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available", e);
         }
-    }
-
-    public List<Dependency> loadDependencyCache() {
-        try {
-            final Path cacheFile = dataDirectory.resolve("dependency-cache.json");
-            if (Files.exists(cacheFile)) {
-                try (FileReader reader = new FileReader(cacheFile.toFile())) {
-                    return gson.fromJson(reader, new TypeToken<List<Dependency>>() {
-                    }.getType());
-                }
+        try (InputStream in = Files.newInputStream(file)) {
+            final byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                digest.update(buffer, 0, read);
             }
-        } catch (IOException e) {
-            logger.error("Error loading dependencies cache", e);
         }
-        return new ArrayList<>();
+        return HexFormat.of().formatHex(digest.digest());
     }
 
     public static class Dependency {
+
+        private static final Pattern SHA256 = Pattern.compile("[0-9a-f]{64}");
+
         private final String groupId;
         private final String artifactId;
         private final String version;
-        private final String sha1;
+        private final String sha256;
 
-        public Dependency(String groupId, String artifactId, String version) {
-            this(groupId, artifactId, version, null);
+        /**
+         * @param coordinate {@code group:artifact:version}
+         * @param sha256     SHA-256 of the jar on Maven Central, in hex
+         */
+        public Dependency(String coordinate, String sha256) {
+            final String[] parts = coordinate.split(":");
+            if (parts.length != 3) throw new IllegalArgumentException("Invalid coordinate: " + coordinate);
+            final String hash = sha256 == null ? "" : sha256.toLowerCase(Locale.ROOT);
+            if (!SHA256.matcher(hash).matches()) {
+                throw new IllegalArgumentException("Invalid SHA-256 for " + coordinate);
+            }
+            this.groupId = parts[0];
+            this.artifactId = parts[1];
+            this.version = parts[2];
+            this.sha256 = hash;
         }
 
-        public Dependency(String groupId) {
-            this(groupId.split(":")[0], groupId.split(":")[1], groupId.split(":")[2], null);
-        }
-
-        public Dependency(String groupId, String artifactId, String version, String sha1) {
-            this.groupId = groupId;
-            this.artifactId = artifactId;
-            this.version = version;
-            this.sha1 = sha1;
+        boolean matches(String actualSha256) {
+            return MessageDigest.isEqual(sha256.getBytes(StandardCharsets.US_ASCII),
+                    actualSha256.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.US_ASCII));
         }
 
         public String getCoordinate() {
@@ -241,38 +181,8 @@ public class DependencyManager {
                     getFileName());
         }
 
-        public String getGroupId() {
-            return groupId;
-        }
-
-        public String getArtifactId() {
-            return artifactId;
-        }
-
-        public String getVersion() {
-            return version;
-        }
-
-        public String getSha1() {
-            return sha1;
-        }
-    }
-
-    public static class Repository {
-        private final String name;
-        private final String url;
-
-        public Repository(String name, String url) {
-            this.name = name;
-            this.url = url.endsWith("/") ? url : url + "/";
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public String getUrl() {
-            return url;
+        public String getSha256() {
+            return sha256;
         }
     }
 }
