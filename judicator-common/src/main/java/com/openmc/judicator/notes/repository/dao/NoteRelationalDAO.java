@@ -2,7 +2,6 @@ package com.openmc.judicator.notes.repository.dao;
 
 import com.openmc.judicator.commons.db.Dialect;
 import com.openmc.judicator.commons.db.RelationalDBManager;
-import com.openmc.judicator.commons.db.SchemaUtil;
 import com.openmc.judicator.commons.db.SqlTime;
 import com.openmc.judicator.notes.Note;
 import com.openmc.judicator.notes.repository.NoteRepository;
@@ -24,7 +23,7 @@ import java.util.UUID;
 
 public class NoteRelationalDAO implements NoteRepository {
 
-    private static final String INSERT = "INSERT INTO notes (player_uuid, nickname, lower_nickname, author, content, created_at) VALUES (?, ?, ?, ?, ?, ?)";
+    private static final String INSERT = "INSERT INTO {notes} (player_uuid, nickname, lower_nickname, author, content, created_at) VALUES (?, ?, ?, ?, ?, ?)";
 
     private final RelationalDBManager manager;
     private final Logger logger;
@@ -41,7 +40,7 @@ public class NoteRelationalDAO implements NoteRepository {
             final String sql;
             if (dialect == Dialect.POSTGRESQL) {
                 sql = """
-                        CREATE TABLE IF NOT EXISTS notes (
+                        CREATE TABLE IF NOT EXISTS {notes} (
                             id BIGSERIAL PRIMARY KEY,
                             player_uuid VARCHAR(36),
                             nickname VARCHAR(20) NOT NULL,
@@ -53,7 +52,7 @@ public class NoteRelationalDAO implements NoteRepository {
                         """;
             } else if (dialect == Dialect.SQLITE) {
                 sql = """
-                        CREATE TABLE IF NOT EXISTS notes (
+                        CREATE TABLE IF NOT EXISTS {notes} (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             player_uuid VARCHAR(36),
                             nickname VARCHAR(20) NOT NULL,
@@ -65,7 +64,7 @@ public class NoteRelationalDAO implements NoteRepository {
                         """;
             } else {
                 sql = """
-                        CREATE TABLE IF NOT EXISTS notes (
+                        CREATE TABLE IF NOT EXISTS {notes} (
                             id BIGINT AUTO_INCREMENT PRIMARY KEY,
                             player_uuid VARCHAR(36),
                             nickname VARCHAR(20) NOT NULL,
@@ -76,11 +75,10 @@ public class NoteRelationalDAO implements NoteRepository {
                         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                         """;
             }
-            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            try (PreparedStatement statement = connection.prepareStatement(manager.sql(sql))) {
                 statement.execute();
             }
-            SchemaUtil.ensureIndexExists(connection, "notes", "idx_notes_lower_nickname",
-                    "CREATE INDEX idx_notes_lower_nickname ON notes(lower_nickname)");
+            manager.ensureIndex(connection, "notes", "lower_nickname");
         } catch (SQLException e) {
             logger.error(e.getMessage(), e);
         }
@@ -91,14 +89,14 @@ public class NoteRelationalDAO implements NoteRepository {
         try (Connection connection = manager.getDataSource().getConnection()) {
             if (note.getId() != null) {
                 try (PreparedStatement statement = connection.prepareStatement(
-                        "UPDATE notes SET player_uuid = ?, nickname = ?, lower_nickname = ?, author = ?, content = ?, created_at = ? WHERE id = ?")) {
+                        manager.sql("UPDATE {notes} SET player_uuid = ?, nickname = ?, lower_nickname = ?, author = ?, content = ?, created_at = ? WHERE id = ?"))) {
                     bind(statement, note);
                     statement.setLong(7, note.getId());
                     statement.executeUpdate();
                 }
                 return note;
             }
-            try (PreparedStatement statement = connection.prepareStatement(INSERT, Statement.RETURN_GENERATED_KEYS)) {
+            try (PreparedStatement statement = connection.prepareStatement(manager.sql(INSERT), Statement.RETURN_GENERATED_KEYS)) {
                 bind(statement, note);
                 statement.executeUpdate();
                 try (ResultSet keys = statement.getGeneratedKeys()) {
@@ -123,7 +121,7 @@ public class NoteRelationalDAO implements NoteRepository {
     @Override
     public Optional<Note> findById(Long id) {
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement("SELECT * FROM notes WHERE id = ?")) {
+             PreparedStatement statement = connection.prepareStatement(manager.sql("SELECT * FROM {notes} WHERE id = ?"))) {
             statement.setLong(1, id);
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (resultSet.next()) return Optional.of(load(resultSet));
@@ -137,7 +135,7 @@ public class NoteRelationalDAO implements NoteRepository {
     @Override
     public void deleteById(Long id) {
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement("DELETE FROM notes WHERE id = ?")) {
+             PreparedStatement statement = connection.prepareStatement(manager.sql("DELETE FROM {notes} WHERE id = ?"))) {
             statement.setLong(1, id);
             statement.executeUpdate();
         } catch (SQLException e) {
@@ -148,7 +146,7 @@ public class NoteRelationalDAO implements NoteRepository {
     @Override
     public int countByUsername(String username) {
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement("SELECT COUNT(*) FROM notes WHERE lower_nickname = ?")) {
+             PreparedStatement statement = connection.prepareStatement(manager.sql("SELECT COUNT(*) FROM {notes} WHERE lower_nickname = ?"))) {
             statement.setString(1, username.toLowerCase());
             try (ResultSet resultSet = statement.executeQuery()) {
                 return resultSet.next() ? resultSet.getInt(1) : 0;
@@ -163,7 +161,7 @@ public class NoteRelationalDAO implements NoteRepository {
     public List<Note> findByUsername(String username, int limit, int offset) {
         try (Connection connection = manager.getDataSource().getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     "SELECT * FROM notes WHERE lower_nickname = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?")) {
+                     manager.sql("SELECT * FROM {notes} WHERE lower_nickname = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?"))) {
             statement.setString(1, username.toLowerCase());
             statement.setInt(2, limit);
             statement.setInt(3, offset);
@@ -181,7 +179,7 @@ public class NoteRelationalDAO implements NoteRepository {
     @Override
     public int countAllOf(String username, UUID uuid) {
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement("SELECT COUNT(*) FROM notes WHERE " + ofPlayer(uuid))) {
+             PreparedStatement statement = connection.prepareStatement(manager.sql("SELECT COUNT(*) FROM {notes} WHERE " + ofPlayer(uuid)))) {
             bindPlayer(statement, username, uuid);
             try (ResultSet resultSet = statement.executeQuery()) {
                 return resultSet.next() ? resultSet.getInt(1) : 0;
@@ -195,7 +193,7 @@ public class NoteRelationalDAO implements NoteRepository {
     @Override
     public int deleteAllOf(String username, UUID uuid) {
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement("DELETE FROM notes WHERE " + ofPlayer(uuid))) {
+             PreparedStatement statement = connection.prepareStatement(manager.sql("DELETE FROM {notes} WHERE " + ofPlayer(uuid)))) {
             bindPlayer(statement, username, uuid);
             return statement.executeUpdate();
         } catch (SQLException e) {
@@ -216,7 +214,7 @@ public class NoteRelationalDAO implements NoteRepository {
     @Override
     public int deleteBefore(LocalDateTime cutoff) {
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement("DELETE FROM notes WHERE created_at < ?")) {
+             PreparedStatement statement = connection.prepareStatement(manager.sql("DELETE FROM {notes} WHERE created_at < ?"))) {
             statement.setTimestamp(1, SqlTime.of(cutoff));
             return statement.executeUpdate();
         } catch (SQLException e) {
@@ -229,7 +227,7 @@ public class NoteRelationalDAO implements NoteRepository {
     public Set<String> findAllImportKeys() throws SQLException {
         final Set<String> keys = new HashSet<>();
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement("SELECT lower_nickname, author, created_at FROM notes");
+             PreparedStatement statement = connection.prepareStatement(manager.sql("SELECT lower_nickname, author, created_at FROM {notes}"));
              ResultSet resultSet = statement.executeQuery()) {
             while (resultSet.next()) {
                 keys.add(importKey(resultSet.getString("lower_nickname"), resultSet.getString("author"), SqlTime.read(resultSet, "created_at")));
@@ -244,7 +242,7 @@ public class NoteRelationalDAO implements NoteRepository {
         try (Connection connection = manager.getDataSource().getConnection()) {
             final boolean autoCommit = connection.getAutoCommit();
             connection.setAutoCommit(false);
-            try (PreparedStatement statement = connection.prepareStatement(INSERT)) {
+            try (PreparedStatement statement = connection.prepareStatement(manager.sql(INSERT))) {
                 for (Note note : notes) {
                     bind(statement, note);
                     statement.addBatch();

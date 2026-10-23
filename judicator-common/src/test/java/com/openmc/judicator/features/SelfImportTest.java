@@ -181,6 +181,26 @@ class SelfImportTest {
     }
 
     @Test
+    void aDatabaseOfVersion1_isReadWithoutThePrefix() throws Exception {
+        final Path version1 = Files.createDirectories(oldServer.resolve("v1"));
+        final RelationalDBManager manager = new RelationalDBManager();
+        manager.initialize(of(map("database", map("type", "sqlite", "file", "v1.db", "table-prefix", ""))), version1, NOPLogger.NOP_LOGGER);
+        try {
+            final PunishmentRelationalDAO punishments = new PunishmentRelationalDAO(manager, NOPLogger.NOP_LOGGER);
+            punishments.initialize();
+            punishments.save(Punishment.create(null, "griefing", "Mod", "Herobrine", null, start, null, List.of(), PunishType.BAN));
+        } finally {
+            manager.shutdown();
+        }
+        Files.writeString(folder.resolve("import.yml"), "judicator:\n  jdbc-url: 'jdbc:sqlite:"
+                + version1.resolve("v1.db").toString().replace("\\", "/").replace("'", "''") + "'\n", StandardCharsets.UTF_8);
+
+        server.command(server.console, "judicator import judicator confirm");
+
+        assertEquals(List.of("Herobrine"), server.punishments.all().stream().map(Punishment::getNickname).toList());
+    }
+
+    @Test
     void staffNotesAreCopiedOnce() {
         final RelationalDBManager manager = new RelationalDBManager();
         manager.initialize(of(map("database", map("type", "sqlite", "file", "old.db"))), oldServer, NOPLogger.NOP_LOGGER);

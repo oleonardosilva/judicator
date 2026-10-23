@@ -2,7 +2,6 @@ package com.openmc.judicator.warns.repository.dao;
 
 import com.openmc.judicator.commons.db.Dialect;
 import com.openmc.judicator.commons.db.RelationalDBManager;
-import com.openmc.judicator.commons.db.SchemaUtil;
 import com.openmc.judicator.commons.db.SqlTime;
 import com.openmc.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.judicator.warns.Warn;
@@ -33,7 +32,7 @@ public class WarnRelationalDAO implements WarnRepository {
         final String sql;
         if (isUpdate) {
             sql = """
-                        UPDATE warns SET
+                        UPDATE {warns} SET
                             player_uuid = ?, reason = ?, punisher = ?, nickname = ?,
                             lower_nickname = ?, started_at = ?, finish_at = ?,
                             permanent = ?
@@ -41,7 +40,7 @@ public class WarnRelationalDAO implements WarnRepository {
                     """;
         } else {
             sql = """
-                        INSERT INTO warns (
+                        INSERT INTO {warns} (
                             player_uuid, reason, punisher, nickname, lower_nickname,
                             started_at, finish_at, permanent
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -57,8 +56,8 @@ public class WarnRelationalDAO implements WarnRepository {
             final PreparedStatement statement;
             if (dialect == Dialect.POSTGRESQL) {
                 statement = connection.prepareStatement(
-                        """
-                                CREATE TABLE IF NOT EXISTS warns (
+                        manager.sql("""
+                                CREATE TABLE IF NOT EXISTS {warns} (
                                     id BIGSERIAL PRIMARY KEY,
                                     player_uuid VARCHAR(36) NOT NULL,
                                     reason VARCHAR(255) NOT NULL,
@@ -69,11 +68,11 @@ public class WarnRelationalDAO implements WarnRepository {
                                     finish_at TIMESTAMP,
                                     permanent BOOLEAN NOT NULL
                                 );
-                                """
+                                """)
                 );
             } else if (dialect == Dialect.SQLITE) {
-                statement = connection.prepareStatement("""
-                        CREATE TABLE IF NOT EXISTS warns (
+                statement = connection.prepareStatement(manager.sql("""
+                        CREATE TABLE IF NOT EXISTS {warns} (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             player_uuid VARCHAR(36) NOT NULL,
                             reason VARCHAR(255) NOT NULL,
@@ -84,10 +83,10 @@ public class WarnRelationalDAO implements WarnRepository {
                             finish_at TIMESTAMP,
                             permanent BOOLEAN NOT NULL
                         );
-                        """);
+                        """));
             } else {
-                statement = connection.prepareStatement("""
-                        CREATE TABLE IF NOT EXISTS warns (
+                statement = connection.prepareStatement(manager.sql("""
+                        CREATE TABLE IF NOT EXISTS {warns} (
                             id BIGINT AUTO_INCREMENT PRIMARY KEY,
                             player_uuid VARCHAR(36) NOT NULL,
                             reason VARCHAR(255) NOT NULL,
@@ -98,22 +97,12 @@ public class WarnRelationalDAO implements WarnRepository {
                             finish_at DATETIME,
                             permanent BOOLEAN NOT NULL
                         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-                        """);
+                        """));
             }
             statement.execute();
 
-            SchemaUtil.ensureIndexExists(
-                    connection,
-                    "warns",
-                    "idx_warns_player_uuid",
-                    "CREATE INDEX idx_warns_player_uuid ON warns(player_uuid)"
-            );
-            SchemaUtil.ensureIndexExists(
-                    connection,
-                    "warns",
-                    "idx_warns_lower_nickname",
-                    "CREATE INDEX idx_warns_lower_nickname ON warns(lower_nickname)"
-            );
+            manager.ensureIndex(connection, "warns", "player_uuid");
+            manager.ensureIndex(connection, "warns", "lower_nickname");
         } catch (SQLException e) {
             logger.error(e.getMessage(), e);
         }
@@ -122,9 +111,9 @@ public class WarnRelationalDAO implements WarnRepository {
     @Override
     public Optional<Warn> findById(Long id) {
         try (Connection connection = manager.getDataSource().getConnection()) {
-            final PreparedStatement statement = connection.prepareStatement("""
-                    SELECT * FROM warns WHERE id = ?
-                    """);
+            final PreparedStatement statement = connection.prepareStatement(manager.sql("""
+                    SELECT * FROM {warns} WHERE id = ?
+                    """));
             statement.setLong(1, id);
             final ResultSet resultSet = statement.executeQuery();
             if (resultSet.next()) {
@@ -139,9 +128,9 @@ public class WarnRelationalDAO implements WarnRepository {
     @Override
     public List<Warn> findAllByUsername(String username) {
         try (Connection connection = manager.getDataSource().getConnection()) {
-            final PreparedStatement statement = connection.prepareStatement("""
-                    SELECT * FROM warns WHERE lower_nickname = ?
-                    """);
+            final PreparedStatement statement = connection.prepareStatement(manager.sql("""
+                    SELECT * FROM {warns} WHERE lower_nickname = ?
+                    """));
             statement.setString(1, username.toLowerCase());
             final ResultSet resultSet = statement.executeQuery();
             final List<Warn> warns = new ArrayList<>();
@@ -158,10 +147,10 @@ public class WarnRelationalDAO implements WarnRepository {
     @Override
     public Long countActiveWarns(String username) {
         try (Connection connection = manager.getDataSource().getConnection()) {
-            final PreparedStatement statement = connection.prepareStatement("""
-                    SELECT COUNT(*) FROM warns WHERE lower_nickname = ?
+            final PreparedStatement statement = connection.prepareStatement(manager.sql("""
+                    SELECT COUNT(*) FROM {warns} WHERE lower_nickname = ?
                     AND (permanent = true OR finish_at > ?)
-                    """);
+                    """));
             statement.setString(1, username.toLowerCase());
             statement.setTimestamp(2, SqlTime.now());
             final ResultSet resultSet = statement.executeQuery();
@@ -179,7 +168,7 @@ public class WarnRelationalDAO implements WarnRepository {
     public List<PunishmentRepository.StaffCount> countByStaffSince(LocalDateTime since) {
         try (Connection connection = manager.getDataSource().getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     "SELECT MAX(punisher) AS punisher, COUNT(*) AS total FROM warns WHERE started_at >= ? GROUP BY LOWER(punisher)")) {
+                     manager.sql("SELECT MAX(punisher) AS punisher, COUNT(*) AS total FROM {warns} WHERE started_at >= ? GROUP BY LOWER(punisher)"))) {
             statement.setTimestamp(1, SqlTime.of(since));
             try (ResultSet resultSet = statement.executeQuery()) {
                 final List<PunishmentRepository.StaffCount> counts = new ArrayList<>();
@@ -198,7 +187,7 @@ public class WarnRelationalDAO implements WarnRepository {
     public List<Warn> findByPunisherSince(String punisher, LocalDateTime since) {
         try (Connection connection = manager.getDataSource().getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     "SELECT * FROM warns WHERE LOWER(punisher) = ? AND started_at >= ? ORDER BY started_at DESC, id DESC")) {
+                     manager.sql("SELECT * FROM {warns} WHERE LOWER(punisher) = ? AND started_at >= ? ORDER BY started_at DESC, id DESC"))) {
             statement.setString(1, punisher.toLowerCase());
             statement.setTimestamp(2, SqlTime.of(since));
             try (ResultSet resultSet = statement.executeQuery()) {
@@ -218,7 +207,7 @@ public class WarnRelationalDAO implements WarnRepository {
     public int deleteFinishedBefore(LocalDateTime cutoff) {
         try (Connection connection = manager.getDataSource().getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     "DELETE FROM warns WHERE permanent = false AND finish_at IS NOT NULL AND finish_at < ?")) {
+                     manager.sql("DELETE FROM {warns} WHERE permanent = false AND finish_at IS NOT NULL AND finish_at < ?"))) {
             statement.setTimestamp(1, SqlTime.of(cutoff));
             return statement.executeUpdate();
         } catch (SQLException e) {
@@ -230,9 +219,9 @@ public class WarnRelationalDAO implements WarnRepository {
     @Override
     public int deleteAllOf(String username, UUID uuid) {
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement(uuid == null
-                     ? "DELETE FROM warns WHERE lower_nickname = ?"
-                     : "DELETE FROM warns WHERE lower_nickname = ? OR player_uuid = ?")) {
+             PreparedStatement statement = connection.prepareStatement(manager.sql(uuid == null
+                     ? "DELETE FROM {warns} WHERE lower_nickname = ?"
+                     : "DELETE FROM {warns} WHERE lower_nickname = ? OR player_uuid = ?"))) {
             statement.setString(1, username.toLowerCase());
             if (uuid != null) statement.setString(2, uuid.toString());
             return statement.executeUpdate();
@@ -245,9 +234,9 @@ public class WarnRelationalDAO implements WarnRepository {
     @Override
     public List<Warn> findAllByUUID(UUID uuid) {
         try (Connection connection = manager.getDataSource().getConnection()) {
-            final PreparedStatement statement = connection.prepareStatement("""
-                    SELECT * FROM warns WHERE player_uuid = ?
-                    """);
+            final PreparedStatement statement = connection.prepareStatement(manager.sql("""
+                    SELECT * FROM {warns} WHERE player_uuid = ?
+                    """));
             statement.setString(1, uuid.toString());
             final ResultSet resultSet = statement.executeQuery();
             final List<Warn> warns = new ArrayList<>();
@@ -267,7 +256,7 @@ public class WarnRelationalDAO implements WarnRepository {
             final boolean isUpdate = warn.getId() != null;
             final String sql = generateSaveSQL(isUpdate);
 
-            try (PreparedStatement stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            try (PreparedStatement stmt = connection.prepareStatement(manager.sql(sql), Statement.RETURN_GENERATED_KEYS)) {
                 stmt.setString(1, warn.getPlayerUUID().map(UUID::toString).orElse(null));
                 stmt.setString(2, warn.getReason());
                 stmt.setString(3, warn.getPunisher());
@@ -298,9 +287,9 @@ public class WarnRelationalDAO implements WarnRepository {
     public void deleteById(Long id) {
         try (Connection connection = manager.getDataSource().getConnection()) {
             final PreparedStatement statement = connection.prepareStatement(
-                    """
-                            DELETE FROM warns WHERE id = ?
-                            """
+                    manager.sql("""
+                            DELETE FROM {warns} WHERE id = ?
+                            """)
             );
             statement.setLong(1, id);
             statement.execute();
@@ -313,7 +302,7 @@ public class WarnRelationalDAO implements WarnRepository {
     public Set<String> findAllImportKeys() throws SQLException {
         final Set<String> keys = new HashSet<>();
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement("SELECT player_uuid, lower_nickname, started_at FROM warns");
+             PreparedStatement statement = connection.prepareStatement(manager.sql("SELECT player_uuid, lower_nickname, started_at FROM {warns}"));
              ResultSet resultSet = statement.executeQuery()) {
             while (resultSet.next()) {
                 keys.add(importKey(resultSet.getString("player_uuid"), resultSet.getString("lower_nickname"),
@@ -329,7 +318,7 @@ public class WarnRelationalDAO implements WarnRepository {
         try (Connection connection = manager.getDataSource().getConnection()) {
             final boolean autoCommit = connection.getAutoCommit();
             connection.setAutoCommit(false);
-            try (PreparedStatement stmt = connection.prepareStatement(generateSaveSQL(false))) {
+            try (PreparedStatement stmt = connection.prepareStatement(manager.sql(generateSaveSQL(false)))) {
                 for (Warn warn : warns) {
                     stmt.setString(1, warn.getPlayerUUID().map(UUID::toString).orElse(null));
                     stmt.setString(2, warn.getReason());

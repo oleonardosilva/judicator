@@ -5,6 +5,7 @@ import com.openmc.judicator.commons.JudicatorCommand;
 import com.openmc.judicator.commons.StaffNotifier;
 import com.openmc.judicator.commons.UUIDManager;
 import com.openmc.judicator.commons.command.CoreCommand;
+import com.openmc.judicator.commons.db.LegacyTables;
 import com.openmc.judicator.commons.db.RelationalDBManager;
 import com.openmc.judicator.discord.DiscordWebhookService;
 import com.openmc.judicator.importer.ImportService;
@@ -168,6 +169,7 @@ public class Judicator {
         if (providedRepositories == null) {
             this.relationalDBManager = new RelationalDBManager();
             this.relationalDBManager.initialize(dbConfig, dataDirectory, logger);
+            LegacyTables.migrate(relationalDBManager, logger);
             repositories = new Repositories(
                     new PunishmentRelationalDAO(relationalDBManager, logger),
                     new WarnRelationalDAO(relationalDBManager, logger),

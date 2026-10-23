@@ -2,7 +2,6 @@ package com.openmc.judicator.punish.data.repository.dao;
 
 import com.openmc.judicator.commons.db.Dialect;
 import com.openmc.judicator.commons.db.RelationalDBManager;
-import com.openmc.judicator.commons.db.SchemaUtil;
 import com.openmc.judicator.commons.db.SqlTime;
 import com.openmc.judicator.punish.AccessAddress;
 import com.openmc.judicator.punish.data.repository.AccessAddressRepository;
@@ -32,42 +31,37 @@ public class AccessAddressRelationalDAO implements AccessAddressRepository {
             final PreparedStatement statement;
             if (dialect == Dialect.POSTGRESQL) {
                 statement = connection.prepareStatement(
-                        """
-                                CREATE TABLE IF NOT EXISTS access_addresses (
+                        manager.sql("""
+                                CREATE TABLE IF NOT EXISTS {access_addresses} (
                                     id BIGSERIAL PRIMARY KEY,
                                     host_address VARCHAR(50) NOT NULL,
                                     accounts TEXT NOT NULL,
                                     last_usage TIMESTAMP NOT NULL
                                 );
-                                """
+                                """)
                 );
             } else if (dialect == Dialect.SQLITE) {
-                statement = connection.prepareStatement("""
-                        CREATE TABLE IF NOT EXISTS access_addresses (
+                statement = connection.prepareStatement(manager.sql("""
+                        CREATE TABLE IF NOT EXISTS {access_addresses} (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             host_address VARCHAR(50) NOT NULL,
                             accounts TEXT NOT NULL,
                             last_usage TIMESTAMP NOT NULL
                         );
-                        """);
+                        """));
             } else {
-                statement = connection.prepareStatement("""
-                        CREATE TABLE IF NOT EXISTS access_addresses (
+                statement = connection.prepareStatement(manager.sql("""
+                        CREATE TABLE IF NOT EXISTS {access_addresses} (
                             id BIGINT AUTO_INCREMENT PRIMARY KEY,
                             host_address VARCHAR(50) NOT NULL,
                             accounts TEXT NOT NULL,
                             last_usage DATETIME NOT NULL
                         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-                        """);
+                        """));
             }
             statement.execute();
 
-            SchemaUtil.ensureIndexExists(
-                    connection,
-                    "access_addresses",
-                    "idx_access_addresses_host_address",
-                    "CREATE INDEX idx_access_addresses_host_address ON access_addresses(host_address)"
-            );
+            manager.ensureIndex(connection, "access_addresses", "host_address");
         } catch (SQLException e) {
             logger.error(e.getMessage(), e);
         }
@@ -78,7 +72,7 @@ public class AccessAddressRelationalDAO implements AccessAddressRepository {
         try (Connection connection = manager.getDataSource().getConnection()) {
             final boolean isUpdate = o.getId() != null;
             final String sql = generateSaveSQL(isUpdate);
-            try (PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            try (PreparedStatement statement = connection.prepareStatement(manager.sql(sql), Statement.RETURN_GENERATED_KEYS)) {
                 statement.setString(1, o.getHostAddress());
                 statement.setString(2, String.join(",", o.getAccounts()));
                 statement.setTimestamp(3, SqlTime.of(o.getLastUsage()));
@@ -102,9 +96,9 @@ public class AccessAddressRelationalDAO implements AccessAddressRepository {
     @Override
     public Optional<AccessAddress> findById(String id) {
         try (Connection connection = manager.getDataSource().getConnection()) {
-            final PreparedStatement statement = connection.prepareStatement("""
-                    SELECT * FROM access_addresses WHERE id = ?
-                    """);
+            final PreparedStatement statement = connection.prepareStatement(manager.sql("""
+                    SELECT * FROM {access_addresses} WHERE id = ?
+                    """));
             // id is BIGINT: PostgreSQL does not compare it with a text parameter
             statement.setLong(1, Long.parseLong(id));
             final ResultSet resultSet = statement.executeQuery();
@@ -120,7 +114,7 @@ public class AccessAddressRelationalDAO implements AccessAddressRepository {
     @Override
     public void deleteById(String id) {
         try (Connection connection = manager.getDataSource().getConnection()) {
-            final PreparedStatement st = connection.prepareStatement("DELETE FROM access_addresses WHERE id = ?");
+            final PreparedStatement st = connection.prepareStatement(manager.sql("DELETE FROM {access_addresses} WHERE id = ?"));
             st.setLong(1, Long.parseLong(id));
             st.execute();
         } catch (SQLException e) {
@@ -131,7 +125,7 @@ public class AccessAddressRelationalDAO implements AccessAddressRepository {
     @Override
     public int deleteUnusedBefore(LocalDateTime cutoff) {
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement("DELETE FROM access_addresses WHERE last_usage < ?")) {
+             PreparedStatement statement = connection.prepareStatement(manager.sql("DELETE FROM {access_addresses} WHERE last_usage < ?"))) {
             statement.setTimestamp(1, SqlTime.of(cutoff));
             return statement.executeUpdate();
         } catch (SQLException e) {
@@ -152,20 +146,20 @@ public class AccessAddressRelationalDAO implements AccessAddressRepository {
     private String generateSaveSQL(boolean isUpdate) {
         if (isUpdate) {
             return """
-                    UPDATE access_addresses SET host_address = ?, accounts = ?, last_usage = ? WHERE id = ?
+                    UPDATE {access_addresses} SET host_address = ?, accounts = ?, last_usage = ? WHERE id = ?
                     """;
         }
         return """
-                INSERT INTO access_addresses (host_address, accounts, last_usage) VALUES (?, ?, ?)
+                INSERT INTO {access_addresses} (host_address, accounts, last_usage) VALUES (?, ?, ?)
                 """;
     }
 
     @Override
     public Optional<AccessAddress> findByIp(String ip) {
         try (Connection connection = manager.getDataSource().getConnection()) {
-            final PreparedStatement statement = connection.prepareStatement("""
-                    SELECT * FROM access_addresses WHERE host_address = ?
-                    """);
+            final PreparedStatement statement = connection.prepareStatement(manager.sql("""
+                    SELECT * FROM {access_addresses} WHERE host_address = ?
+                    """));
             statement.setString(1, ip);
             final ResultSet resultSet = statement.executeQuery();
             if (resultSet.next()) {
@@ -187,9 +181,9 @@ public class AccessAddressRelationalDAO implements AccessAddressRepository {
         final String account = username.toLowerCase();
         final List<AccessAddress> addresses = new ArrayList<>();
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement("""
-                     SELECT * FROM access_addresses WHERE LOWER(accounts) LIKE ? ORDER BY last_usage DESC
-                     """)) {
+             PreparedStatement statement = connection.prepareStatement(manager.sql("""
+                     SELECT * FROM {access_addresses} WHERE LOWER(accounts) LIKE ? ORDER BY last_usage DESC
+                     """))) {
             statement.setString(1, "%" + account + "%");
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {

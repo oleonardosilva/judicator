@@ -6,6 +6,11 @@
 
 database:
   type: 'postgres' # postgres, mysql (also for MariaDB) or sqlite
+  # Put before every table name so they never clash with another plugin's tables in the same database: a-z, 0-9 and
+  # _, up to 16 characters ('' = no prefix). The same on every server sharing the database; changing it needs a
+  # restart, and the tables already created keep their old names (rename them by hand). Tables of Judicator 1.x are
+  # renamed to the prefixed names on the first start.
+  table-prefix: 'judicator_'
 
   # --- sqlite: one file, no database server (only 'file' is read) ---
   file: 'judicator.db' # relative to the plugin folder

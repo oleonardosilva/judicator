@@ -1,6 +1,7 @@
 package com.openmc.judicator.database;
 
 import com.openmc.judicator.commons.db.Dialect;
+import com.openmc.judicator.commons.db.LegacyTables;
 import com.openmc.judicator.commons.db.RelationalDBManager;
 import com.openmc.judicator.notes.repository.dao.NoteRelationalDAO;
 import com.openmc.judicator.punish.Punishment;
@@ -56,7 +57,7 @@ class SqliteRepositoryContractTest extends RepositoryContract {
     }
 
     @Test
-    void aPunishmentsTableOfVersion100_getsTheNewColumnsAndKeepsItsRows() throws Exception {
+    void aPunishmentsTableOfVersion100_isRenamedGetsTheNewColumnsAndKeepsItsRows() throws Exception {
         final Path oldFolder = Files.createDirectories(folder.resolve("old"));
         final RelationalDBManager old = new RelationalDBManager();
         old.initialize(of(map("database", map("type", "sqlite", "file", "old.db"))), oldFolder, LOGGER);
@@ -73,6 +74,7 @@ class SqliteRepositoryContractTest extends RepositoryContract {
                         + "evidences, type, permanent) VALUES ('spam', 'Mod', 'Steve', 'steve', 0, false, '', 'MUTE', true)");
             }
 
+            LegacyTables.migrate(old, LOGGER);
             final PunishmentRelationalDAO dao = new PunishmentRelationalDAO(old, LOGGER);
             dao.initialize();
             dao.initialize(); // every startup runs it again

@@ -32,6 +32,44 @@ public class SchemaUtil {
         }
     }
 
+    /**
+     * Whether the table exists, asking the database itself like {@link #hasColumn}. Unlike it, only the error of a
+     * missing table means "no": any other failure (connection lost, no permission) is thrown, because a migration that
+     * took it for "no table" would leave data behind.
+     */
+    static boolean tableExists(Connection connection, String table) throws SQLException {
+        return probe(connection, "SELECT 1 FROM " + table + " WHERE 1 = 0", "42P01", "42S02", "no such table");
+    }
+
+    /**
+     * {@link #tableExists} for a column of an existing table.
+     */
+    static boolean columnExists(Connection connection, String table, String column) throws SQLException {
+        return probe(connection, "SELECT " + column + " FROM " + table + " WHERE 1 = 0", "42703", "42S22", "no such column");
+    }
+
+    /**
+     * @param postgres the SQLSTATE of PostgreSQL for the missing object
+     * @param mysql    the SQLSTATE of MySQL/MariaDB
+     * @param sqlite   the message of SQLite, which gives no SQLSTATE
+     */
+    private static boolean probe(Connection connection, String query, String postgres, String mysql, String sqlite) throws SQLException {
+        try (Statement stmt = connection.createStatement(); ResultSet ignored = stmt.executeQuery(query)) {
+            return true;
+        } catch (SQLException e) {
+            final String state = e.getSQLState();
+            final String message = String.valueOf(e.getMessage());
+            if (postgres.equals(state) || mysql.equals(state) || message.contains(sqlite)) return false;
+            throw e;
+        }
+    }
+
+    static long countRows(Connection connection, String table) throws SQLException {
+        try (Statement stmt = connection.createStatement(); ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM " + table)) {
+            return rs.next() ? rs.getLong(1) : 0;
+        }
+    }
+
     public static void ensureIndexExists(Connection connection, String tableName, String indexName, String createIndexSQL) throws SQLException {
         if (connection.getMetaData().getDatabaseProductName().toLowerCase().contains("sqlite")) {
             try (Statement stmt = connection.createStatement()) {

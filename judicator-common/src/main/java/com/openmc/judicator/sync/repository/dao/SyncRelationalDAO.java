@@ -31,7 +31,7 @@ public class SyncRelationalDAO implements SyncRepository {
             final String sql;
             if (dialect == Dialect.POSTGRESQL) {
                 sql = """
-                        CREATE TABLE IF NOT EXISTS sync_messages (
+                        CREATE TABLE IF NOT EXISTS {sync_messages} (
                             id BIGSERIAL PRIMARY KEY,
                             sender VARCHAR(36) NOT NULL,
                             kind VARCHAR(16) NOT NULL,
@@ -40,7 +40,7 @@ public class SyncRelationalDAO implements SyncRepository {
                         """;
             } else if (dialect == Dialect.SQLITE) {
                 sql = """
-                        CREATE TABLE IF NOT EXISTS sync_messages (
+                        CREATE TABLE IF NOT EXISTS {sync_messages} (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             sender VARCHAR(36) NOT NULL,
                             kind VARCHAR(16) NOT NULL,
@@ -49,7 +49,7 @@ public class SyncRelationalDAO implements SyncRepository {
                         """;
             } else {
                 sql = """
-                        CREATE TABLE IF NOT EXISTS sync_messages (
+                        CREATE TABLE IF NOT EXISTS {sync_messages} (
                             id BIGINT AUTO_INCREMENT PRIMARY KEY,
                             sender VARCHAR(36) NOT NULL,
                             kind VARCHAR(16) NOT NULL,
@@ -57,7 +57,7 @@ public class SyncRelationalDAO implements SyncRepository {
                         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                         """;
             }
-            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            try (PreparedStatement statement = connection.prepareStatement(manager.sql(sql))) {
                 statement.execute();
             }
         } catch (SQLException e) {
@@ -69,7 +69,7 @@ public class SyncRelationalDAO implements SyncRepository {
     public void insert(String sender, String kind, long punishmentId) {
         try (Connection connection = manager.getDataSource().getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     "INSERT INTO sync_messages (sender, kind, punishment_id) VALUES (?, ?, ?)")) {
+                     manager.sql("INSERT INTO {sync_messages} (sender, kind, punishment_id) VALUES (?, ?, ?)"))) {
             statement.setString(1, sender);
             statement.setString(2, kind);
             statement.setLong(3, punishmentId);
@@ -82,7 +82,7 @@ public class SyncRelationalDAO implements SyncRepository {
     @Override
     public OptionalLong maxId() {
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement("SELECT MAX(id) FROM sync_messages");
+             PreparedStatement statement = connection.prepareStatement(manager.sql("SELECT MAX(id) FROM {sync_messages}"));
              ResultSet resultSet = statement.executeQuery()) {
             return OptionalLong.of(resultSet.next() ? resultSet.getLong(1) : 0);
         } catch (SQLException e) {
@@ -95,7 +95,7 @@ public class SyncRelationalDAO implements SyncRepository {
     public List<SyncMessage> findAfter(long afterId, int limit) {
         try (Connection connection = manager.getDataSource().getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     "SELECT id, sender, kind, punishment_id FROM sync_messages WHERE id > ? ORDER BY id LIMIT ?")) {
+                     manager.sql("SELECT id, sender, kind, punishment_id FROM {sync_messages} WHERE id > ? ORDER BY id LIMIT ?"))) {
             statement.setLong(1, afterId);
             statement.setInt(2, limit);
             try (ResultSet resultSet = statement.executeQuery()) {
@@ -115,7 +115,7 @@ public class SyncRelationalDAO implements SyncRepository {
     @Override
     public int deleteUpTo(long id) {
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement("DELETE FROM sync_messages WHERE id <= ?")) {
+             PreparedStatement statement = connection.prepareStatement(manager.sql("DELETE FROM {sync_messages} WHERE id <= ?"))) {
             statement.setLong(1, id);
             return statement.executeUpdate();
         } catch (SQLException e) {

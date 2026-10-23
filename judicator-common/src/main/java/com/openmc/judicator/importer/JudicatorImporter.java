@@ -1,5 +1,7 @@
 package com.openmc.judicator.importer;
 
+import com.openmc.judicator.commons.db.LegacyTables;
+import com.openmc.judicator.commons.db.RelationalDBManager;
 import com.openmc.judicator.commons.db.SqlTime;
 import com.openmc.judicator.notes.Note;
 import com.openmc.judicator.punish.AccessAddress;
@@ -23,7 +25,8 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Another Judicator database (e.g. the SQLite file of a server moving to MySQL): {@code punishments} with their
+ * Another Judicator database (e.g. the SQLite file of a server moving to MySQL), of version 1.x (tables without a
+ * prefix) or 2.x ({@code table-prefix}): {@code punishments} with their
  * revocation, evidence and kicks, {@code warns}, staff {@code notes} and the {@code access_addresses} used by {@code /alts} and offline IP
  * punishments. Staff levels are not copied: they are recorded again when each staff member joins.
  */
@@ -36,28 +39,33 @@ final class JudicatorImporter implements ImportSource {
 
     @Override
     public ImportResult read(ImportContext context) throws Exception {
+        final String configured = context.config(name()).node("table-prefix").getString(RelationalDBManager.DEFAULT_TABLE_PREFIX);
+        final String prefix = RelationalDBManager.normalizePrefix(configured).orElseThrow(() -> new ImportException(
+                "table-prefix '" + configured + "' is not valid: a letter followed by up to 15 letters, digits and _ (or '')."));
         final ImportResult result = new ImportResult();
         try (SourceConnection source = SourceConnection.open(context.config(name()), context.judicator().getPlatform().getDataDirectory())) {
-            try (PreparedStatement statement = source.connection().prepareStatement("SELECT * FROM " + source.table("punishments"));
+            final String punishments = findTable(source, prefix, "punishments").orElseThrow(() -> new ImportException(
+                    "Table " + prefix + "punishments not found in the source database (check jdbc-url and table-prefix in import.yml)."));
+            try (PreparedStatement statement = source.connection().prepareStatement("SELECT * FROM " + punishments);
                  ResultSet rs = statement.executeQuery()) {
                 final Set<String> columns = columns(rs);
                 while (rs.next()) punishment(rs, columns, result);
             }
-            final Optional<String> warns = source.findTable("warns");
+            final Optional<String> warns = findTable(source, prefix, "warns");
             if (warns.isPresent()) {
                 try (PreparedStatement statement = source.connection().prepareStatement("SELECT * FROM " + warns.get());
                      ResultSet rs = statement.executeQuery()) {
                     while (rs.next()) warn(rs, result);
                 }
             }
-            final Optional<String> notes = source.findTable("notes");
+            final Optional<String> notes = findTable(source, prefix, "notes");
             if (notes.isPresent()) {
                 try (PreparedStatement statement = source.connection().prepareStatement("SELECT * FROM " + notes.get());
                      ResultSet rs = statement.executeQuery()) {
                     while (rs.next()) note(rs, result);
                 }
             }
-            final Optional<String> addresses = source.findTable("access_addresses");
+            final Optional<String> addresses = findTable(source, prefix, "access_addresses");
             if (addresses.isPresent()) {
                 try (PreparedStatement statement = source.connection().prepareStatement("SELECT * FROM " + addresses.get());
                      ResultSet rs = statement.executeQuery()) {
@@ -66,6 +74,17 @@ final class JudicatorImporter implements ImportSource {
             }
         }
         return result;
+    }
+
+    /**
+     * The table with the prefix (2.x) or, for a database of 1.x, without it — then only when it has the columns of
+     * Judicator 1.x, as another plugin in the same database may have a table with that name.
+     */
+    private static Optional<String> findTable(SourceConnection source, String prefix, String name) throws SQLException {
+        final Optional<String> prefixed = source.findTable(prefix + name);
+        if (prefixed.isPresent() || prefix.isEmpty()) return prefixed;
+        final Optional<String> legacy = source.findTable(name);
+        return legacy.isPresent() && LegacyTables.hasColumnsOf(source.connection(), legacy.get(), name) ? legacy : Optional.empty();
     }
 
     /**

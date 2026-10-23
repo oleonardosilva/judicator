@@ -75,3 +75,4 @@ judicator:
   password: ''
   driver-jar: ''
   driver-class: ''
+  table-prefix: 'judicator_' # table-prefix of the old database's data.yml; a database of Judicator 1.x is read without it
