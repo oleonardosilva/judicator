@@ -24,7 +24,6 @@ import com.openmc.judicator.notes.repository.NoteRepository;
 import com.openmc.judicator.notes.repository.dao.NoteRelationalDAO;
 import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.platform.Platform;
-import com.openmc.judicator.platform.PlatformType;
 import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.players.repository.PlayerRepository;
 import com.openmc.judicator.players.repository.dao.PlayerRelationalDAO;
@@ -220,14 +219,14 @@ public class Judicator {
     }
 
     /**
-     * {@code proxy-mode: true} on a Spigot/Paper backend behind a Velocity proxy that runs Judicator: the proxy refuses
-     * logins, applies the effects players see and keeps IP and online-time records; this server keeps the mute cache
-     * and blocks muted chat. Ignored on Velocity.
+     * {@code proxy-mode: true} on a Spigot/Paper backend behind a proxy (Velocity, BungeeCord) that runs Judicator: the
+     * proxy refuses logins, applies the effects players see and keeps IP and online-time records; this server keeps the
+     * mute cache and blocks muted chat. Ignored on the proxy.
      */
     private boolean readProxyMode() {
         final boolean configured = config.node("proxy-mode").getBoolean(false);
-        if (configured && platform.getType() == PlatformType.VELOCITY) {
-            logger.warn("proxy-mode is for Spigot/Paper backends and is ignored on Velocity.");
+        if (configured && platform.getType().isProxy()) {
+            logger.warn("proxy-mode is for Spigot/Paper backends and is ignored on the proxy.");
             return false;
         }
         return configured;

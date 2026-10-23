@@ -2,7 +2,6 @@ package com.openmc.judicator.punish.listeners;
 
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.platform.JudicatorPlayer;
-import com.openmc.judicator.platform.PlatformType;
 import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
@@ -36,7 +35,7 @@ public class ConnectionHandler {
     }
 
     /**
-     * Runs after authentication (Velocity {@code LoginEvent}; Bukkit pre-login): the account is recorded (records kept
+     * Runs after authentication (Velocity and BungeeCord {@code LoginEvent}; Bukkit pre-login): the account is recorded (records kept
      * under its name without a UUID become its own), then its bans, the account limits of the address
      * ({@code ip-limits}: a banned account sees its ban, not the limit) and, with {@code alts.deny-if-banned}, the
      * ban-evasion check.
@@ -70,7 +69,8 @@ public class ConnectionHandler {
     }
 
     /**
-     * Where the proxy sends a player who just logged in ({@code PlayerChooseInitialServerEvent}).
+     * Where the proxy sends a player who just logged in (Velocity {@code PlayerChooseInitialServerEvent}, BungeeCord
+     * {@code ServerConnectEvent} on joining).
      *
      * @param server the server to connect to, or null when {@code kick} is set
      * @param kick   the screen to disconnect with: every server the player could join has a ban for it
@@ -79,7 +79,7 @@ public class ConnectionHandler {
     }
 
     /**
-     * Velocity: the server chosen for a player at login (the first of the try list, or a forced host). A ban for that
+     * Proxy: the server chosen for a player at login (the first of the try list, or a forced host). A ban for that
      * server sends them to the first server of the try list it does not cover.
      */
     public InitialServer chooseInitialServer(JudicatorPlayer player, String chosen) {
@@ -95,7 +95,8 @@ public class ConnectionHandler {
     }
 
     /**
-     * Velocity: a player connecting to another server ({@code ServerPreConnectEvent}).
+     * Proxy: a player connecting to another server (Velocity {@code ServerPreConnectEvent}, BungeeCord
+     * {@code ServerConnectEvent}).
      *
      * @return the message to send when a ban covers that server (the connection is refused)
      */
@@ -105,7 +106,7 @@ public class ConnectionHandler {
     }
 
     /**
-     * Velocity: the player got to a server ({@code ServerPostConnectEvent}). A ban for it applied while they were on
+     * Proxy: the player got to a server (Velocity {@code ServerPostConnectEvent}, BungeeCord {@code ServerSwitchEvent}). A ban for it applied while they were on
      * their way (after {@link #checkServerSwitch} let them through) sends them on to the first server of the try list
      * it does not cover, or disconnects them.
      */
@@ -159,8 +160,8 @@ public class ConnectionHandler {
     }
 
     /**
-     * The player is in the game (Velocity: login allowed; Bukkit: {@code PlayerJoinEvent}, after whitelist and full
-     * server checks): paused online-only mutes run again from now.
+     * The player is in the game (Velocity: login allowed; BungeeCord: {@code PostLoginEvent}; Bukkit:
+     * {@code PlayerJoinEvent}, after whitelist and full server checks): paused online-only mutes run again from now.
      */
     public void onJoin(JudicatorPlayer player) {
         judicator.getUuidManager().remember(player.getName(), player.getUniqueId());
@@ -169,8 +170,8 @@ public class ConnectionHandler {
         judicator.getPunishService().resumeOnlineOnlyMutes(judicator.getPlayerDirectory().refOf(player));
         judicator.getHierarchyService().recordLevel(player);
         notifyNotes(player);
-        // the proxy can only talk to the player once they are on a server: VelocityListener does it then
-        if (judicator.getPlatform().getType() != PlatformType.VELOCITY) judicator.getReportService().notifyOnJoin(player);
+        // the proxy can only talk to the player once they are on a server: its listener does it then
+        if (!judicator.getPlatform().getType().isProxy()) judicator.getReportService().notifyOnJoin(player);
     }
 
     /**

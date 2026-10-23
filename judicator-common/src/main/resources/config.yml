@@ -91,7 +91,7 @@ commands-locked-when-silenced: # commands muted players cannot use; also caught 
   - "/g"
   - "/l"
   - "/tell"
-soft-mute-format: "<{player}> {message}" # Velocity only: what a soft-muted player sees of their own message (Spigot/Paper keeps the server's chat format)
+soft-mute-format: "<{player}> {message}" # proxy only (Velocity, BungeeCord): what a soft-muted player sees of their own message (Spigot/Paper keeps the server's chat format)
 
 # ------------------------------------------------------------
 #  Warns
@@ -144,12 +144,12 @@ trust-uuids: false
 sync: # servers sharing one MySQL/PostgreSQL database: what one applies, revokes or edits reaches the players of the others
   enabled: false # true on every server of the network (restart)
   poll-interval: 1 # seconds between checks for changes made by the other servers, 1 to 30 (restart)
-proxy-mode: false # Spigot/Paper behind a Velocity running Judicator, with sync on both: the proxy refuses logins, kicks, announces and notifies; this server only blocks muted chat (restart)
-chat-on-backends: false # Velocity only: true when the backends run Judicator in proxy-mode, so the proxy never denies (signed) chat of muted players itself
+proxy-mode: false # Spigot/Paper behind a Velocity or BungeeCord running Judicator, with sync on both: the proxy refuses logins, kicks, announces and notifies; this server only blocks muted chat (restart)
+chat-on-backends: false # proxy only (Velocity, BungeeCord): true when the backends run Judicator in proxy-mode, so the proxy never denies (signed) chat of muted players itself
 scopes: # punishments for one server or a group of servers of the network: /ban Steve -scope=survival hacking
-  server-name: '' # Spigot/Paper only: this server's name as velocity.toml calls it; empty = only global punishments here
+  server-name: '' # Spigot/Paper only: this server's name as the proxy's config calls it; empty = only global punishments here
   groups: {} # e.g. survival: [survival1, survival2] (a group wins over a server with the same name)
 reports: # /report and /reports
-  require-permission: false # true: only players with judicator.report can use /report (on Velocity nobody has it without a permissions plugin)
+  require-permission: false # true: only players with judicator.report can use /report (on a proxy nobody has it without a permissions plugin)
   cooldown: 60 # seconds a player waits between two reports
   notify-on-join: true # staff with judicator.reports.notify hear how many reports are open when they join

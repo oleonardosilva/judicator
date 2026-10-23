@@ -3,7 +3,6 @@ package com.openmc.judicator.punish.handlers;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.Platform;
-import com.openmc.judicator.platform.PlatformType;
 import com.openmc.judicator.punish.PunishService;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
@@ -61,7 +60,7 @@ public class PunishmentEffects {
      */
     private void leaveServer(Platform platform, JudicatorPlayer player, Punishment punishment) {
         final Optional<String> current = platform.serverOf(player);
-        final Optional<String> fallback = platform.getType() == PlatformType.VELOCITY && current.isPresent()
+        final Optional<String> fallback = platform.getType().isProxy() && current.isPresent()
                 ? judicator.getConnectionHandler().fallbackFor(player, current.get())
                 : Optional.empty();
         if (fallback.isEmpty()) {

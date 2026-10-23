@@ -1,0 +1,55 @@
+plugins {
+    id 'com.github.johnrengelman.shadow'
+}
+
+dependencies {
+    implementation project(':judicator-common')
+
+    compileOnly 'net.md-5:bungeecord-api:1.21-R0.3'
+    compileOnly 'com.zaxxer:HikariCP:6.3.0'
+    compileOnly 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+
+    implementation 'net.kyori:adventure-api:4.17.0'
+    implementation 'net.kyori:adventure-text-serializer-legacy:4.17.0'
+    implementation 'net.kyori:adventure-platform-bungeecord:4.3.4'
+    implementation 'org.spongepowered:configurate-yaml:4.1.2'
+    // BungeeCord keeps its slf4j to itself (Waterfall exposes one): ship ours, relocated
+    implementation 'org.slf4j:slf4j-api:2.0.16'
+    implementation 'org.bstats:bstats-bungeecord:3.2.1'
+}
+
+processResources {
+    def props = ['version': project.version]
+    inputs.properties props
+    filteringCharset 'UTF-8'
+    filesMatching('bungee.yml') {
+        expand props
+    }
+}
+
+tasks {
+    shadowJar {
+        archiveBaseName.set('Judicator-BungeeCord')
+        archiveClassifier.set('')
+        mergeServiceFiles()
+
+        dependencies {
+            // BungeeCord ships Gson and the BungeeCord chat API
+            exclude(dependency('com.google.code.gson:gson'))
+            exclude(dependency('org.jetbrains:annotations'))
+            exclude(dependency('net.md-5:bungeecord-chat'))
+        }
+
+        def libs = 'com.openmc.judicator.libs'
+        relocate 'net.kyori', "${libs}.kyori"
+        relocate 'org.spongepowered.configurate', "${libs}.configurate"
+        relocate 'io.leangen.geantyref', "${libs}.geantyref"
+        relocate 'org.yaml.snakeyaml', "${libs}.snakeyaml"
+        relocate 'org.slf4j', "${libs}.slf4j"
+        relocate 'org.bstats', "${libs}.bstats"
+    }
+
+    build {
+        dependsOn shadowJar
+    }
+}

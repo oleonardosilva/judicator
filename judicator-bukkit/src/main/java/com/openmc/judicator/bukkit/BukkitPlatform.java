@@ -1,6 +1,7 @@
 package com.openmc.judicator.bukkit;
 
 import com.openmc.judicator.platform.JudicatorPlayer;
+import com.openmc.judicator.platform.JulLoggerAdapter;
 import com.openmc.judicator.platform.Platform;
 import com.openmc.judicator.platform.PlatformTask;
 import com.openmc.judicator.platform.PlatformType;

@@ -2,7 +2,6 @@ package com.openmc.judicator.punish.scopes;
 
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.platform.JudicatorPlayer;
-import com.openmc.judicator.platform.PlatformType;
 import com.openmc.judicator.punish.Punishment;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.serialize.SerializationException;
@@ -85,7 +84,7 @@ public class ScopeService {
     }
 
     private boolean onProxy() {
-        return judicator.getPlatform().getType() == PlatformType.VELOCITY;
+        return judicator.getPlatform().getType().isProxy();
     }
 
     /**

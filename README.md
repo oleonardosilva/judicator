@@ -1,7 +1,7 @@
 # Judicator
 
-**Judicator** is a moderation plugin for Minecraft networks and servers. It runs on the Velocity proxy and on
-Spigot/Paper servers, and offers a wide variety of commands for punishments, mutes, and player management, making the
+**Judicator** is a moderation plugin for Minecraft networks and servers. It runs on the Velocity and BungeeCord proxies
+and on Spigot/Paper servers, and offers a wide variety of commands for punishments, mutes, and player management, making the
 moderation team's work on the server much easier.
 
 Download it!
@@ -15,12 +15,14 @@ Download it!
 | Platform | JAR | Requirements |
 |---|---|---|
 | Velocity (proxy) | `Judicator-Velocity-<version>.jar` | Velocity 3.4+, Java 17+ |
+| BungeeCord (proxy) | `Judicator-BungeeCord-<version>.jar` | BungeeCord 1.21+, Java 17+ |
 | Spigot / Paper (server) | `Judicator-Bukkit-<version>.jar` | Minecraft 1.18+, Java 17+ |
 
-Use the Velocity build when you run a network behind a proxy: punishments then apply to every backend server. Use the
-Spigot/Paper build on a standalone server. Several servers sharing one database: see
-[Networks and Multiple Servers](#networks-and-multiple-servers). On Spigot/Paper the database drivers, HikariCP and Caffeine are downloaded
-by the server itself (`libraries` in `plugin.yml`); on Velocity they are downloaded by the plugin on the first start.
+Use the Velocity or BungeeCord build when you run a network behind a proxy: punishments then apply to every backend
+server. Use the Spigot/Paper build on a standalone server. Several servers sharing one database: see
+[Networks and Multiple Servers](#networks-and-multiple-servers). On Spigot/Paper and BungeeCord the database drivers,
+HikariCP and Caffeine are downloaded by the server itself (`libraries` in `plugin.yml`/`bungee.yml`); on Velocity they
+are downloaded by the plugin on the first start.
 
 Running the Spigot/Paper build on backends behind Velocity or BungeeCord with UUID forwarding? Those servers report
 `online-mode=false`, so set **`trust-uuids: true`** in `config.yml` to check bans by UUID too (a banned player who
@@ -37,7 +39,8 @@ follows that account. On a real offline-mode server the name is the player, as b
 
 Set `type` in `data.yml` to `postgres` (default), `mysql` or `sqlite`. SQLite needs no database server: the data is
 kept in `plugins/<Judicator folder>/judicator.db` (`file` in `data.yml`). Spigot/Paper already include the SQLite
-driver; on Velocity it is downloaded on the first start with `type: 'sqlite'`. Use SQLite for a single server or a
+driver; BungeeCord downloads it on the first start with the other libraries; on Velocity it is downloaded on the first
+start with `type: 'sqlite'`. Use SQLite for a single server or a
 small network; a network with several Spigot/Paper servers sharing punishments needs PostgreSQL or MySQL. Changing
 `type` requires a restart (it is not applied by `/judicator reload`).
 
@@ -70,11 +73,11 @@ where the command was typed; the Discord webhook is sent once, by the server tha
 
 | Network | Install | `config.yml` |
 |---|---|---|
-| Velocity only | Velocity build on the proxy | nothing to change |
+| A proxy only (Velocity or BungeeCord) | the proxy's build | nothing to change |
 | Several Spigot/Paper servers, no proxy (or a proxy without Judicator) | Spigot/Paper build on each | `sync.enabled: true` on each |
-| Velocity **and** the backends (signed chat of 1.19.1+ clients, menus on the backends) | both builds | proxy: `sync.enabled: true`, `chat-on-backends: true`; each backend: `sync.enabled: true`, `proxy-mode: true`, `trust-uuids: true` |
+| A proxy **and** the backends (signed chat of 1.19.1+ clients, menus on the backends) | the proxy's build and the Spigot/Paper build | proxy: `sync.enabled: true`, `chat-on-backends: true`; each backend: `sync.enabled: true`, `proxy-mode: true`, `trust-uuids: true` |
 
-**`proxy-mode`** (Spigot/Paper behind a Velocity running Judicator): the proxy does everything players see — refuses
+**`proxy-mode`** (Spigot/Paper behind a Velocity or BungeeCord running Judicator): the proxy does everything players see — refuses
 banned players, kicks, mute alerts, announcements, staff notifications — for every punishment, wherever it was
 applied, and keeps IP addresses, account limits, alt and note warnings, online-only mute time and data retention. The
 backend keeps the mute of each player online and blocks muted chat and commands (and soft mutes keep the server's chat
@@ -94,14 +97,14 @@ variants or `/punish` (in any order with `-s`/`-o`; tab completion lists the gro
 
 ```yaml
 scopes:
-  server-name: '' # Spigot/Paper: this server's name in velocity.toml (empty = only punishments for every server here)
+  server-name: '' # Spigot/Paper: this server's name in the proxy's config (empty = only punishments for every server here)
   groups:
     survival: [survival1, survival2]
 ```
 
-* **Velocity**: a ban for some servers does not refuse the network. The player cannot connect to the servers it covers
+* **Proxy** (Velocity, BungeeCord): a ban for some servers does not refuse the network. The player cannot connect to the servers it covers
   (also when the proxy picks one by itself, at login or after a server goes down) and, if already on one, is sent to
-  the first server of velocity.toml's `try` list it does not cover; with none left, they are disconnected. A mute for
+  the first server of the `try` list (velocity.toml) or `priorities` (BungeeCord's config.yml) it does not cover; with none left, they are disconnected. A mute for
   some servers only blocks their chat there. Announcements only show where the punishment applies.
 * **Spigot/Paper** without a proxy: set `server-name`; a ban for this server (or a group with it) refuses the login, one
   for another server is ignored here. In `proxy-mode`, `server-name` must be the name the proxy gives the backend, so
@@ -118,7 +121,8 @@ scopes:
 ./gradlew build
 ```
 
-The JARs are written to `judicator-velocity/build/libs/` and `judicator-bukkit/build/libs/`.
+The JARs are written to `judicator-velocity/build/libs/`, `judicator-bungee/build/libs/` and
+`judicator-bukkit/build/libs/`.
 
 Tests: `./gradlew :judicator-common:test`.
 
@@ -183,12 +187,14 @@ The following commands are used to apply, remove, or check punishments for playe
   The player still sees their own messages, nobody else does, and nothing tells them they are muted (no alert, no
   public announcement — staff are notified as `SOFTMUTE`/`TEMPSOFTMUTE`). Commands in `commands-locked-when-silenced`
   are blocked without a message. `/unmute` lifts it. On Spigot/Paper the message keeps the server's chat format; on
-  Velocity it is replaced, for the sender only, by `soft-mute-format` in `config.yml`.
+  a proxy it is replaced, for the sender only, by `soft-mute-format` in `config.yml`.
   **Permission:** `judicator.softmute`, `judicator.tempsoftmute`
 * **Velocity and 1.19.1+ clients:** Velocity disconnects a 1.19.1+ player whose signed chat message is denied, which
   affects every chat block done on the proxy (normal and soft mutes). Install a plugin such as SignedVelocity on the
   proxy and the backends, or run Judicator on the backends in `proxy-mode` with `chat-on-backends: true` on the proxy
   (see [Networks and Multiple Servers](#networks-and-multiple-servers)), if your players use signed chat.
+* **BungeeCord and 1.19.1+ clients:** BungeeCord does not disconnect the player itself, but a backend may when a
+  signed message it expected never arrives. The same `proxy-mode` + `chat-on-backends: true` setup avoids it.
 
 ---
 
@@ -580,7 +586,7 @@ does not find the tables once a 2.0 server has renamed them.
   **Permission:** `judicator.reports.manage`
 
 * **`/reports tp (id)`**
-  Goes to the reported player. On Velocity: to the player's server and, when that backend runs Judicator in
+  Goes to the reported player. On a proxy (Velocity, BungeeCord): to the player's server and, when that backend runs Judicator in
   `proxy-mode` (and you have `judicator.reports.tp` there too), to the player; the backend confirms it, and you are
   told when you only got to the server.
   **Permission:** `judicator.reports.tp`
@@ -632,7 +638,7 @@ the player's messages file (their language with `per-player-language`).
 ## 🔌 API for Plugin Developers
 
 Other plugins (an anticheat, a report system, a Discord bot) can look up, apply and revoke punishments and listen to
-what happens, on Velocity and Spigot/Paper alike, through the `judicator-api` module (package
+what happens, on Velocity, BungeeCord and Spigot/Paper alike, through the `judicator-api` module (package
 `com.openmc.judicator.api`, plain Java 17, no dependencies). Both Judicator JARs ship it; **do not shade it** into
 your plugin.
 
@@ -645,8 +651,8 @@ dependencies {
 }
 ```
 
-Declare Judicator as a dependency: `depend: [Judicator]` (or `softdepend`) in `plugin.yml`, or
-`@Plugin(..., dependencies = @Dependency(id = "judicator"))` on Velocity.
+Declare Judicator as a dependency: `depend: [Judicator]` (or `softdepend`) in `plugin.yml`, `depends: [Judicator]`
+(or `softDepends`) in `bungee.yml`, or `@Plugin(..., dependencies = @Dependency(id = "judicator"))` on Velocity.
 
 **Usage.** Get the API in your enable step (on Spigot/Paper it is also in the `ServicesManager`):
 

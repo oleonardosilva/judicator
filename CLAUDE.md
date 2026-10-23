@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 **Judicator** is a moderation plugin (bans, mutes, kicks, warns) for Minecraft. It runs on the
-[Velocity](https://velocitypowered.com/) proxy and on Spigot/Paper servers (1.18+), backed by PostgreSQL, MySQL or SQLite,
+[Velocity](https://velocitypowered.com/) and BungeeCord proxies and on Spigot/Paper servers (1.18+), backed by PostgreSQL, MySQL or SQLite,
 with Discord webhook notifications and multi-language support.
 
 ## Build Commands
@@ -48,9 +48,10 @@ There is no lint task.
 
 | Module | Responsibility |
 |---|---|
-| `judicator-api` | Public API for other plugins, package `com.openmc.judicator.api`: `JudicatorApi` (async lookups, apply/revoke), `JudicatorProvider`, immutable views (`PunishmentView`, `WarnView`), requests, `ActionResult`, the `EventBus` and its events. Plain Java 17 with no dependencies (no Velocity, Bukkit, Adventure, Configurate or core types). Shipped unrelocated inside both platform JARs (never add it to a `relocate`). |
-| `judicator-common` | Platform-independent core: `Judicator` (bootstrap of configs, caches, DB and services), commands, services, repositories/DAOs, caches, messages, resources (`*.yml`) and the `platform/` abstraction. Must not import Velocity or Bukkit APIs. |
+| `judicator-api` | Public API for other plugins, package `com.openmc.judicator.api`: `JudicatorApi` (async lookups, apply/revoke), `JudicatorProvider`, immutable views (`PunishmentView`, `WarnView`), requests, `ActionResult`, the `EventBus` and its events. Plain Java 17 with no dependencies (no Velocity, Bukkit, Adventure, Configurate or core types). Shipped unrelocated inside every platform JAR (never add it to a `relocate`). |
+| `judicator-common` | Platform-independent core: `Judicator` (bootstrap of configs, caches, DB and services), commands, services, repositories/DAOs, caches, messages, resources (`*.yml`) and the `platform/` abstraction. Must not import Velocity, BungeeCord or Bukkit APIs. |
 | `judicator-velocity` | Velocity entry point (`JudicatorVelocity`, `@Plugin`), `VelocityPlatform`, command adapter (`SimpleCommand`), event listener, runtime `DependencyManager` (Maven Central only; every jar has a SHA-256 fixed in `JudicatorVelocity` and is not loaded if it does not match — changing a version means changing its hash). |
+| `judicator-bungee` | BungeeCord entry point (`JudicatorBungee`, `bungee.yml`), `BungeePlatform`, command adapter (`Command` + `TabExecutor`), event listener. Shades and relocates Adventure, Configurate and slf4j (BungeeCord keeps its own slf4j internal); JDBC drivers (SQLite included), HikariCP and Caffeine come from `libraries:` in `bungee.yml`. |
 | `judicator-bukkit` | Spigot/Paper entry point (`JudicatorBukkit`, `plugin.yml`), `BukkitPlatform`, command adapter (`TabExecutor`), event listener. Shades and relocates Adventure and Configurate; JDBC drivers, HikariCP and Caffeine come from `libraries:` in `plugin.yml`. |
 
 ### Platform abstraction (`judicator-common/.../platform`)
@@ -59,13 +60,13 @@ There is no lint task.
 `JudicatorPlayer`. Core code talks only to these; each platform module implements them.
 
 - `runAsync` for I/O (database, HTTP). `runSync` for anything that touches the game: on Bukkit it is the main thread,
-  on Velocity it is just another async task.
+  on a proxy it is just another async task.
 - Commands are `CoreCommand` subclasses (`execute(sender, CommandArgs)`, `suggest`, `canUse`). The adapters run
   `execute` asynchronously on both platforms. New commands must be added to `Judicator#createCommands` and, for
   Bukkit, to `judicator-bukkit/src/main/resources/plugin.yml`.
 - Login/chat logic lives in `ConnectionHandler` and `ChatHandler`; each platform listener only translates its events.
   `ChatHandler.chatDecision` returns `ALLOW`/`BLOCK`/`SOFT` (soft mute: Bukkit keeps the message for the sender only,
-  in a HIGHEST listener; Velocity denies it and echoes `softMuteEcho` to the sender).
+  in a HIGHEST listener; the proxies deny it and echo `softMuteEcho` to the sender).
 - Messages for someone: `Judicator.messagesFor(recipient)` (their client language with `per-player-language`, else
   the server's); messages to several players are built per recipient (`Platform.announceToServerOf(player,
   Function)`, `StaffNotifier.sendToPermission(permission, Function)`). Login screens, Discord and the console use
@@ -75,7 +76,9 @@ There is no lint task.
 
 1. **Pre-login** — `ConnectionHandler.checkPreLogin`: bans on the IP (and on the name in offline mode). After
    authentication `checkLogin`: `PlayerDirectory.joined`, the account's bans, `AddressPolicy.checkLogin` (`ip-limits`),
-   then `alts.deny-if-banned`. Velocity also checks scoped bans on `PlayerChooseInitialServerEvent`/`ServerPreConnectEvent`.
+   then `alts.deny-if-banned`. A proxy also checks scoped bans on the first server and on each switch (Velocity
+   `PlayerChooseInitialServerEvent`/`ServerPreConnectEvent`; BungeeCord `PostLoginEvent` target/`ServerConnectEvent`).
+   `PlatformType.isProxy()` is how the core tells a proxy from Spigot/Paper; never compare with `VELOCITY`.
 2. **Login** — active mutes go into `PunishCache`; `onLoginAllowed` resumes paused online-only mutes and stores the IP
    (`AccessAddressService`); `onJoin` records the staff level and tells `judicator.notes.notify` about staff notes.
    `onDisconnect` (and `Judicator.disable`) pauses online-only mutes.
@@ -116,12 +119,12 @@ account's UUID at login. Never look players up by name in new code: take a `Play
 ### Scopes and reports
 
 `punish/scopes/ScopeService`: a punishment's `scope` is null (everywhere), `server:<name>` or `group:<name>`
-(`scopes.groups`). Velocity knows each player's backend (`Platform.serverOf`); Spigot/Paper uses `scopes.server-name`.
+(`scopes.groups`). The proxy knows each player's backend (`Platform.serverOf`); Spigot/Paper uses `scopes.server-name`.
 Logins only count bans that `refusesLogin`; the mute cache keeps every mute of a key and `ChatHandler` picks the one
 that applies where the player is. `reports/`: `ReportService` (cooldown, states OPEN/ASSIGNED/CLOSED, notices, sync
-`REPORTED`/`REPORT_CHANGED`), `/report`, `/reports`; `/reports tp` on Velocity sends a `TeleportRequest` on the
+`REPORTED`/`REPORT_CHANGED`), `/report`, `/reports`; `/reports tp` on a proxy sends a `TeleportRequest` on the
 `judicator:main` plugin channel (the proxy drops client messages on it; the backend in `proxy-mode` also checks
-`judicator.reports.tp`).
+`judicator.reports.tp`) and `PendingTeleports` waits for the backend's `TeleportResult`.
 
 ### Database
 

@@ -1,4 +1,4 @@
-package com.openmc.judicator.bukkit;
+package com.openmc.judicator.platform;
 
 import org.slf4j.helpers.FormattingTuple;
 import org.slf4j.helpers.MarkerIgnoringBase;
@@ -7,11 +7,14 @@ import org.slf4j.helpers.MessageFormatter;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-final class JulLoggerAdapter extends MarkerIgnoringBase {
+/**
+ * An slf4j logger over the java.util.logging one Spigot/Paper and BungeeCord give each plugin.
+ */
+public final class JulLoggerAdapter extends MarkerIgnoringBase {
 
     private final transient Logger delegate;
 
-    JulLoggerAdapter(Logger delegate) {
+    public JulLoggerAdapter(Logger delegate) {
         this.delegate = delegate;
         this.name = delegate.getName();
     }
