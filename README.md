@@ -18,7 +18,8 @@ Download it!
 | Spigot / Paper (server) | `Judicator-Bukkit-<version>.jar` | Minecraft 1.18+, Java 17+ |
 
 Use the Velocity build when you run a network behind a proxy: punishments then apply to every backend server. Use the
-Spigot/Paper build on a standalone server. On Spigot/Paper the database drivers, HikariCP and Caffeine are downloaded
+Spigot/Paper build on a standalone server. Several servers sharing one database: see
+[Networks and Multiple Servers](#networks-and-multiple-servers). On Spigot/Paper the database drivers, HikariCP and Caffeine are downloaded
 by the server itself (`libraries` in `plugin.yml`); on Velocity they are downloaded by the plugin on the first start.
 
 Running the Spigot/Paper build on backends behind Velocity or BungeeCord with UUID forwarding? Those servers report
@@ -32,6 +33,43 @@ kept in `plugins/<Judicator folder>/judicator.db` (`file` in `data.yml`). Spigot
 driver; on Velocity it is downloaded on the first start with `type: 'sqlite'`. Use SQLite for a single server or a
 small network; a network with several Spigot/Paper servers sharing punishments needs PostgreSQL or MySQL. Changing
 `type` requires a restart (it is not applied by `/judicator reload`).
+
+### Networks and Multiple Servers
+
+Every server running Judicator on the same MySQL/PostgreSQL database reads the same punishments. To make a change made
+on one server reach the players of the others **right away** (not only at their next login), turn on `sync` in the
+`config.yml` of **every** server and restart them:
+
+```yaml
+sync:
+  enabled: true
+  poll-interval: 1 # seconds (1 to 30)
+```
+
+Each server writes a short notice (the punishment id, nothing else) to the `sync_messages` table and reads the others'
+notices every `poll-interval` seconds; notices are deleted after about a minute. A ban applied on one server kicks the
+player wherever they are, a mute blocks their chat, and `/unban`, `/unmute`, `/revoke`, `/staffrollback`, `/extend`,
+`/changereason` and `/judicator clear` lift or change it everywhere. Staff of every server are notified and the
+punishment cooldown counts on every server. Notices of revocations, edits and rollbacks to staff stay on the server
+where the command was typed; the Discord webhook is sent once, by the server that applied the punishment.
+
+| Network | Install | `config.yml` |
+|---|---|---|
+| Velocity only | Velocity build on the proxy | nothing to change |
+| Several Spigot/Paper servers, no proxy (or a proxy without Judicator) | Spigot/Paper build on each | `sync.enabled: true` on each |
+| Velocity **and** the backends (signed chat of 1.19.1+ clients, menus on the backends) | both builds | proxy: `sync.enabled: true`, `chat-on-backends: true`; each backend: `sync.enabled: true`, `proxy-mode: true`, `trust-uuids: true` |
+
+**`proxy-mode`** (Spigot/Paper behind a Velocity running Judicator): the proxy does everything players see — refuses
+banned players, kicks, mute alerts, announcements, staff notifications — for every punishment, wherever it was
+applied, and keeps IP addresses, account limits, alt and note warnings, online-only mute time and data retention. The
+backend keeps the mute of each player online and blocks muted chat and commands (and soft mutes keep the server's chat
+format); it still refuses a banned player, in case someone reaches it without the proxy. Its console can use every
+command (but `/kick` there only moves the player off that backend: kick from the proxy). With `chat-on-backends: true`,
+the proxy stops blocking chat and backend commands itself, so 1.19.1+ players are not disconnected for a denied signed
+message; commands of the proxy itself (a proxy-wide `/g`, for instance) are still blocked there.
+
+Limits: SQLite can only be shared by servers on the same machine. A server that stops reading for more than a minute
+(a long freeze) can miss notices; the player gets the right state at their next login.
 
 ### Building
 
@@ -108,7 +146,8 @@ The following commands are used to apply, remove, or check punishments for playe
   **Permission:** `judicator.softmute`, `judicator.tempsoftmute`
 * **Velocity and 1.19.1+ clients:** Velocity disconnects a 1.19.1+ player whose signed chat message is denied, which
   affects every chat block done on the proxy (normal and soft mutes). Install a plugin such as SignedVelocity on the
-  proxy and the backends, or run Judicator on the backend servers, if your players use signed chat.
+  proxy and the backends, or run Judicator on the backends in `proxy-mode` with `chat-on-backends: true` on the proxy
+  (see [Networks and Multiple Servers](#networks-and-multiple-servers)), if your players use signed chat.
 
 ---
 
@@ -419,6 +458,10 @@ the server language.
 * `/unban`, `/unmute` and `/revoke` free the cooldown of that player, so a mistaken punishment can be applied again
   right away.
 * `/blame` no longer shows IP addresses in its hover (`blame.hover`).
+* Optional and off by default: `sync`, `proxy-mode` and `chat-on-backends` (see
+  [Networks and Multiple Servers](#networks-and-multiple-servers)). With `sync.enabled: true` the plugin creates the
+  `sync_messages` table on the first start; they are read at startup only (`/judicator reload` warns that a restart is
+  needed).
 
 ---
 

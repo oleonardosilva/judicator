@@ -27,14 +27,20 @@ public final class FakePlatform implements Platform {
 
     private final Path dataDirectory;
     private final boolean onlineMode;
+    private final PlatformType type;
     private final Map<String, FakePlayer> players = new LinkedHashMap<>();
     private final List<String> consoleCommands = new ArrayList<>();
     private final List<Component> announcements = new ArrayList<>();
     private final List<Runnable> repeating = new ArrayList<>();
 
     public FakePlatform(Path dataDirectory, boolean onlineMode) {
+        this(dataDirectory, onlineMode, PlatformType.VELOCITY);
+    }
+
+    public FakePlatform(Path dataDirectory, boolean onlineMode, PlatformType type) {
         this.dataDirectory = dataDirectory;
         this.onlineMode = onlineMode;
+        this.type = type;
     }
 
     public static FakePlatform create(Path dataDirectory, boolean onlineMode) {
@@ -59,7 +65,7 @@ public final class FakePlatform implements Platform {
 
     @Override
     public PlatformType getType() {
-        return PlatformType.values()[0];
+        return type;
     }
 
     @Override

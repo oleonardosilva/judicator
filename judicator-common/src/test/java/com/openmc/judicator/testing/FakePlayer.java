@@ -23,6 +23,7 @@ public final class FakePlayer implements JudicatorPlayer {
     private final Set<String> permissions = new HashSet<>();
     private final List<Component> received = new ArrayList<>();
     private Component kickMessage;
+    private int kicks;
     private Locale locale;
 
     public FakePlayer(String name, String hostAddress, String... permissions) {
@@ -85,6 +86,7 @@ public final class FakePlayer implements JudicatorPlayer {
     @Override
     public void disconnect(Component reason) {
         this.kickMessage = reason;
+        this.kicks++;
     }
 
     /**
@@ -111,6 +113,13 @@ public final class FakePlayer implements JudicatorPlayer {
 
     public void clearMessages() {
         received.clear();
+    }
+
+    /**
+     * How many times the player was disconnected (a network must kick once, not once per server).
+     */
+    public int kicks() {
+        return kicks;
     }
 
     public boolean wasKicked() {

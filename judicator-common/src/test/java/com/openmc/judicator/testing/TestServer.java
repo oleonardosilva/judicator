@@ -4,6 +4,7 @@ import com.openmc.judicator.Judicator;
 import com.openmc.judicator.commons.command.CommandArgs;
 import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.platform.JudicatorSender;
+import com.openmc.judicator.platform.PlatformType;
 import net.kyori.adventure.text.Component;
 
 import java.io.IOException;
@@ -28,19 +29,26 @@ public final class TestServer implements AutoCloseable {
     public final FakePlatform platform;
     public Judicator judicator;
     public final FakeConsole console = new FakeConsole();
-    public final InMemoryPunishmentRepository punishments = new InMemoryPunishmentRepository();
-    public final InMemoryWarnRepository warns = new InMemoryWarnRepository();
-    public final InMemoryAccessAddressRepository addresses = new InMemoryAccessAddressRepository();
-    public final InMemoryPlayerLevelRepository levels = new InMemoryPlayerLevelRepository();
-    public final InMemoryNoteRepository notes = new InMemoryNoteRepository();
+    public final InMemoryPunishmentRepository punishments;
+    public final InMemoryWarnRepository warns;
+    public final InMemoryAccessAddressRepository addresses;
+    public final InMemoryPlayerLevelRepository levels;
+    public final InMemoryNoteRepository notes;
+    public final InMemorySyncRepository sync;
 
-    private TestServer(Path folder, boolean onlineMode) {
-        this.platform = new FakePlatform(folder, onlineMode);
+    private TestServer(Path folder, boolean onlineMode, PlatformType type, TestServer sharedDatabase) {
+        this.platform = new FakePlatform(folder, onlineMode, type);
+        this.punishments = sharedDatabase == null ? new InMemoryPunishmentRepository() : sharedDatabase.punishments;
+        this.warns = sharedDatabase == null ? new InMemoryWarnRepository() : sharedDatabase.warns;
+        this.addresses = sharedDatabase == null ? new InMemoryAccessAddressRepository() : sharedDatabase.addresses;
+        this.levels = sharedDatabase == null ? new InMemoryPlayerLevelRepository() : sharedDatabase.levels;
+        this.notes = sharedDatabase == null ? new InMemoryNoteRepository() : sharedDatabase.notes;
+        this.sync = sharedDatabase == null ? new InMemorySyncRepository() : sharedDatabase.sync;
         this.judicator = boot();
     }
 
     private Judicator boot() {
-        final Judicator core = new Judicator(platform, new Judicator.Repositories(punishments, warns, addresses, levels, notes));
+        final Judicator core = new Judicator(platform, new Judicator.Repositories(punishments, warns, addresses, levels, notes, sync));
         core.enable();
         // A test never talks to the Mojang API: unknown names simply have no UUID.
         core.getUuidManager().setRemoteLookups(false);
@@ -105,6 +113,14 @@ public final class TestServer implements AutoCloseable {
             throw new AssertionError(player.getName() + " could not join: " + kick);
         });
         return player;
+    }
+
+    /**
+     * One sync poll: this server reads and applies what the servers sharing its database changed
+     * ({@code sync.enabled}).
+     */
+    public void pollSync() {
+        judicator.getSyncService().poll();
     }
 
     public void quit(FakePlayer player) {
@@ -180,6 +196,8 @@ public final class TestServer implements AutoCloseable {
         private final Map<String, String> configChanges = new LinkedHashMap<>();
         private List<String> immune = List.of();
         private String immunePlayers = "";
+        private PlatformType type = PlatformType.VELOCITY;
+        private TestServer sharedDatabase;
 
         private Builder(Path folder) {
             this.folder = folder;
@@ -196,6 +214,22 @@ public final class TestServer implements AutoCloseable {
          */
         public Builder config(String from, String to) {
             configChanges.put(from, to);
+            return this;
+        }
+
+        /**
+         * The platform the server reports (Velocity by default); {@code proxy-mode} only applies on Bukkit.
+         */
+        public Builder platform(PlatformType type) {
+            this.type = type;
+            return this;
+        }
+
+        /**
+         * Another server of the same network: both read and write the same (in-memory) database.
+         */
+        public Builder sharingDatabaseWith(TestServer other) {
+            this.sharedDatabase = other;
             return this;
         }
 
@@ -231,7 +265,7 @@ public final class TestServer implements AutoCloseable {
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
-            return new TestServer(folder, onlineMode);
+            return new TestServer(folder, onlineMode, type, sharedDatabase);
         }
 
         private static String resource(String path) throws IOException {

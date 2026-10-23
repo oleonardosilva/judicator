@@ -12,13 +12,18 @@ import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.event.connection.PreLoginEvent;
 import com.velocitypowered.api.event.player.PlayerChatEvent;
 import com.velocitypowered.api.proxy.Player;
+import com.velocitypowered.api.proxy.ProxyServer;
 
 public class VelocityListener {
 
+    private final Judicator judicator;
+    private final ProxyServer server;
     private final ConnectionHandler connectionHandler;
     private final ChatHandler chatHandler;
 
-    public VelocityListener(Judicator judicator) {
+    public VelocityListener(Judicator judicator, ProxyServer server) {
+        this.judicator = judicator;
+        this.server = server;
         this.connectionHandler = judicator.getConnectionHandler();
         this.chatHandler = judicator.getChatHandler();
     }
@@ -61,9 +66,18 @@ public class VelocityListener {
         return EventTask.async(() -> connectionHandler.onDisconnect(username, address));
     }
 
+    /**
+     * {@code chat-on-backends: true}: the backends (Judicator in {@code proxy-mode}) block muted chat and the commands
+     * they run, so the proxy does not deny signed chat messages (a 1.19.1+ client is disconnected when the proxy does).
+     * Commands of the proxy itself never reach a backend: the proxy still blocks those.
+     */
+    private boolean chatOnBackends() {
+        return judicator.getConfig().node("chat-on-backends").getBoolean(false);
+    }
+
     @Subscribe(priority = 10)
     public void onMutedChat(PlayerChatEvent event) {
-        if (!event.getResult().isAllowed()) return;
+        if (!event.getResult().isAllowed() || chatOnBackends()) return;
         final VelocityPlayer player = new VelocityPlayer(event.getPlayer());
         switch (chatHandler.chatDecision(player)) {
             case BLOCK -> event.setResult(PlayerChatEvent.ChatResult.denied());
@@ -79,6 +93,7 @@ public class VelocityListener {
     @Subscribe(priority = 10)
     public void onMutedCommand(CommandExecuteEvent event) {
         if (!(event.getCommandSource() instanceof Player player) || !event.getResult().isAllowed()) return;
+        if (chatOnBackends() && !server.getCommandManager().hasCommand(event.getCommand().trim().split(" ", 2)[0])) return;
         if (chatHandler.shouldBlockCommand(new VelocityPlayer(player), event.getCommand())) {
             event.setResult(CommandExecuteEvent.CommandResult.denied());
         }

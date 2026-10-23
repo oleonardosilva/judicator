@@ -19,6 +19,7 @@ import net.kyori.adventure.text.event.HoverEvent;
 import org.spongepowered.configurate.ConfigurationNode;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -91,15 +92,13 @@ public class StaffRollbackCommand extends CoreCommand {
         final String author = source.asPlayer().map(JudicatorPlayer::getName).orElse("Console");
         final String reason = PunishUtils.format(judicator.getMessagesConfig(), Map.of("staff", staff.get(), "author", author),
                 "rollback", "revoke-reason").content();
-        int revoked = 0;
+        final List<Punishment> revoked = new ArrayList<>();
         for (Punishment punishment : punishments) {
             if (!punishService.revokeNow(punishment.getId(), reason)) continue;
-            revoked++;
+            revoked.add(punishment);
             judicator.getPunishCache().forgetMute(punishment.getId());
-            if (punishment.isSoft()) continue;
-            judicator.getPlatform().getPlayer(punishment.getNickname()).ifPresent(player ->
-                    player.sendMessage(PunishUtils.getMessage(judicator.messagesFor(player), "success", "got-pardon")));
         }
+        judicator.getPunishmentEffects().pardoned(revoked);
         for (Warn warn : warns) {
             judicator.getLogger().info("Rollback by {}: deleting warn #{} of {} applied by {} at {}: {}",
                     author, warn.getId(), warn.getNickname(), warn.getPunisher(), warn.getStartedAt(), warn.getReason());
@@ -108,9 +107,9 @@ public class StaffRollbackCommand extends CoreCommand {
 
         source.sendMessage(PunishUtils.format(messages, Map.of(
                 "staff", staff.get(),
-                "punishments", String.valueOf(revoked),
+                "punishments", String.valueOf(revoked.size()),
                 "warns", String.valueOf(warns.size())), "rollback", "done"));
-        judicator.getStaffNotifier().notifyRollback(author, staff.get(), millis.getAsLong(), revoked, warns.size());
+        judicator.getStaffNotifier().notifyRollback(author, staff.get(), millis.getAsLong(), revoked.size(), warns.size());
     }
 
     @Override

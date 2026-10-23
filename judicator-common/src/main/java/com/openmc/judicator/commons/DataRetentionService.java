@@ -5,6 +5,7 @@ import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.platform.PlatformTask;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.types.PunishStatus;
+import com.openmc.judicator.sync.SyncKind;
 import com.openmc.judicator.warns.Warn;
 import net.kyori.adventure.text.Component;
 import org.spongepowered.configurate.ConfigurationNode;
@@ -112,6 +113,8 @@ public class DataRetentionService {
         judicator.getAddressService().removeAccount(username);
         repositories.levels().delete(username);
         punishments.forEach(punishment -> judicator.getPunishCache().forgetMute(punishment.getId()));
+        punishments.stream().filter(punishment -> punishment.getStatus() == PunishStatus.ACTIVE)
+                .forEach(punishment -> judicator.getSyncService().publish(SyncKind.DELETED, punishment.getId()));
         judicator.getPunishCache().removeMutePunishment(username);
         judicator.getLogger().info("{} deleted the data of {}: {}", sender.getName(), username, summary);
         send(sender, "§aDeleted the data of " + username + ": " + summary + ".");

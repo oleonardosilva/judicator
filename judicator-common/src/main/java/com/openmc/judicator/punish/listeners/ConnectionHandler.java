@@ -28,6 +28,8 @@ public class ConnectionHandler {
         final Optional<Component> ban = judicator.getPunishService().searchOnPreLogin(username, address)
                 .map(punishment -> PunishUtils.getMessageList(judicator.getMessagesConfig(), punishment, "runners", "ban-kick"));
         if (ban.isPresent()) return ban;
+        // behind a proxy in proxy mode, the proxy counts the accounts of the whole network
+        if (judicator.isProxyMode()) return Optional.empty();
         return judicator.getAddressPolicy().checkLogin(username, address);
     }
 
@@ -41,6 +43,7 @@ public class ConnectionHandler {
                     .map(punishment -> PunishUtils.getMessageList(judicator.getMessagesConfig(), punishment, "runners", "ban-kick"));
             if (ban.isPresent()) return ban;
         }
+        if (judicator.isProxyMode()) return Optional.empty();
         return checkBannedAlts(uuid, username, address);
     }
 
@@ -64,6 +67,8 @@ public class ConnectionHandler {
     }
 
     public void onLoginAllowed(String username, String address) {
+        // the proxy records the address and warns about alts once for the network, not at every server switch
+        if (judicator.isProxyMode()) return;
         judicator.getAddressPolicy().recordLogin(username, address);
         judicator.getAddressService().updateUserIP(username, address);
         notifyAlts(username, address);
@@ -74,8 +79,10 @@ public class ConnectionHandler {
      * server checks): paused online-only mutes run again from now.
      */
     public void onJoin(JudicatorPlayer player) {
-        judicator.getPunishService().resumeOnlineOnlyMutes(player.getName());
         judicator.getUuidManager().remember(player.getName(), player.getUniqueId());
+        // Proxy mode: switching servers is not joining the network; the proxy keeps the online time, staff levels and notices.
+        if (judicator.isProxyMode()) return;
+        judicator.getPunishService().resumeOnlineOnlyMutes(player.getName());
         judicator.getHierarchyService().recordLevel(player);
         notifyNotes(player);
     }
@@ -110,7 +117,7 @@ public class ConnectionHandler {
     }
 
     public void onDisconnect(String username, String address) {
-        judicator.getPunishService().pauseOnlineOnlyMutes(username);
+        if (!judicator.isProxyMode()) judicator.getPunishService().pauseOnlineOnlyMutes(username);
         judicator.getPunishService().cleanupMutePunishmentCache(username, address);
     }
 

@@ -5,6 +5,7 @@ import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.punish.data.cache.PunishCache;
 import com.openmc.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.judicator.punish.types.PunishType;
+import com.openmc.judicator.sync.SyncKind;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -103,7 +104,7 @@ public class PunishService {
 
     public void revoke(Long id, String reason, Runnable onSuccess, Runnable onFailure) {
         judicator.getPlatform().runAsync(() -> {
-            if (repository.revoke(id, revokeReason(reason))) onSuccess.run();
+            if (revokeNow(id, reason)) onSuccess.run();
             else onFailure.run();
         });
     }
@@ -117,7 +118,9 @@ public class PunishService {
     }
 
     public boolean revokeNow(Long id, String reason) {
-        return repository.revoke(id, revokeReason(reason));
+        if (!repository.revoke(id, revokeReason(reason))) return false;
+        judicator.getSyncService().publish(SyncKind.REVOKED, id);
+        return true;
     }
 
     public Optional<Punishment> findById(Long id) {
@@ -162,8 +165,15 @@ public class PunishService {
         return repository.findAllActiveByUsernamesAndTypes(usernames, PunishType.BAN, PunishType.TEMPBAN);
     }
 
+    /**
+     * Stores a punishment; a new one is announced to the other servers ({@code sync}), which apply its effects to
+     * their players.
+     */
     public Punishment save(Punishment punishment) {
-        return repository.save(punishment);
+        final boolean created = punishment.getId() == null;
+        final Punishment saved = repository.save(punishment);
+        if (created) judicator.getSyncService().publish(SyncKind.PUNISHED, saved.getId());
+        return saved;
     }
 
     /**
@@ -176,6 +186,7 @@ public class PunishService {
         punishment.setFinishAt(finishAt);
         punishment.setPausedRemaining(pausedRemaining);
         cache.refreshMute(punishment);
+        judicator.getSyncService().publish(SyncKind.CHANGED, punishment.getId());
         return true;
     }
 
@@ -186,6 +197,7 @@ public class PunishService {
         if (!repository.changeReason(punishment.getId(), reason)) return false;
         punishment.setReason(reason);
         cache.refreshMute(punishment);
+        judicator.getSyncService().publish(SyncKind.CHANGED, punishment.getId());
         return true;
     }
 
@@ -215,6 +227,7 @@ public class PunishService {
 
     public void deleteById(Long id) {
         repository.deleteById(id);
+        judicator.getSyncService().publish(SyncKind.DELETED, id);
     }
 
     public boolean isOnlinePlayerAffected(JudicatorPlayer player, Punishment punishment) {

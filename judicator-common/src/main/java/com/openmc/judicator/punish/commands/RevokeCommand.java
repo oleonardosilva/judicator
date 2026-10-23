@@ -48,12 +48,7 @@ public class RevokeCommand extends CoreCommand {
             source.sendMessage(PunishUtils.getMessage(messages, "success", "pardon"));
             judicator.getPunishCache().forgetMute(id);
             judicator.getPunishCooldown().release(PunishCooldown.categoryOf(punishment.getType()), punishment.getNickname());
-
-            // a soft-muted player never knew about it
-            if (!punishment.isSoft()) {
-                judicator.getPlatform().getPlayer(punishment.getNickname()).ifPresent(player ->
-                        player.sendMessage(PunishUtils.getMessage(judicator.messagesFor(player), "success", "got-pardon")));
-            }
+            judicator.getPunishmentEffects().pardoned(List.of(punishment));
         }, () -> source.sendMessage(PunishUtils.getMessage(messages, "error", "unknown")));
     }
 

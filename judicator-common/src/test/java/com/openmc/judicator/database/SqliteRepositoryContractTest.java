@@ -8,6 +8,7 @@ import com.openmc.judicator.punish.data.repository.dao.AccessAddressRelationalDA
 import com.openmc.judicator.punish.data.repository.dao.PunishmentRelationalDAO;
 import com.openmc.judicator.punish.hierarchy.PlayerLevelRelationalDAO;
 import com.openmc.judicator.punish.types.PunishType;
+import com.openmc.judicator.sync.repository.dao.SyncRelationalDAO;
 import com.openmc.judicator.warns.repository.dao.WarnRelationalDAO;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -49,7 +50,9 @@ class SqliteRepositoryContractTest extends RepositoryContract {
         addresses.initialize();
         levels.initialize();
         notes.initialize();
-        return new Store(punishments, warns, addresses, levels, notes, manager::shutdown);
+        final SyncRelationalDAO sync = new SyncRelationalDAO(manager, LOGGER);
+        sync.initialize();
+        return new Store(punishments, warns, addresses, levels, notes, sync, manager::shutdown);
     }
 
     @Test

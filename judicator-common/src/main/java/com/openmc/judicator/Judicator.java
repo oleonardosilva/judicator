@@ -17,6 +17,7 @@ import com.openmc.judicator.notes.repository.dao.NoteRelationalDAO;
 import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.platform.Platform;
+import com.openmc.judicator.platform.PlatformType;
 import com.openmc.judicator.punish.AccessAddressService;
 import com.openmc.judicator.punish.AddressPolicy;
 import com.openmc.judicator.punish.PunishService;
@@ -33,8 +34,12 @@ import com.openmc.judicator.punish.data.repository.AccessAddressRepository;
 import com.openmc.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.judicator.punish.data.repository.dao.AccessAddressRelationalDAO;
 import com.openmc.judicator.punish.data.repository.dao.PunishmentRelationalDAO;
+import com.openmc.judicator.punish.handlers.PunishmentEffects;
 import com.openmc.judicator.punish.listeners.ChatHandler;
 import com.openmc.judicator.punish.listeners.ConnectionHandler;
+import com.openmc.judicator.sync.SyncService;
+import com.openmc.judicator.sync.repository.SyncRepository;
+import com.openmc.judicator.sync.repository.dao.SyncRelationalDAO;
 import com.openmc.judicator.warns.WarnService;
 import com.openmc.judicator.warns.cache.ActionCache;
 import com.openmc.judicator.warns.commands.*;
@@ -57,6 +62,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 @Getter
@@ -94,6 +100,10 @@ public class Judicator {
     private StaffNotifier staffNotifier;
     private ImportService importService;
     private DataRetentionService dataRetentionService;
+    private PunishmentEffects punishmentEffects;
+    private SyncService syncService;
+    /** {@code proxy-mode} as read at startup (not reloadable) */
+    private boolean proxyMode;
     private ConnectionHandler connectionHandler;
     private ChatHandler chatHandler;
     private List<CoreCommand> commands;
@@ -103,7 +113,8 @@ public class Judicator {
      * in-memory repositories so commands and listeners can be exercised without a database.
      */
     public record Repositories(PunishmentRepository punishments, WarnRepository warns,
-                               AccessAddressRepository addresses, PlayerLevelRepository levels, NoteRepository notes) {
+                               AccessAddressRepository addresses, PlayerLevelRepository levels, NoteRepository notes,
+                               SyncRepository sync) {
     }
 
     private final Repositories providedRepositories;
@@ -129,6 +140,7 @@ public class Judicator {
         this.immuneConfig = loadConfig("immune.yml");
         this.dbConfig = loadConfig("data.yml");
         this.discordConfig = loadConfig("discord.yml");
+        this.proxyMode = readProxyMode();
 
         this.discordWebhookService = new DiscordWebhookService(this);
 
@@ -153,7 +165,8 @@ public class Judicator {
                     new WarnRelationalDAO(relationalDBManager, logger),
                     new AccessAddressRelationalDAO(relationalDBManager, logger),
                     new PlayerLevelRelationalDAO(relationalDBManager, logger),
-                    new NoteRelationalDAO(relationalDBManager, logger));
+                    new NoteRelationalDAO(relationalDBManager, logger),
+                    new SyncRelationalDAO(relationalDBManager, logger));
         } else {
             repositories = providedRepositories;
         }
@@ -162,15 +175,35 @@ public class Judicator {
         this.connectionHandler = new ConnectionHandler(this);
         this.chatHandler = new ChatHandler(this);
         this.commands = createCommands();
+        this.syncService.start();
+        if (proxyMode && !syncService.isEnabled()) {
+            logger.warn("proxy-mode without sync.enabled: punishments applied on the proxy reach this server only at the player's next login.");
+        }
+        // The proxy keeps the data and the online time: a backend in proxy mode leaves both alone.
+        if (proxyMode) return;
         this.dataRetentionService.start();
         // A plugin reload (Bukkit /reload) paused the online-only mutes of the players still online in disable().
         final List<String> online = platform.getOnlinePlayers().stream().map(JudicatorPlayer::getName).toList();
         if (!online.isEmpty()) platform.runAsync(() -> online.forEach(punishService::resumeOnlineOnlyMutes));
     }
 
+    /**
+     * {@code proxy-mode: true} on a Spigot/Paper backend behind a Velocity proxy that runs Judicator: the proxy refuses
+     * logins, applies the effects players see and keeps IP and online-time records; this server keeps the mute cache
+     * and blocks muted chat. Ignored on Velocity.
+     */
+    private boolean readProxyMode() {
+        final boolean configured = config.node("proxy-mode").getBoolean(false);
+        if (configured && platform.getType() == PlatformType.VELOCITY) {
+            logger.warn("proxy-mode is for Spigot/Paper backends and is ignored on Velocity.");
+            return false;
+        }
+        return configured;
+    }
+
     public void disable() {
         // Players still online when the server stops never send a disconnect to the plugin: stop their online-only mutes here.
-        if (punishService != null) {
+        if (punishService != null && !proxyMode) {
             platform.getOnlinePlayers().forEach(player -> {
                 try {
                     punishService.pauseOnlineOnlyMutes(player.getName());
@@ -180,12 +213,15 @@ public class Judicator {
             });
         }
         if (dataRetentionService != null) dataRetentionService.stop();
+        if (syncService != null) syncService.stop();
         if (punishCache != null) punishCache.shutdown();
         if (relationalDBManager != null) relationalDBManager.shutdown();
     }
 
     public void reloadConfigs() {
+        final ConfigurationNode previous = config;
         this.config = loadConfig("config.yml");
+        warnIfRestartNeeded(previous);
         this.discordConfig = loadConfig("discord.yml");
         loadMessages();
         this.immuneConfig = loadConfig("immune.yml");
@@ -200,7 +236,20 @@ public class Judicator {
         this.chatHandler.reload();
     }
 
+    /**
+     * The sync settings and {@code proxy-mode} are read at startup only (as the database type).
+     */
+    private void warnIfRestartNeeded(ConfigurationNode previous) {
+        for (List<String> path : List.of(List.of("sync", "enabled"), List.of("sync", "poll-interval"), List.of("proxy-mode"))) {
+            if (!Objects.equals(previous.node(path).raw(), config.node(path).raw())) {
+                logger.warn("{} changed: restart the server to apply it.", String.join(".", path));
+            }
+        }
+    }
+
     private void registerServices(Repositories repositories) {
+        this.syncService = new SyncService(this, repositories.sync());
+        this.punishmentEffects = new PunishmentEffects(this);
         this.punishService = new PunishService(this, repositories.punishments());
         this.addressService = new AccessAddressService(repositories.addresses());
         this.addressPolicy = new AddressPolicy(this);

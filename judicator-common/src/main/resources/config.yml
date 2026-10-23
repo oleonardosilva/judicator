@@ -5,6 +5,11 @@ soft-mute-format: "<{player}> {message}" # Velocity only: what a soft-muted play
 language: en # native languages: en, es or pt
 trust-uuids: false # Spigot/Paper behind Velocity/BungeeCord with UUID forwarding (online-mode=false): true checks bans by UUID, as in online mode. Never on a real offline-mode server.
 per-player-language: false # true: each player gets the messages in their game language when it is en, es or pt (console, Discord and login screens use 'language')
+sync: # servers sharing one MySQL/PostgreSQL database (several Spigot/Paper, or Velocity + backends): what one applies, revokes or edits reaches the players of the others
+  enabled: false # true on every server of the network; requires a restart
+  poll-interval: 1 # seconds between checks for changes made by the other servers (1 to 30)
+proxy-mode: false # Spigot/Paper only, behind a Velocity that runs Judicator (with sync enabled on both): the proxy refuses logins, kicks, announces and notifies; this server only blocks muted chat
+chat-on-backends: false # Velocity only: true when the backends run Judicator in proxy-mode, so the proxy never denies (signed) chat of muted players itself
 commands-locked-when-silenced:
   - "/g"
   - "/l"

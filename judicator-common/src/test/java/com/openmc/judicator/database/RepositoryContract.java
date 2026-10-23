@@ -10,6 +10,8 @@ import com.openmc.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.judicator.punish.data.repository.dao.PunishmentRelationalDAO;
 import com.openmc.judicator.punish.hierarchy.PlayerLevelRepository;
 import com.openmc.judicator.punish.types.PunishType;
+import com.openmc.judicator.sync.SyncMessage;
+import com.openmc.judicator.sync.repository.SyncRepository;
 import com.openmc.judicator.warns.Warn;
 import com.openmc.judicator.warns.repository.WarnRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -42,7 +44,7 @@ abstract class RepositoryContract {
      * The four repositories of one fresh, empty store.
      */
     protected record Store(PunishmentRepository punishments, WarnRepository warns, AccessAddressRepository addresses,
-                           PlayerLevelRepository levels, NoteRepository notes, Runnable close) {
+                           PlayerLevelRepository levels, NoteRepository notes, SyncRepository sync, Runnable close) {
     }
 
     @TempDir
@@ -61,6 +63,33 @@ abstract class RepositoryContract {
         store.addresses().initialize();
         store.levels().initialize();
         store.notes().initialize();
+        store.sync().initialize();
+    }
+
+    // --- sync notices ---
+
+    @Test
+    void syncNotices_comeBackInOrderAfterAnIdAndAreDeletedUpToAnId() {
+        assertEquals(0, store.sync().maxId().orElseThrow());
+        store.sync().insert("server-a", "PUNISHED", 7);
+        store.sync().insert("server-b", "REVOKED", 7);
+        store.sync().insert("server-a", "CHANGED", 9);
+
+        final List<SyncMessage> all = store.sync().findAfter(0, 10);
+        assertEquals(List.of("PUNISHED", "REVOKED", "CHANGED"), all.stream().map(SyncMessage::kind).toList());
+        assertEquals("server-b", all.get(1).sender());
+        assertEquals(9, all.get(2).punishmentId());
+        assertTrue(all.get(0).id() < all.get(1).id() && all.get(1).id() < all.get(2).id());
+        assertEquals(all.get(2).id(), store.sync().maxId().orElseThrow());
+
+        assertEquals(all.subList(1, 3), store.sync().findAfter(all.get(0).id(), 10));
+        assertEquals(all.subList(0, 2), store.sync().findAfter(0, 2));
+
+        assertEquals(2, store.sync().deleteUpTo(all.get(1).id()));
+        assertEquals(List.of(all.get(2)), store.sync().findAfter(0, 10));
+        // ids keep growing after a delete: an instance never sees an old id again
+        store.sync().insert("server-a", "DELETED", 9);
+        assertTrue(store.sync().findAfter(all.get(2).id(), 10).get(0).id() > all.get(2).id());
     }
 
     @AfterEach
