@@ -1,5 +1,6 @@
 package com.openmc.judicator;
 
+import com.openmc.judicator.players.PlayerDirectory;
 import com.openmc.judicator.commons.DataRetentionService;
 import com.openmc.judicator.commons.JudicatorCommand;
 import com.openmc.judicator.commons.StaffNotifier;
@@ -18,15 +19,19 @@ import com.openmc.judicator.notes.commands.NoteCommand;
 import com.openmc.judicator.notes.commands.NotesCommand;
 import com.openmc.judicator.notes.repository.NoteRepository;
 import com.openmc.judicator.notes.repository.dao.NoteRelationalDAO;
-import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.platform.Platform;
 import com.openmc.judicator.platform.PlatformType;
+import com.openmc.judicator.players.PlayerRef;
+import com.openmc.judicator.players.repository.PlayerRepository;
+import com.openmc.judicator.players.repository.dao.PlayerRelationalDAO;
 import com.openmc.judicator.punish.AccessAddressService;
 import com.openmc.judicator.punish.AddressPolicy;
 import com.openmc.judicator.punish.PunishService;
 import com.openmc.judicator.punish.commands.*;
 import com.openmc.judicator.punish.data.cache.ImmuneCache;
+import com.openmc.judicator.punish.data.repository.PlayerAddressRepository;
+import com.openmc.judicator.punish.data.repository.dao.PlayerAddressRelationalDAO;
 import com.openmc.judicator.punish.hierarchy.HierarchyService;
 import com.openmc.judicator.punish.hierarchy.PlayerLevelRelationalDAO;
 import com.openmc.judicator.punish.hierarchy.PlayerLevelRepository;
@@ -34,9 +39,7 @@ import com.openmc.judicator.punish.rules.PunishCooldown;
 import com.openmc.judicator.punish.rules.TimeLimitService;
 import com.openmc.judicator.punish.data.cache.PunishCache;
 import com.openmc.judicator.punish.data.cache.ReasonCache;
-import com.openmc.judicator.punish.data.repository.AccessAddressRepository;
 import com.openmc.judicator.punish.data.repository.PunishmentRepository;
-import com.openmc.judicator.punish.data.repository.dao.AccessAddressRelationalDAO;
 import com.openmc.judicator.punish.data.repository.dao.PunishmentRelationalDAO;
 import com.openmc.judicator.punish.handlers.PunishmentEffects;
 import com.openmc.judicator.punish.listeners.ChatHandler;
@@ -97,6 +100,8 @@ public class Judicator {
     private WarnService warnService;
     private NoteService noteService;
     private AccessAddressService addressService;
+    /** who a name or a player is for the data (UUID or name) and the {@code players} table */
+    private PlayerDirectory playerDirectory;
     private AddressPolicy addressPolicy;
     private HierarchyService hierarchyService;
     private TimeLimitService timeLimitService;
@@ -121,8 +126,8 @@ public class Judicator {
      * in-memory repositories so commands and listeners can be exercised without a database.
      */
     public record Repositories(PunishmentRepository punishments, WarnRepository warns,
-                               AccessAddressRepository addresses, PlayerLevelRepository levels, NoteRepository notes,
-                               SyncRepository sync) {
+                               PlayerAddressRepository addresses, PlayerLevelRepository levels, NoteRepository notes,
+                               SyncRepository sync, PlayerRepository players) {
     }
 
     private final Repositories providedRepositories;
@@ -173,15 +178,19 @@ public class Judicator {
             repositories = new Repositories(
                     new PunishmentRelationalDAO(relationalDBManager, logger),
                     new WarnRelationalDAO(relationalDBManager, logger),
-                    new AccessAddressRelationalDAO(relationalDBManager, logger),
+                    new PlayerAddressRelationalDAO(relationalDBManager, logger),
                     new PlayerLevelRelationalDAO(relationalDBManager, logger),
                     new NoteRelationalDAO(relationalDBManager, logger),
-                    new SyncRelationalDAO(relationalDBManager, logger));
+                    new SyncRelationalDAO(relationalDBManager, logger),
+                    new PlayerRelationalDAO(relationalDBManager, logger));
         } else {
             repositories = providedRepositories;
         }
 
         this.registerServices(repositories);
+        // first start of 2.0: the accounts already known, then the IP history of 1.x by account
+        this.playerDirectory.seed();
+        repositories.addresses().migrateLegacy(playerDirectory.legacyNames());
         this.connectionHandler = new ConnectionHandler(this);
         this.chatHandler = new ChatHandler(this);
         this.commands = createCommands();
@@ -195,7 +204,7 @@ public class Judicator {
         if (proxyMode) return;
         this.dataRetentionService.start();
         // A plugin reload (Bukkit /reload) paused the online-only mutes of the players still online in disable().
-        final List<String> online = platform.getOnlinePlayers().stream().map(JudicatorPlayer::getName).toList();
+        final List<PlayerRef> online = platform.getOnlinePlayers().stream().map(playerDirectory::refOf).toList();
         if (!online.isEmpty()) platform.runAsync(() -> online.forEach(punishService::resumeOnlineOnlyMutes));
     }
 
@@ -219,7 +228,7 @@ public class Judicator {
         if (punishService != null && !proxyMode) {
             platform.getOnlinePlayers().forEach(player -> {
                 try {
-                    punishService.pauseOnlineOnlyMutes(player.getName());
+                    punishService.pauseOnlineOnlyMutes(playerDirectory.refOf(player));
                 } catch (RuntimeException e) {
                     logger.warn("Could not pause the online-only mutes of {}", player.getName(), e);
                 }
@@ -261,10 +270,11 @@ public class Judicator {
     }
 
     private void registerServices(Repositories repositories) {
+        this.playerDirectory = new PlayerDirectory(this, repositories.players());
         this.syncService = new SyncService(this, repositories.sync());
         this.punishmentEffects = new PunishmentEffects(this);
         this.punishService = new PunishService(this, repositories.punishments());
-        this.addressService = new AccessAddressService(repositories.addresses());
+        this.addressService = new AccessAddressService(this, repositories.addresses());
         this.addressPolicy = new AddressPolicy(this);
         this.warnService = new WarnService(repositories.warns());
         this.noteService = new NoteService(repositories.notes());

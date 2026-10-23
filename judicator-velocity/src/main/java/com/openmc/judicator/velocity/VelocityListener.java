@@ -13,6 +13,8 @@ import com.velocitypowered.api.event.connection.PreLoginEvent;
 import com.velocitypowered.api.event.player.PlayerChatEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import java.util.UUID;
+
 
 public class VelocityListener {
 
@@ -49,7 +51,7 @@ public class VelocityListener {
             connectionHandler.checkLogin(player.getUniqueId(), username, address)
                     .ifPresent(kick -> event.setResult(ResultedEvent.ComponentResult.denied(kick)));
             if (event.getResult().isAllowed()) {
-                connectionHandler.onLoginAllowed(username, address);
+                connectionHandler.onLoginAllowed(player.getUniqueId(), username, address);
                 connectionHandler.onJoin(new VelocityPlayer(player));
             }
         });
@@ -60,10 +62,11 @@ public class VelocityListener {
         // a second connection refused because the name is already online: the player who stays is not leaving
         if (event.getLoginStatus() == DisconnectEvent.LoginStatus.CONFLICTING_LOGIN) return null;
         final Player player = event.getPlayer();
+        final UUID uuid = player.getUniqueId();
         final String username = player.getUsername();
         final String address = player.getRemoteAddress().getAddress().getHostAddress();
         // pausing an online-only mute writes to the database
-        return EventTask.async(() -> connectionHandler.onDisconnect(username, address));
+        return EventTask.async(() -> connectionHandler.onDisconnect(uuid, username, address));
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.openmc.judicator.warns;
 
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.warns.types.WarnStatus;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -17,6 +18,10 @@ public class Warn {
     private Long id;
     private UUID playerUUID;
     private String reason, punisher, nickname;
+    /**
+     * The UUID of the staff member who applied it when it was a player; null for the console, a plugin or a record older than 2.0.
+     */
+    private UUID punisherUuid;
     private LocalDateTime startedAt, finishAt;
     private boolean permanent;
     private transient boolean silent;
@@ -61,6 +66,19 @@ public class Warn {
 
     public String getSafeNickname() {
         return getNickname().replaceAll("[^a-zA-Z0-9_]", "");
+    }
+
+    public Optional<UUID> getPunisherUuid() {
+        return Optional.ofNullable(punisherUuid);
+    }
+
+    /**
+     * The UUID of the account, or empty when the warn was stored for a name nobody had seen: {@code warns.player_uuid}
+     * is NOT NULL, so such a warn holds the offline-mode UUID of the name instead.
+     */
+    public Optional<UUID> getAccountUuid() {
+        if (playerUUID == null || nickname == null || playerUUID.equals(PlayerRef.offlineUuid(nickname))) return Optional.empty();
+        return Optional.of(playerUUID);
     }
 
 }

@@ -1,5 +1,6 @@
 package com.openmc.judicator.testing;
 
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.judicator.punish.data.repository.dao.PunishmentRelationalDAO;
@@ -64,25 +65,49 @@ public final class InMemoryPunishmentRepository implements PunishmentRepository 
     }
 
     @Override
-    public List<Punishment> findAllActiveByUsernameOrIpAndTypes(String username, String ipAddress, PunishType... types) {
-        return find(active(types).and(p -> p.getNickname().equalsIgnoreCase(username)
-                || p.getIpAddress().map(ip -> ip.equals(ipAddress.toLowerCase())).orElse(false)));
+    public List<Punishment> findAllOf(PlayerRef player) {
+        return find(of(player));
     }
 
     @Override
-    public List<Punishment> findAllActiveByUsernamesAndTypes(Collection<String> usernames, PunishType... types) {
-        final Set<String> names = usernames.stream().map(n -> n.toLowerCase(Locale.ROOT)).collect(Collectors.toSet());
-        return find(active(types).and(p -> names.contains(p.getNickname().toLowerCase(Locale.ROOT))));
+    public List<Punishment> findAllActiveOf(PlayerRef player, PunishType... types) {
+        return find(active(types).and(of(player)));
+    }
+
+    @Override
+    public List<Punishment> findAllActiveOfAddress(String ipAddress, PunishType... types) {
+        return find(active(types).and(p -> p.getIpAddress().map(ip -> ip.equals(ipAddress.toLowerCase())).orElse(false)));
+    }
+
+    @Override
+    public List<Punishment> findAllActiveOfAny(Collection<PlayerRef> players, PunishType... types) {
+        if (players.isEmpty()) return List.of();
+        return find(active(types).and(p -> players.stream().anyMatch(player -> of(player).test(p))));
+    }
+
+    @Override
+    public synchronized int fillUuid(PlayerRef account) {
+        int changed = 0;
+        for (Punishment row : rows.values()) {
+            if (row.getPlayerUUID().isEmpty() && row.getNickname().equalsIgnoreCase(account.name())) {
+                row.setPlayerUUID(account.uuid());
+                changed++;
+            }
+        }
+        return changed;
+    }
+
+    private static Predicate<Punishment> of(PlayerRef player) {
+        return p -> player.matches(p.getPlayerUUID().orElse(null), p.getNickname());
+    }
+
+    private static Predicate<Punishment> byPunisher(PlayerRef staff, LocalDateTime since) {
+        return p -> staff.matches(p.getPunisherUuid().orElse(null), p.getPunisher()) && (since == null || !p.getStartedAt().isBefore(since));
     }
 
     @Override
     public List<Punishment> findAllByUUID(UUID uuid) {
         return find(p -> p.getPlayerUUID().map(uuid::equals).orElse(false));
-    }
-
-    @Override
-    public List<Punishment> findAllActiveByUUIDAndTypes(UUID uuid, PunishType... types) {
-        return find(active(types).and(p -> p.getPlayerUUID().map(uuid::equals).orElse(false)));
     }
 
     @Override
@@ -126,9 +151,8 @@ public final class InMemoryPunishmentRepository implements PunishmentRepository 
     }
 
     @Override
-    public synchronized int deleteAllOf(String username, UUID uuid) {
-        return removeIf(p -> p.getNickname().equalsIgnoreCase(username)
-                || (uuid != null && p.getPlayerUUID().map(uuid::equals).orElse(false)));
+    public synchronized int deleteAllOf(PlayerRef player) {
+        return removeIf(of(player));
     }
 
     private int removeIf(Predicate<Punishment> filter) {
@@ -138,13 +162,13 @@ public final class InMemoryPunishmentRepository implements PunishmentRepository 
     }
 
     @Override
-    public int countByPunisher(String punisher, LocalDateTime since) {
-        return find(byPunisher(punisher, since)).size();
+    public int countByPunisher(PlayerRef staff, LocalDateTime since) {
+        return find(byPunisher(staff, since)).size();
     }
 
     @Override
-    public List<Punishment> findByPunisher(String punisher, LocalDateTime since, int limit, int offset) {
-        return newestFirst(find(byPunisher(punisher, since)), limit, offset);
+    public List<Punishment> findByPunisher(PlayerRef staff, LocalDateTime since, int limit, int offset) {
+        return newestFirst(find(byPunisher(staff, since)), limit, offset);
     }
 
     @Override
@@ -160,14 +184,11 @@ public final class InMemoryPunishmentRepository implements PunishmentRepository 
     @Override
     public List<StaffCount> countByStaffSince(LocalDateTime since) {
         final Map<String, List<Punishment>> groups = find(p -> !p.getStartedAt().isBefore(since)).stream()
-                .collect(Collectors.groupingBy(p -> p.getPunisher().toLowerCase(Locale.ROOT) + "|" + p.getType().name()));
+                .collect(Collectors.groupingBy(p -> p.getPunisherUuid().map(UUID::toString).orElse(p.getPunisher().toLowerCase(Locale.ROOT))
+                        + "|" + p.getType().name()));
         return groups.values().stream()
                 .map(rows -> new StaffCount(rows.get(0).getPunisher(), rows.get(0).getType().name(), rows.size()))
                 .toList();
-    }
-
-    private static Predicate<Punishment> byPunisher(String punisher, LocalDateTime since) {
-        return p -> p.getPunisher().equalsIgnoreCase(punisher) && (since == null || !p.getStartedAt().isBefore(since));
     }
 
     private static List<Punishment> newestFirst(List<Punishment> rows, int limit, int offset) {
@@ -238,6 +259,7 @@ public final class InMemoryPunishmentRepository implements PunishmentRepository 
         row.setSoft(p.isSoft());
         row.setOnlineOnly(p.isOnlineOnly());
         row.setPausedRemaining(p.getPausedRemaining());
+        row.setPunisherUuid(p.getPunisherUuid().orElse(null));
         return row;
     }
 

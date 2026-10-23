@@ -55,7 +55,7 @@ public class RevokeHandler {
         final PunishType[] types = mute
                 ? new PunishType[]{PunishType.MUTE, PunishType.TEMPMUTE}
                 : new PunishType[]{PunishType.BAN, PunishType.TEMPBAN};
-        final List<Punishment> active = judicator.getPunishService().findAllActiveByUsernameAndTypes(target, types);
+        final List<Punishment> active = judicator.getPunishService().findAllActiveOf(judicator.getPlayerDirectory().resolve(target), types);
         if (active.isEmpty()) return new ActiveRevocation(false, List.of());
         final List<Punishment> revoked = revoke(active, reason, author, true);
         if (!revoked.isEmpty()) {

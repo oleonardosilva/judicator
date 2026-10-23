@@ -20,6 +20,10 @@ public class Punishment {
     private Long id;
     private UUID playerUUID;
     private String reason, punisher, nickname, ipAddress;
+    /**
+     * The UUID of the staff member who applied it when it was a player; null for the console, a plugin or a record older than 2.0.
+     */
+    private UUID punisherUuid;
     private LocalDateTime startedAt, finishAt;
     private boolean revoked;
     private String revokedReason;
@@ -124,6 +128,10 @@ public class Punishment {
 
     public Optional<String> getReason() {
         return Optional.ofNullable(reason);
+    }
+
+    public Optional<UUID> getPunisherUuid() {
+        return Optional.ofNullable(punisherUuid);
     }
 
 }

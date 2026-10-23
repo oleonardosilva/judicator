@@ -2,6 +2,7 @@ package com.openmc.judicator.punish;
 
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.platform.JudicatorPlayer;
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.punish.data.cache.PunishCache;
 import com.openmc.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.judicator.punish.types.PunishType;
@@ -9,6 +10,7 @@ import com.openmc.judicator.sync.SyncKind;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -44,54 +46,61 @@ public class PunishService {
         this.repository.initialize();
     }
 
+    /**
+     * Before authentication (Velocity {@code PreLoginEvent}): a ban on the address and, when the name is the identity
+     * (offline mode), a ban on the name. With trusted UUIDs the name proves nothing yet — it may be the old name of a
+     * banned account now used by someone else — so the account is checked by {@link #searchOnLogin}.
+     */
     public Optional<Punishment> searchOnPreLogin(String username, String ipAddress) {
+        final List<Punishment> bans = new ArrayList<>();
         // An IP punishment stored on an exempt address (older, or imported) must not reach everyone behind it.
-        final List<Punishment> punishments = judicator.getAddressPolicy().isExempt(ipAddress)
-                ? repository.findAllActiveByUsernameAndTypes(username.toLowerCase(), PunishType.values())
-                : repository.findAllActiveByUsernameOrIpAndTypes(username.toLowerCase(), ipAddress, PunishType.values());
-        if (punishments.isEmpty()) return Optional.empty();
-
-        final Optional<Punishment> ban = punishments.stream().filter(Punishment::isBanType).findFirst();
-        if (ban.isPresent()) return ban;
-
-        punishments.stream().filter(Punishment::isMuteType).min(heavyFirst()).ifPresent(punishment -> {
-            final String key = punishment.getIpAddress().orElseGet(punishment::getNickname);
-            cache.putMutePunishment(key, punishment);
-        });
-        return Optional.empty();
+        if (!judicator.getAddressPolicy().isExempt(ipAddress)) {
+            bans.addAll(repository.findAllActiveOfAddress(ipAddress, PunishType.BAN, PunishType.TEMPBAN));
+        }
+        if (!judicator.trustsUuids()) {
+            bans.addAll(repository.findAllActiveOf(PlayerRef.byName(username, null), PunishType.BAN, PunishType.TEMPBAN));
+        }
+        return bans.stream().findFirst();
     }
 
-    public Optional<Punishment> searchOnLogin(UUID uuid, String username, String address) {
-        final List<Punishment> punishments = repository.findAllActiveByUUIDAndTypes(uuid, PunishType.values());
-        if (punishments.isEmpty()) return Optional.empty();
-
+    /**
+     * After authentication: a ban of the account refuses it; otherwise its mutes in force (its own and the IP mutes of
+     * the address) are cached for the chat checks.
+     */
+    public Optional<Punishment> searchOnLogin(PlayerRef player, String address) {
+        final List<Punishment> punishments = repository.findAllActiveOf(player, PunishType.values());
         final Optional<Punishment> ban = punishments.stream().filter(Punishment::isBanType).findFirst();
         if (ban.isPresent()) return ban;
-
-        if (cache.getPunishment(username).or(() -> cache.getPunishment(address)).isPresent()) return Optional.empty();
 
         punishments.stream().filter(Punishment::isMuteType).min(heavyFirst())
-                .ifPresent(punishment -> cache.putMutePunishment(username, punishment));
+                .ifPresent(punishment -> cache.putMutePunishment(cacheKey(player), punishment));
+        if (!judicator.getAddressPolicy().isExempt(address)) {
+            repository.findAllActiveOfAddress(address, PunishType.MUTE, PunishType.TEMPMUTE).stream().min(heavyFirst())
+                    .ifPresent(punishment -> cache.putMutePunishment(address, punishment));
+        }
         return Optional.empty();
     }
 
-    public void cleanupMutePunishmentCache(String username, String address) {
-        cache.getPunishment(username)
-                .or(() -> cache.getPunishment(address))
-                .ifPresent(punishment -> {
-                    // The name entry goes in every case (an IP mute is restored by address at the next login).
-                    cache.removeMutePunishment(username);
-                    if (punishment.getIpAddress().isEmpty()) return;
+    /**
+     * The key of a player's own mute in the {@link PunishCache} (IP mutes are cached by address).
+     */
+    public static String cacheKey(PlayerRef player) {
+        return player.uuid() != null ? player.uuid().toString() : player.lowerName();
+    }
 
-                    final boolean noneMatch = judicator.getPlatform().getOnlinePlayers().stream()
-                            .noneMatch(p -> {
-                                boolean isSameUser = p.getName().equals(username);
-                                boolean hasSameAddress = p.getHostAddress().equals(address);
-                                return !isSameUser && hasSameAddress;
-                            });
+    public static String cacheKey(JudicatorPlayer player) {
+        return player.getUniqueId().toString();
+    }
 
-                    if (noneMatch) cache.removeMutePunishment(punishment.getIpAddress().get());
-                });
+    /**
+     * The player left: their own cached mute goes, and the IP mute of their address when nobody else online uses it
+     * (it is restored by address at the next login).
+     */
+    public void cleanupMutePunishmentCache(UUID uuid, String address) {
+        cache.removeMutePunishment(uuid.toString());
+        final boolean addressStillUsed = judicator.getPlatform().getOnlinePlayers().stream()
+                .anyMatch(other -> !other.getUniqueId().equals(uuid) && other.getHostAddress().equals(address));
+        if (!addressStillUsed) cache.removeMutePunishment(address);
     }
 
     /**
@@ -103,8 +112,8 @@ public class PunishService {
         return reason.length() <= 100 ? reason : reason.substring(0, 100);
     }
 
-    public String statusOf(String username) {
-        final List<Punishment> active = repository.findAllActiveByUsernameAndTypes(username,
+    public String statusOf(PlayerRef player) {
+        final List<Punishment> active = repository.findAllActiveOf(player,
                 PunishType.BAN, PunishType.TEMPBAN, PunishType.MUTE, PunishType.TEMPMUTE);
         if (active.stream().anyMatch(Punishment::isBanType)) return "banned";
         if (active.stream().anyMatch(Punishment::isMuteType)) return "muted";
@@ -124,12 +133,12 @@ public class PunishService {
     /**
      * @param since null for every punishment of the staff member
      */
-    public int countByPunisher(String punisher, LocalDateTime since) {
-        return repository.countByPunisher(punisher, since);
+    public int countByPunisher(PlayerRef staff, LocalDateTime since) {
+        return repository.countByPunisher(staff, since);
     }
 
-    public List<Punishment> findByPunisher(String punisher, LocalDateTime since, int limit, int offset) {
-        return repository.findByPunisher(punisher, since, limit, offset);
+    public List<Punishment> findByPunisher(PlayerRef staff, LocalDateTime since, int limit, int offset) {
+        return repository.findByPunisher(staff, since, limit, offset);
     }
 
     public int countActive(PunishType... types) {
@@ -144,27 +153,26 @@ public class PunishService {
         return repository.countByStaffSince(since);
     }
 
-    public List<Punishment> findAllByUsername(String username) {
-        return repository.findAllByUsername(username);
+    /**
+     * Every punishment of a player, oldest first.
+     */
+    public List<Punishment> findAllOf(PlayerRef player) {
+        return repository.findAllOf(player);
     }
 
-    public List<Punishment> findAllByUUID(UUID uuid) {
-        return repository.findAllByUUID(uuid);
+    public List<Punishment> findAllActiveOf(PlayerRef player, PunishType... types) {
+        return repository.findAllActiveOf(player, types);
     }
 
-    public List<Punishment> findAllActiveByUUIDAndTypes(UUID uuid, PunishType... types) {
-        return repository.findAllActiveByUUIDAndTypes(uuid, types);
-    }
-
-    public List<Punishment> findAllActiveByUsernameAndTypes(String username, PunishType... types) {
-        return repository.findAllActiveByUsernameAndTypes(username, types);
+    public int fillUuid(PlayerRef account) {
+        return repository.fillUuid(account);
     }
 
     /**
      * Bans in force on any of these accounts.
      */
-    public List<Punishment> findActiveBans(Collection<String> usernames) {
-        return repository.findAllActiveByUsernamesAndTypes(usernames, PunishType.BAN, PunishType.TEMPBAN);
+    public List<Punishment> findActiveBans(Collection<PlayerRef> players) {
+        return repository.findAllActiveOfAny(players, PunishType.BAN, PunishType.TEMPBAN);
     }
 
     /**
@@ -207,9 +215,9 @@ public class PunishService {
      * The player left (or the server is stopping with them online): their online-only mutes stop running and keep
      * what is left until they join again.
      */
-    public void pauseOnlineOnlyMutes(String username) {
+    public void pauseOnlineOnlyMutes(PlayerRef player) {
         final LocalDateTime now = LocalDateTime.now();
-        for (Punishment mute : repository.findAllActiveByUsernameAndTypes(username, PunishType.TEMPMUTE)) {
+        for (Punishment mute : repository.findAllActiveOf(player, PunishType.TEMPMUTE)) {
             if (!mute.isOnlineOnly() || mute.isPaused() || mute.getFinishAt().isEmpty()) continue;
             final long left = Duration.between(now, mute.getFinishAt().get()).toMillis();
             if (left > 0) changeEnd(mute, null, left);
@@ -220,9 +228,9 @@ public class PunishService {
      * The player joined (in the game, after authentication: a name typed at the login screen, or a login refused by a
      * whitelist or a full server, must not make the mute run): their paused online-only mutes run again from now.
      */
-    public void resumeOnlineOnlyMutes(String username) {
+    public void resumeOnlineOnlyMutes(PlayerRef player) {
         final LocalDateTime now = LocalDateTime.now();
-        for (Punishment mute : repository.findAllActiveByUsernameAndTypes(username, PunishType.TEMPMUTE)) {
+        for (Punishment mute : repository.findAllActiveOf(player, PunishType.TEMPMUTE)) {
             if (mute.isPaused()) changeEnd(mute, now.plus(Duration.ofMillis(mute.getPausedRemaining())), null);
         }
     }
@@ -235,7 +243,8 @@ public class PunishService {
     public boolean isOnlinePlayerAffected(JudicatorPlayer player, Punishment punishment) {
         return punishment.getIpAddress()
                 .map(ip -> player.getHostAddress().equals(ip))
-                .orElseGet(() -> player.getName().equalsIgnoreCase(punishment.getNickname()));
+                .orElseGet(() -> judicator.getPlayerDirectory().refOf(player)
+                        .matches(punishment.getPlayerUUID().orElse(null), punishment.getNickname()));
     }
 
 }

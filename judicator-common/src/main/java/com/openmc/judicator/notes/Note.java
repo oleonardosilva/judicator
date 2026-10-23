@@ -19,6 +19,10 @@ public class Note {
     private Long id;
     private UUID playerUUID;
     private String nickname, author, content;
+    /**
+     * The UUID of the author when it was a player; null for the console, a plugin or a record older than 2.0.
+     */
+    private UUID authorUuid;
     private LocalDateTime createdAt;
 
     public Note(Long id, UUID playerUUID, String nickname, String author, String content, LocalDateTime createdAt) {
@@ -36,6 +40,10 @@ public class Note {
 
     public Optional<UUID> getPlayerUUID() {
         return Optional.ofNullable(playerUUID);
+    }
+
+    public Optional<UUID> getAuthorUuid() {
+        return Optional.ofNullable(authorUuid);
     }
 
 }

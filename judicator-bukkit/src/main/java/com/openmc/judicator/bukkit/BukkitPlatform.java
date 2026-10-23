@@ -17,6 +17,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -80,6 +81,12 @@ public class BukkitPlatform implements Platform {
     @Override
     public Optional<JudicatorPlayer> getPlayer(String username) {
         return Optional.ofNullable(onlinePlayers.get(username.toLowerCase()));
+    }
+
+    @Override
+    public Optional<JudicatorPlayer> getPlayer(UUID uuid) {
+        return onlinePlayers.values().stream().filter(player -> player.getUniqueId().equals(uuid))
+                .<JudicatorPlayer>map(player -> player).findFirst();
     }
 
     @Override

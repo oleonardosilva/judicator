@@ -1,5 +1,6 @@
 package com.openmc.judicator.integration;
 
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.api.ActionResult;
 import com.openmc.judicator.api.ActionStatus;
@@ -10,6 +11,7 @@ import com.openmc.judicator.api.punishment.PunishmentView;
 import com.openmc.judicator.api.warn.WarnRequest;
 import com.openmc.judicator.api.warn.WarnView;
 import com.openmc.judicator.platform.JudicatorPlayer;
+import com.openmc.judicator.punish.PlayerAddress;
 import com.openmc.judicator.punish.PunishService;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.PunishmentBuilder;
@@ -65,25 +67,25 @@ public class JudicatorApiService implements JudicatorApi {
     @Override
     public CompletableFuture<Optional<PunishmentView>> getActiveBan(UUID uniqueId) {
         Objects.requireNonNull(uniqueId, "uniqueId");
-        return async(() -> heaviest(judicator.getPunishService().findAllActiveByUUIDAndTypes(uniqueId, BANS)));
+        return async(() -> heaviest(judicator.getPunishService().findAllActiveOf(judicator.getPlayerDirectory().refOf(uniqueId), BANS)));
     }
 
     @Override
     public CompletableFuture<Optional<PunishmentView>> getActiveBan(String name) {
         Objects.requireNonNull(name, "name");
-        return async(() -> heaviest(judicator.getPunishService().findAllActiveByUsernameAndTypes(name, BANS)));
+        return async(() -> heaviest(judicator.getPunishService().findAllActiveOf(judicator.getPlayerDirectory().resolve(name), BANS)));
     }
 
     @Override
     public CompletableFuture<Optional<PunishmentView>> getActiveMute(UUID uniqueId) {
         Objects.requireNonNull(uniqueId, "uniqueId");
-        return async(() -> heaviest(judicator.getPunishService().findAllActiveByUUIDAndTypes(uniqueId, MUTES)));
+        return async(() -> heaviest(judicator.getPunishService().findAllActiveOf(judicator.getPlayerDirectory().refOf(uniqueId), MUTES)));
     }
 
     @Override
     public CompletableFuture<Optional<PunishmentView>> getActiveMute(String name) {
         Objects.requireNonNull(name, "name");
-        return async(() -> heaviest(judicator.getPunishService().findAllActiveByUsernameAndTypes(name, MUTES)));
+        return async(() -> heaviest(judicator.getPunishService().findAllActiveOf(judicator.getPlayerDirectory().resolve(name), MUTES)));
     }
 
     private static Optional<PunishmentView> heaviest(List<Punishment> active) {
@@ -93,13 +95,13 @@ public class JudicatorApiService implements JudicatorApi {
     @Override
     public CompletableFuture<List<PunishmentView>> getPunishmentHistory(UUID uniqueId) {
         Objects.requireNonNull(uniqueId, "uniqueId");
-        return async(() -> punishments(judicator.getPunishService().findAllByUUID(uniqueId)));
+        return async(() -> punishments(judicator.getPunishService().findAllOf(judicator.getPlayerDirectory().refOf(uniqueId))));
     }
 
     @Override
     public CompletableFuture<List<PunishmentView>> getPunishmentHistory(String name) {
         Objects.requireNonNull(name, "name");
-        return async(() -> punishments(judicator.getPunishService().findAllByUsername(name)));
+        return async(() -> punishments(judicator.getPunishService().findAllOf(judicator.getPlayerDirectory().resolve(name))));
     }
 
     private static List<PunishmentView> punishments(List<Punishment> punishments) {
@@ -114,13 +116,13 @@ public class JudicatorApiService implements JudicatorApi {
     @Override
     public CompletableFuture<List<WarnView>> getWarns(UUID uniqueId) {
         Objects.requireNonNull(uniqueId, "uniqueId");
-        return async(() -> warns(judicator.getWarnService().findAllByUUID(uniqueId)));
+        return async(() -> warns(judicator.getWarnService().findAllOf(judicator.getPlayerDirectory().refOf(uniqueId))));
     }
 
     @Override
     public CompletableFuture<List<WarnView>> getWarns(String name) {
         Objects.requireNonNull(name, "name");
-        return async(() -> warns(judicator.getWarnService().findAllByUsername(name)));
+        return async(() -> warns(judicator.getWarnService().findAllOf(judicator.getPlayerDirectory().resolve(name))));
     }
 
     private static List<WarnView> warns(List<Warn> warns) {
@@ -146,7 +148,8 @@ public class JudicatorApiService implements JudicatorApi {
             final String category = PunishCooldown.categoryOf(type);
             final String target = request.target();
             final ApiSender sender = new ApiSender(request.punisher());
-            if (!judicator.getImmuneCache().canPunish(sender, target, category)) return ActionResult.failure(ActionStatus.TARGET_EXEMPT);
+            final PlayerRef player = judicator.getPlayerDirectory().resolve(target);
+            if (!judicator.getImmuneCache().canPunish(sender, player, category)) return ActionResult.failure(ActionStatus.TARGET_EXEMPT);
 
             final PunishmentBuilder builder = new PunishmentBuilder()
                     .type(type)
@@ -159,16 +162,13 @@ public class JudicatorApiService implements JudicatorApi {
             request.duration().ifPresent(builder::duration);
 
             final Optional<JudicatorPlayer> online = judicator.getPlatform().getPlayer(target);
+            builder.target(player);
             String address = null;
             if (online.isPresent()) {
-                builder.target(online.get());
                 if (request.byAddress()) address = online.get().getHostAddress();
-            } else {
-                builder.target(target, judicator.getUuidManager().getUUID(target));
-                if (request.byAddress()) {
-                    address = judicator.getAddressService().findByUsername(target).map(found -> found.getHostAddress()).orElse(null);
-                    if (address == null) return ActionResult.failure(ActionStatus.ADDRESS_UNKNOWN);
-                }
+            } else if (request.byAddress()) {
+                address = judicator.getAddressService().findLast(player).map(PlayerAddress::hostAddress).orElse(null);
+                if (address == null) return ActionResult.failure(ActionStatus.ADDRESS_UNKNOWN);
             }
             if (address != null) {
                 if (judicator.getAddressPolicy().isExempt(address)) return ActionResult.failure(ActionStatus.ADDRESS_EXEMPT);
@@ -225,8 +225,7 @@ public class JudicatorApiService implements JudicatorApi {
                     .punisher(request.punisher())
                     .silent(request.silent());
             request.duration().ifPresent(builder::duration);
-            judicator.getPlatform().getPlayer(target).ifPresentOrElse(
-                    builder::target, () -> builder.target(target, judicator.getUuidManager().getUUID(target)));
+            builder.target(judicator.getPlayerDirectory().resolve(target));
 
             judicator.getPunishCooldown().record(PunishCooldown.WARN, target);
             final Optional<Warn> warn = new WarnHandler(judicator, builder).handle();

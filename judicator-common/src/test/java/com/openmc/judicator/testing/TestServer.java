@@ -34,24 +34,26 @@ public final class TestServer implements AutoCloseable {
     public final FakeConsole console = new FakeConsole();
     public final InMemoryPunishmentRepository punishments;
     public final InMemoryWarnRepository warns;
-    public final InMemoryAccessAddressRepository addresses;
+    public final InMemoryPlayerAddressRepository addresses;
     public final InMemoryPlayerLevelRepository levels;
     public final InMemoryNoteRepository notes;
     public final InMemorySyncRepository sync;
+    public final InMemoryPlayerRepository players;
 
     private TestServer(Path folder, boolean onlineMode, PlatformType type, TestServer sharedDatabase) {
         this.platform = new FakePlatform(folder, onlineMode, type);
         this.punishments = sharedDatabase == null ? new InMemoryPunishmentRepository() : sharedDatabase.punishments;
         this.warns = sharedDatabase == null ? new InMemoryWarnRepository() : sharedDatabase.warns;
-        this.addresses = sharedDatabase == null ? new InMemoryAccessAddressRepository() : sharedDatabase.addresses;
+        this.addresses = sharedDatabase == null ? new InMemoryPlayerAddressRepository() : sharedDatabase.addresses;
         this.levels = sharedDatabase == null ? new InMemoryPlayerLevelRepository() : sharedDatabase.levels;
         this.notes = sharedDatabase == null ? new InMemoryNoteRepository() : sharedDatabase.notes;
         this.sync = sharedDatabase == null ? new InMemorySyncRepository() : sharedDatabase.sync;
+        this.players = sharedDatabase == null ? new InMemoryPlayerRepository() : sharedDatabase.players;
         this.judicator = boot();
     }
 
     private Judicator boot() {
-        final Judicator core = new Judicator(platform, new Judicator.Repositories(punishments, warns, addresses, levels, notes, sync));
+        final Judicator core = new Judicator(platform, new Judicator.Repositories(punishments, warns, addresses, levels, notes, sync, players));
         core.enable();
         // A test never talks to the Mojang API: unknown names simply have no UUID.
         core.getUuidManager().setRemoteLookups(false);
@@ -102,7 +104,7 @@ public final class TestServer implements AutoCloseable {
         if (preLogin.isPresent()) return preLogin.map(Texts::plain);
         final Optional<Component> login = judicator.getConnectionHandler().checkLogin(player.getUniqueId(), player.getName(), player.getHostAddress());
         if (login.isPresent()) return login.map(Texts::plain);
-        judicator.getConnectionHandler().onLoginAllowed(player.getName(), player.getHostAddress());
+        judicator.getConnectionHandler().onLoginAllowed(player.getUniqueId(), player.getName(), player.getHostAddress());
         platform.add(player);
         judicator.getConnectionHandler().onJoin(player);
         return Optional.empty();
@@ -128,7 +130,7 @@ public final class TestServer implements AutoCloseable {
 
     public void quit(FakePlayer player) {
         platform.remove(player);
-        judicator.getConnectionHandler().onDisconnect(player.getName(), player.getHostAddress());
+        judicator.getConnectionHandler().onDisconnect(player.getUniqueId(), player.getName(), player.getHostAddress());
     }
 
     /**

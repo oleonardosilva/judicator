@@ -1,6 +1,7 @@
 package com.openmc.judicator.punish;
 
 import com.openmc.judicator.commons.DateTimeOffsetParser;
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.punish.types.PunishType;
 import com.openmc.judicator.platform.JudicatorPlayer;
 import lombok.Getter;
@@ -21,6 +22,8 @@ public class PunishmentBuilder {
     private final LocalDateTime startedAt = LocalDateTime.now();
     private final List<String> evidences = new ArrayList<>();
     private UUID playerUUID;
+    /** the staff member's UUID; null for the console and plugins */
+    private UUID punisherUuid;
     private String reason, punisher = "Console", nickname, ipAddress;
     private LocalDateTime finishAt;
     private PunishType type;
@@ -39,6 +42,7 @@ public class PunishmentBuilder {
     public PunishmentBuilder punisher(JudicatorPlayer player) {
         this.staff = player;
         this.punisher = player.getName();
+        this.punisherUuid = player.getUniqueId();
         return this;
     }
 
@@ -48,6 +52,7 @@ public class PunishmentBuilder {
     public PunishmentBuilder punisher(String name) {
         this.staff = null;
         this.punisher = name;
+        this.punisherUuid = null;
         return this;
     }
 
@@ -99,6 +104,12 @@ public class PunishmentBuilder {
         return this;
     }
 
+    public PunishmentBuilder target(PlayerRef player) {
+        this.playerUUID = player.uuid();
+        this.nickname = player.name();
+        return this;
+    }
+
     public PunishmentBuilder target(String nickname, UUID uuid) {
         this.playerUUID = uuid;
         this.nickname = nickname;
@@ -136,6 +147,7 @@ public class PunishmentBuilder {
                 evidences,
                 type
         );
+        punishment.setPunisherUuid(punisherUuid);
         punishment.setSilent(silent);
         punishment.setSoft(soft);
         punishment.setOnlineOnly(onlineOnly);

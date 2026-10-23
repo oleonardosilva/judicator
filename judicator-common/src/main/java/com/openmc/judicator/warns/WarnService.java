@@ -1,5 +1,6 @@
 package com.openmc.judicator.warns;
 
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.judicator.warns.repository.WarnRepository;
 
@@ -21,28 +22,28 @@ public class WarnService {
         return repository.findById(id);
     }
 
-    public List<Warn> findAllByUsername(String username) {
-        return repository.findAllByUsername(username);
-    }
-
-    public List<Warn> findAllByUUID(UUID uuid) {
-        return repository.findAllByUUID(uuid);
-    }
-
     public Warn save(Warn punishment) {
         return repository.save(punishment);
     }
 
-    public Long countActiveWarns(String username) {
-        return repository.countActiveWarns(username);
+    public List<Warn> findAllOf(PlayerRef player) {
+        return repository.findAllOf(player);
+    }
+
+    public Long countActiveWarns(PlayerRef player) {
+        return repository.countActiveWarns(player);
+    }
+
+    public int fillUuid(PlayerRef account) {
+        return repository.fillUuid(account);
     }
 
     public List<PunishmentRepository.StaffCount> countByStaffSince(LocalDateTime since) {
         return repository.countByStaffSince(since);
     }
 
-    public List<Warn> findByPunisherSince(String punisher, LocalDateTime since) {
-        return repository.findByPunisherSince(punisher, since);
+    public List<Warn> findByPunisherSince(PlayerRef staff, LocalDateTime since) {
+        return repository.findByPunisherSince(staff, since);
     }
 
     public void deleteById(Long id) {

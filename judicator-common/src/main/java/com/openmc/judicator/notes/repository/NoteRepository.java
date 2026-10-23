@@ -2,6 +2,7 @@ package com.openmc.judicator.notes.repository;
 
 import com.openmc.judicator.commons.db.Repository;
 import com.openmc.judicator.notes.Note;
+import com.openmc.judicator.players.PlayerRef;
 
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -11,22 +12,27 @@ import java.util.UUID;
 
 public interface NoteRepository extends Repository<Note, Long> {
 
-    int countByUsername(String username);
+    /**
+     * How many notes there are about a player ({@link PlayerRef#matches}).
+     */
+    int countOf(PlayerRef player);
 
     /**
      * One page of the notes about a player, newest first.
      */
-    List<Note> findByUsername(String username, int limit, int offset);
-
-    /**
-     * Notes about a player by name and, when known, by UUID (older names of the same account).
-     */
-    int countAllOf(String username, UUID uuid);
+    List<Note> findOf(PlayerRef player, int limit, int offset);
 
     /**
      * @return how many were deleted
      */
-    int deleteAllOf(String username, UUID uuid);
+    int deleteAllOf(PlayerRef player);
+
+    /**
+     * Gives the account's UUID to the notes written under its name without a UUID.
+     *
+     * @return how many were changed
+     */
+    int fillUuid(PlayerRef account);
 
     /**
      * Deletes the notes written before a moment.

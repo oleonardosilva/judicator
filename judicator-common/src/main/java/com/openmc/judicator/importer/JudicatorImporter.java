@@ -4,7 +4,7 @@ import com.openmc.judicator.commons.db.LegacyTables;
 import com.openmc.judicator.commons.db.RelationalDBManager;
 import com.openmc.judicator.commons.db.SqlTime;
 import com.openmc.judicator.notes.Note;
-import com.openmc.judicator.punish.AccessAddress;
+import com.openmc.judicator.punish.PlayerAddress;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.types.PunishType;
 import com.openmc.judicator.warns.Warn;
@@ -23,6 +23,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 
 /**
  * Another Judicator database (e.g. the SQLite file of a server moving to MySQL), of version 1.x (tables without a
@@ -55,21 +56,33 @@ final class JudicatorImporter implements ImportSource {
             if (warns.isPresent()) {
                 try (PreparedStatement statement = source.connection().prepareStatement("SELECT * FROM " + warns.get());
                      ResultSet rs = statement.executeQuery()) {
-                    while (rs.next()) warn(rs, result);
+                    final Set<String> columns = columns(rs);
+                    while (rs.next()) warn(rs, columns, result);
                 }
             }
             final Optional<String> notes = findTable(source, prefix, "notes");
             if (notes.isPresent()) {
                 try (PreparedStatement statement = source.connection().prepareStatement("SELECT * FROM " + notes.get());
                      ResultSet rs = statement.executeQuery()) {
-                    while (rs.next()) note(rs, result);
+                    final Set<String> columns = columns(rs);
+                    while (rs.next()) note(rs, columns, result);
                 }
             }
-            final Optional<String> addresses = findTable(source, prefix, "access_addresses");
+            final Optional<String> addresses = source.findTable(prefix + "player_addresses");
             if (addresses.isPresent()) {
                 try (PreparedStatement statement = source.connection().prepareStatement("SELECT * FROM " + addresses.get());
                      ResultSet rs = statement.executeQuery()) {
-                    while (rs.next()) address(rs, result);
+                    while (rs.next()) playerAddress(rs, result);
+                }
+            } else {
+                // 1.x: one row per address with the names of its accounts
+                final Optional<String> legacy = findTable(source, prefix, "access_addresses");
+                if (legacy.isPresent()) {
+                    try (PreparedStatement statement = source.connection().prepareStatement("SELECT * FROM " + legacy.get());
+                         ResultSet rs = statement.executeQuery()) {
+                        final Function<String, UUID> legacyNames = context.judicator().getPlayerDirectory().legacyNames();
+                        while (rs.next()) address(rs, legacyNames, result);
+                    }
                 }
             }
         }
@@ -120,6 +133,7 @@ final class JudicatorImporter implements ImportSource {
                 type, rs.getBoolean("permanent"));
         if (columns.contains("soft")) punishment.setSoft(rs.getBoolean("soft"));
         if (columns.contains("online_only")) punishment.setOnlineOnly(rs.getBoolean("online_only"));
+        if (columns.contains("punisher_uuid")) punishment.setPunisherUuid(uuid(rs.getString("punisher_uuid")));
         if (columns.contains("paused_remaining")) {
             final long paused = rs.getLong("paused_remaining");
             punishment.setPausedRemaining(rs.wasNull() ? null : paused);
@@ -127,18 +141,20 @@ final class JudicatorImporter implements ImportSource {
         result.add(punishment);
     }
 
-    private static void warn(ResultSet rs, ImportResult result) throws SQLException {
+    private static void warn(ResultSet rs, Set<String> columns, ImportResult result) throws SQLException {
         final String nickname = rs.getString("nickname");
         final LocalDateTime startedAt = seconds(SqlTime.read(rs, "started_at"));
         if (nickname == null || nickname.isBlank() || startedAt == null) {
             result.skip("warn without a player name or start");
             return;
         }
-        result.add(new Warn(null, uuid(rs.getString("player_uuid")), rs.getString("reason"), rs.getString("punisher"),
-                nickname, startedAt, SqlTime.read(rs, "finish_at"), rs.getBoolean("permanent")));
+        final Warn warn = new Warn(null, uuid(rs.getString("player_uuid")), rs.getString("reason"), rs.getString("punisher"),
+                nickname, startedAt, SqlTime.read(rs, "finish_at"), rs.getBoolean("permanent"));
+        if (columns.contains("punisher_uuid")) warn.setPunisherUuid(uuid(rs.getString("punisher_uuid")));
+        result.add(warn);
     }
 
-    private static void note(ResultSet rs, ImportResult result) throws SQLException {
+    private static void note(ResultSet rs, Set<String> columns, ImportResult result) throws SQLException {
         final String nickname = rs.getString("nickname");
         final String content = rs.getString("content");
         final LocalDateTime createdAt = seconds(SqlTime.read(rs, "created_at"));
@@ -147,10 +163,23 @@ final class JudicatorImporter implements ImportSource {
             return;
         }
         final String author = rs.getString("author");
-        result.add(new Note(null, uuid(rs.getString("player_uuid")), nickname, author == null ? "Console" : author, content, createdAt));
+        final Note note = new Note(null, uuid(rs.getString("player_uuid")), nickname, author == null ? "Console" : author, content, createdAt);
+        if (columns.contains("author_uuid")) note.setAuthorUuid(uuid(rs.getString("author_uuid")));
+        result.add(note);
     }
 
-    private static void address(ResultSet rs, ImportResult result) throws SQLException {
+    private static void playerAddress(ResultSet rs, ImportResult result) throws SQLException {
+        final String host = rs.getString("host_address");
+        final String nickname = rs.getString("nickname");
+        final LocalDateTime lastUsage = SqlTime.read(rs, "last_usage");
+        if (host == null || host.isBlank() || nickname == null || nickname.isBlank() || lastUsage == null) {
+            result.skip("address without IP, account or last use");
+            return;
+        }
+        result.add(new PlayerAddress(null, uuid(rs.getString("player_uuid")), nickname, host, lastUsage));
+    }
+
+    private static void address(ResultSet rs, Function<String, UUID> legacyNames, ImportResult result) throws SQLException {
         final String host = rs.getString("host_address");
         final String accounts = rs.getString("accounts");
         final LocalDateTime lastUsage = SqlTime.read(rs, "last_usage");
@@ -167,7 +196,9 @@ final class JudicatorImporter implements ImportSource {
             result.skip("address without accounts");
             return;
         }
-        result.add(new AccessAddress(null, host, names, lastUsage));
+        for (String name : names) {
+            result.add(new PlayerAddress(null, legacyNames.apply(name), name, host, lastUsage));
+        }
     }
 
     /**

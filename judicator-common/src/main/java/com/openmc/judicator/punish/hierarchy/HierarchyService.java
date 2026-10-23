@@ -1,5 +1,6 @@
 package com.openmc.judicator.punish.hierarchy;
 
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.JudicatorSender;
@@ -34,14 +35,24 @@ public class HierarchyService {
     }
 
     public int targetLevel(String targetName) {
-        final Optional<JudicatorPlayer> online = judicator.getPlatform().getPlayer(targetName);
+        return targetLevel(judicator.getPlayerDirectory().resolveKnown(targetName));
+    }
+
+    public int targetLevel(PlayerRef target) {
+        final Optional<JudicatorPlayer> online = target.uuid() == null ? judicator.getPlatform().getPlayer(target.name())
+                : judicator.getPlatform().getPlayer(target.uuid());
         if (online.isPresent()) return levelOf(online.get());
-        return repository.findLevel(targetName).orElse(0);
+        return repository.findLevel(target).orElse(0);
     }
 
     public boolean canPunish(JudicatorSender source, String targetName) {
         if (!isEnabled() || !source.isPlayer()) return true;
-        final int targetLevel = targetLevel(targetName);
+        return canPunish(source, judicator.getPlayerDirectory().resolveKnown(targetName));
+    }
+
+    public boolean canPunish(JudicatorSender source, PlayerRef target) {
+        if (!isEnabled() || !source.isPlayer()) return true;
+        final int targetLevel = targetLevel(target);
         return targetLevel <= 0 || levelOf(source) > targetLevel;
     }
 

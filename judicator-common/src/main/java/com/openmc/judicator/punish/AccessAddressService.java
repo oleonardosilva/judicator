@@ -1,78 +1,103 @@
 package com.openmc.judicator.punish;
 
-import com.openmc.judicator.punish.data.repository.AccessAddressRepository;
+import com.openmc.judicator.Judicator;
+import com.openmc.judicator.players.PlayerRef;
+import com.openmc.judicator.punish.data.repository.PlayerAddressRepository;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.function.Predicate;
 
+/**
+ * The IP addresses each account joined from: {@code /alts}, the alt notices and refusals at login, and the address of
+ * an offline player for IP punishments.
+ */
 public class AccessAddressService {
 
-    private final AccessAddressRepository repository;
+    private final Judicator judicator;
+    private final PlayerAddressRepository repository;
 
-    public AccessAddressService(AccessAddressRepository repository) {
+    public AccessAddressService(Judicator judicator, PlayerAddressRepository repository) {
+        this.judicator = judicator;
         this.repository = repository;
         repository.initialize();
     }
 
-    public void updateUserIP(String username, String addressIP) {
-        final AccessAddress address = repository.findByIp(addressIP).orElseGet(() -> AccessAddress.create(addressIP, username));
-
-        if (address.getId() == null) {
-            repository.save(address);
-            return;
-        }
-
-        if (!address.contains(username)) address.addAccount(username);
-        // Always refresh: findByUsername picks the most recently used address for offline IP punishments.
-        address.setLastUsage(LocalDateTime.now());
-        repository.save(address);
+    public void updateUserIP(PlayerRef player, String address) {
+        repository.record(player, address, LocalDateTime.now());
     }
 
     /**
-     * Takes the account out of every address it used; an address left without accounts is deleted.
+     * Forgets every address the account used.
      *
-     * @return how many addresses had the account
+     * @return how many account-address records it had
      */
-    public int removeAccount(String username) {
-        final List<AccessAddress> addresses = repository.findAllByUsername(username);
-        for (AccessAddress address : addresses) {
-            address.removeAccount(username);
-            if (address.getAccounts().isEmpty()) repository.deleteById(String.valueOf(address.getId()));
-            else repository.save(address);
-        }
-        return addresses.size();
+    public int removeAccount(PlayerRef player) {
+        return repository.deleteAllOf(player);
     }
 
-    public Optional<AccessAddress> findByUsername(String username) {
-        return repository.findByUsername(username);
-    }
-
-    public Set<String> findAlts(String username) {
-        return findAlts(username, address -> false);
+    public int fillUuid(PlayerRef account) {
+        return repository.fillUuid(account);
     }
 
     /**
+     * The address the player joined from most recently.
+     */
+    public Optional<PlayerAddress> findLast(PlayerRef player) {
+        return repository.findAllOf(player).stream().findFirst();
+    }
+
+    /**
+     * How many account-address records the player has.
+     */
+    public int countAddresses(PlayerRef player) {
+        return repository.countOf(player);
+    }
+
+    public List<PlayerRef> findAlts(PlayerRef player) {
+        return findAlts(player, address -> false);
+    }
+
+    /**
+     * The other accounts that joined from an address the player used, by name.
+     *
      * @param ignoredAddress addresses that do not link accounts (e.g. exempt shared networks)
      */
-    public Set<String> findAlts(String username, Predicate<String> ignoredAddress) {
-        final String account = username.toLowerCase();
-        final Set<String> alts = new TreeSet<>();
-        for (AccessAddress address : repository.findAllByUsername(account)) {
-            if (ignoredAddress.test(address.getHostAddress())) continue;
-            address.getAccounts().stream().filter(other -> !other.equalsIgnoreCase(account)).forEach(alts::add);
+    public List<PlayerRef> findAlts(PlayerRef player, Predicate<String> ignoredAddress) {
+        final Map<String, PlayerRef> alts = new LinkedHashMap<>();
+        for (PlayerAddress own : repository.findAllOf(player)) {
+            if (ignoredAddress.test(own.hostAddress())) continue;
+            accountsOn(own.hostAddress(), player).forEach(other -> alts.putIfAbsent(key(other), other));
         }
-        return alts;
+        return alts.values().stream().sorted(Comparator.comparing(PlayerRef::name, String.CASE_INSENSITIVE_ORDER)).toList();
     }
 
-    public Set<String> findAccountsByIp(String address, String excludeUsername) {
-        final Set<String> accounts = new TreeSet<>();
-        repository.findByIp(address).ifPresent(found -> found.getAccounts().stream()
-                .filter(other -> !other.equalsIgnoreCase(excludeUsername))
-                .forEach(accounts::add));
-        return accounts;
+    private static String key(PlayerRef account) {
+        return account.identifiedByUuid() ? account.uuid().toString() : account.lowerName();
     }
+
+    /**
+     * The accounts that joined from an address, one entry each.
+     *
+     * @param exclude a player left out of the result; null for none
+     */
+    public List<PlayerRef> findAccountsByIp(String address, PlayerRef exclude) {
+        return accountsOn(address, exclude);
+    }
+
+    private List<PlayerRef> accountsOn(String address, PlayerRef exclude) {
+        final Map<String, PlayerRef> accounts = new LinkedHashMap<>();
+        for (PlayerAddress row : repository.findByAddress(address)) {
+            if (exclude != null && exclude.matches(row.uuid(), row.nickname())) continue;
+            final PlayerRef account = judicator.getPlayerDirectory().refOf(row.uuid(), row.nickname());
+            accounts.putIfAbsent(key(account), account);
+        }
+        return new ArrayList<>(accounts.values());
+    }
+
 }

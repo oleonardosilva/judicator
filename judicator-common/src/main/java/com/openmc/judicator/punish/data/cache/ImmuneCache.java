@@ -1,12 +1,13 @@
 package com.openmc.judicator.punish.data.cache;
 
+import java.util.ArrayList;
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.punish.PunishUtils;
 import org.spongepowered.configurate.ConfigurationNode;
 
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -105,39 +106,48 @@ public class ImmuneCache {
     }
 
     /**
-     * The target's UUID: the online player's or the one remembered at join (whatever case was typed); otherwise, in
-     * offline mode, the one the server gives that name (the Mojang API would answer with a premium account's), and in
-     * online mode the Mojang API's.
-     */
-    private UUID uuidOf(String target) {
-        final UUID known = judicator.getUuidManager().getKnownUUID(target);
-        if (known != null) return known;
-        if (!judicator.trustsUuids()) {
-            return UUID.nameUUIDFromBytes(("OfflinePlayer:" + target).getBytes(StandardCharsets.UTF_8));
-        }
-        return judicator.getUuidManager().getUUID(target);
-    }
-
-    /**
      * @param type what the source wants to apply ({@link #BAN}, {@link #MUTE}, {@link #KICK}, {@link #WARN}); null
      *             before it is known (only a name exempt from everything refuses then; UUIDs are checked once the type
      *             is known, so no lookup is made twice)
      */
     public boolean canPunish(JudicatorSender source, String target, String type) {
+        if (type != null) return canPunish(source, judicator.getPlayerDirectory().resolve(target), type);
         final ConfigurationNode messages = judicator.messagesFor(source);
         if (source.isPlayer() && source.getName().equalsIgnoreCase(target)) {
             source.sendMessage(PunishUtils.getMessage(messages, "error", "self-punish"));
             return false;
         }
-
-        final boolean exempt = type == null
-                ? covers(byName.get(target.toLowerCase(Locale.ROOT)), null)
-                : isExempt(target, () -> uuidOf(target), type);
-        if (exempt) {
+        if (covers(byName.get(target.toLowerCase(Locale.ROOT)), null)) {
             source.sendMessage(PunishUtils.getMessage(messages, "error", "immune"));
             return false;
         }
+        if (!judicator.getHierarchyService().canPunish(source, target)) {
+            source.sendMessage(PunishUtils.getMessage(messages, "error", "hierarchy"));
+            return false;
+        }
+        return true;
+    }
 
+    /**
+     * {@link #canPunish(JudicatorSender, String, String)} for a player already resolved (the command resolves the name
+     * once and uses the same account for the checks and the punishment).
+     *
+     * @param type what the source wants to apply ({@link #BAN}, {@link #MUTE}, {@link #KICK}, {@link #WARN})
+     */
+    public boolean canPunish(JudicatorSender source, PlayerRef target, String type) {
+        final ConfigurationNode messages = judicator.messagesFor(source);
+        final boolean self = source.asPlayer()
+                .map(player -> judicator.getPlayerDirectory().refOf(player))
+                .map(own -> own.matches(target.uuid(), target.name()) || own.name().equalsIgnoreCase(target.name()))
+                .orElse(false);
+        if (self) {
+            source.sendMessage(PunishUtils.getMessage(messages, "error", "self-punish"));
+            return false;
+        }
+        if (isExempt(target.name(), target::uuid, type)) {
+            source.sendMessage(PunishUtils.getMessage(messages, "error", "immune"));
+            return false;
+        }
         if (!judicator.getHierarchyService().canPunish(source, target)) {
             source.sendMessage(PunishUtils.getMessage(messages, "error", "hierarchy"));
             return false;
@@ -150,13 +160,12 @@ public class ImmuneCache {
      * source (self, exemptions and hierarchy), not only the account that was named in the command.
      */
     public boolean canPunishAddress(JudicatorSender source, String address, String type) {
-        final Set<String> accounts = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
-        accounts.addAll(judicator.getAddressService().findAccountsByIp(address, ""));
+        final List<PlayerRef> accounts = new ArrayList<>(judicator.getAddressService().findAccountsByIp(address, null));
         judicator.getPlatform().getOnlinePlayers().stream()
                 .filter(player -> address.equals(player.getHostAddress()))
-                .map(JudicatorPlayer::getName)
+                .map(player -> judicator.getPlayerDirectory().refOf(player))
                 .forEach(accounts::add);
-        for (String account : accounts) {
+        for (PlayerRef account : accounts) {
             if (!canPunish(source, account, type)) return false;
         }
         return true;

@@ -1,5 +1,6 @@
 package com.openmc.judicator.punish.commands;
 
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.commons.command.CommandArgs;
 import com.openmc.judicator.commons.command.CoreCommand;
@@ -83,7 +84,8 @@ public class PunishTypeCommand extends CoreCommand {
         if (reason.isEmpty()) return;
 
         if (silent && !silentAllowed(source)) return;
-        if (!judicator.getImmuneCache().canPunish(source, targetName, PunishCooldown.categoryOf(type))) return;
+        final PlayerRef target = judicator.getPlayerDirectory().resolve(targetName);
+        if (!judicator.getImmuneCache().canPunish(source, target, PunishCooldown.categoryOf(type))) return;
 
         final PunishmentBuilder builder = new PunishmentBuilder()
                 .type(type)
@@ -102,7 +104,7 @@ public class PunishTypeCommand extends CoreCommand {
         }
 
         if (!PunishmentCommandSupport.passesStaffRules(judicator, source, builder, targetName)) return;
-        if (!PunishmentCommandSupport.resolveTarget(judicator, source, builder, targetName, byAddress)) return;
+        if (!PunishmentCommandSupport.resolveTarget(judicator, source, builder, target, byAddress)) return;
         PunishmentCommandSupport.submit(judicator, source, builder);
     }
 

@@ -26,7 +26,7 @@ public class PunishHistoryCommand extends CoreCommand {
         }
         final String targetName = optTarget.get();
 
-        final List<Punishment> punishments = judicator.getPunishService().findAllByUsername(targetName);
+        final List<Punishment> punishments = judicator.getPunishService().findAllOf(judicator.getPlayerDirectory().resolve(targetName));
         if (punishments.isEmpty()) {
             source.sendMessage(PunishUtils.getMessage(messages(source), "error", "angel"));
             return;

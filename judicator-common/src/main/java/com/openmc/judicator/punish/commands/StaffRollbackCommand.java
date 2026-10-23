@@ -6,6 +6,7 @@ import com.openmc.judicator.commons.command.CommandArgs;
 import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.JudicatorSender;
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.punish.PunishService;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
@@ -58,12 +59,13 @@ public class StaffRollbackCommand extends CoreCommand {
 
         final LocalDateTime since = DateTimeOffsetParser.since(millis.getAsLong());
         final PunishService punishService = judicator.getPunishService();
-        final int applied = punishService.countByPunisher(staff.get(), since);
+        final PlayerRef staffMember = judicator.getPlayerDirectory().resolveKnown(staff.get());
+        final int applied = punishService.countByPunisher(staffMember, since);
         final List<Punishment> punishments = applied == 0 ? List.of()
-                : punishService.findByPunisher(staff.get(), since, applied, 0).stream()
+                : punishService.findByPunisher(staffMember, since, applied, 0).stream()
                 .filter(punishment -> punishment.getStatus() == PunishStatus.ACTIVE)
                 .toList();
-        final List<Warn> warns = judicator.getWarnService().findByPunisherSince(staff.get(), since).stream()
+        final List<Warn> warns = judicator.getWarnService().findByPunisherSince(staffMember, since).stream()
                 .filter(warn -> warn.getStatus() == WarnStatus.ACTIVE)
                 .toList();
 

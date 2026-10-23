@@ -1,9 +1,11 @@
 package com.openmc.judicator.punish.commands;
 
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.commons.ChatContext;
 import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.JudicatorSender;
+import com.openmc.judicator.punish.PlayerAddress;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.PunishmentBuilder;
 import com.openmc.judicator.punish.handlers.PunishFactory;
@@ -35,21 +37,17 @@ final class PunishmentCommandSupport {
      * @return false when the punishment must not go on: the address is in {@code exempt-addresses}, or an IP
      * punishment would reach an account the source cannot punish (the reason was already sent to the source).
      */
-    static boolean resolveTarget(Judicator judicator, JudicatorSender source, PunishmentBuilder builder, String targetName, boolean byAddress) {
-        final Optional<JudicatorPlayer> online = judicator.getPlatform().getPlayer(targetName);
+    static boolean resolveTarget(Judicator judicator, JudicatorSender source, PunishmentBuilder builder, PlayerRef player, boolean byAddress) {
+        final Optional<JudicatorPlayer> online = player.uuid() == null ? judicator.getPlatform().getPlayer(player.name())
+                : judicator.getPlatform().getPlayer(player.uuid());
+        builder.target(player);
         String address = null;
         if (online.isPresent()) {
-            builder.target(online.get());
             if (byAddress) address = online.get().getHostAddress();
-        } else {
-            builder.target(targetName, judicator.getUuidManager().getUUID(targetName));
-            if (byAddress) {
-                address = judicator.getAddressService().findByUsername(targetName)
-                        .map(accessAddress -> accessAddress.getHostAddress())
-                        .orElse(null);
-                if (address == null) {
-                    source.sendMessage(PunishUtils.getMessage(judicator.messagesFor(source), "error", "player-ip-not-found"));
-                }
+        } else if (byAddress) {
+            address = judicator.getAddressService().findLast(player).map(PlayerAddress::hostAddress).orElse(null);
+            if (address == null) {
+                source.sendMessage(PunishUtils.getMessage(judicator.messagesFor(source), "error", "player-ip-not-found"));
             }
         }
 

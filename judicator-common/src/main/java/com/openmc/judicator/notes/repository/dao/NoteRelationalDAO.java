@@ -1,10 +1,12 @@
 package com.openmc.judicator.notes.repository.dao;
 
 import com.openmc.judicator.commons.db.Dialect;
+import com.openmc.judicator.commons.db.IdentitySql;
 import com.openmc.judicator.commons.db.RelationalDBManager;
 import com.openmc.judicator.commons.db.SqlTime;
 import com.openmc.judicator.notes.Note;
 import com.openmc.judicator.notes.repository.NoteRepository;
+import com.openmc.judicator.players.PlayerRef;
 import org.slf4j.Logger;
 
 import java.sql.Connection;
@@ -23,7 +25,7 @@ import java.util.UUID;
 
 public class NoteRelationalDAO implements NoteRepository {
 
-    private static final String INSERT = "INSERT INTO {notes} (player_uuid, nickname, lower_nickname, author, content, created_at) VALUES (?, ?, ?, ?, ?, ?)";
+    private static final String INSERT = "INSERT INTO {notes} (player_uuid, nickname, lower_nickname, author, content, created_at, author_uuid) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
     private final RelationalDBManager manager;
     private final Logger logger;
@@ -47,7 +49,8 @@ public class NoteRelationalDAO implements NoteRepository {
                             lower_nickname VARCHAR(20) NOT NULL,
                             author VARCHAR(20) NOT NULL,
                             content VARCHAR(255) NOT NULL,
-                            created_at TIMESTAMP NOT NULL
+                            created_at TIMESTAMP NOT NULL,
+                            author_uuid VARCHAR(36)
                         );
                         """;
             } else if (dialect == Dialect.SQLITE) {
@@ -59,7 +62,8 @@ public class NoteRelationalDAO implements NoteRepository {
                             lower_nickname VARCHAR(20) NOT NULL,
                             author VARCHAR(20) NOT NULL,
                             content VARCHAR(255) NOT NULL,
-                            created_at TIMESTAMP NOT NULL
+                            created_at TIMESTAMP NOT NULL,
+                            author_uuid VARCHAR(36)
                         );
                         """;
             } else {
@@ -71,7 +75,8 @@ public class NoteRelationalDAO implements NoteRepository {
                             lower_nickname VARCHAR(20) NOT NULL,
                             author VARCHAR(20) NOT NULL,
                             content VARCHAR(255) NOT NULL,
-                            created_at DATETIME NOT NULL
+                            created_at DATETIME NOT NULL,
+                            author_uuid VARCHAR(36)
                         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                         """;
             }
@@ -79,6 +84,9 @@ public class NoteRelationalDAO implements NoteRepository {
                 statement.execute();
             }
             manager.ensureIndex(connection, "notes", "lower_nickname");
+            manager.ensureIndex(connection, "notes", "player_uuid");
+            // tables created before 2.0
+            manager.ensureColumn(connection, "notes", "author_uuid", "VARCHAR(36)");
         } catch (SQLException e) {
             logger.error(e.getMessage(), e);
         }
@@ -89,9 +97,9 @@ public class NoteRelationalDAO implements NoteRepository {
         try (Connection connection = manager.getDataSource().getConnection()) {
             if (note.getId() != null) {
                 try (PreparedStatement statement = connection.prepareStatement(
-                        manager.sql("UPDATE {notes} SET player_uuid = ?, nickname = ?, lower_nickname = ?, author = ?, content = ?, created_at = ? WHERE id = ?"))) {
+                        manager.sql("UPDATE {notes} SET player_uuid = ?, nickname = ?, lower_nickname = ?, author = ?, content = ?, created_at = ?, author_uuid = ? WHERE id = ?"))) {
                     bind(statement, note);
-                    statement.setLong(7, note.getId());
+                    statement.setLong(8, note.getId());
                     statement.executeUpdate();
                 }
                 return note;
@@ -116,6 +124,7 @@ public class NoteRelationalDAO implements NoteRepository {
         statement.setString(4, note.getAuthor());
         statement.setString(5, note.getContent());
         statement.setTimestamp(6, SqlTime.of(note.getCreatedAt()));
+        statement.setString(7, note.getAuthorUuid().map(UUID::toString).orElse(null));
     }
 
     @Override
@@ -144,10 +153,11 @@ public class NoteRelationalDAO implements NoteRepository {
     }
 
     @Override
-    public int countByUsername(String username) {
+    public int countOf(PlayerRef player) {
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement(manager.sql("SELECT COUNT(*) FROM {notes} WHERE lower_nickname = ?"))) {
-            statement.setString(1, username.toLowerCase());
+             PreparedStatement statement = connection.prepareStatement(manager.sql("SELECT COUNT(*) FROM {notes} WHERE "
+                     + IdentitySql.of(player, "player_uuid", "lower_nickname")))) {
+            IdentitySql.bind(statement, 1, player);
             try (ResultSet resultSet = statement.executeQuery()) {
                 return resultSet.next() ? resultSet.getInt(1) : 0;
             }
@@ -158,13 +168,13 @@ public class NoteRelationalDAO implements NoteRepository {
     }
 
     @Override
-    public List<Note> findByUsername(String username, int limit, int offset) {
+    public List<Note> findOf(PlayerRef player, int limit, int offset) {
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement(
-                     manager.sql("SELECT * FROM {notes} WHERE lower_nickname = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?"))) {
-            statement.setString(1, username.toLowerCase());
-            statement.setInt(2, limit);
-            statement.setInt(3, offset);
+             PreparedStatement statement = connection.prepareStatement(manager.sql("SELECT * FROM {notes} WHERE "
+                     + IdentitySql.of(player, "player_uuid", "lower_nickname") + " ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?"))) {
+            final int next = IdentitySql.bind(statement, 1, player);
+            statement.setInt(next, limit);
+            statement.setInt(next + 1, offset);
             try (ResultSet resultSet = statement.executeQuery()) {
                 final List<Note> notes = new ArrayList<>();
                 while (resultSet.next()) notes.add(load(resultSet));
@@ -177,24 +187,11 @@ public class NoteRelationalDAO implements NoteRepository {
     }
 
     @Override
-    public int countAllOf(String username, UUID uuid) {
+    public int deleteAllOf(PlayerRef player) {
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement(manager.sql("SELECT COUNT(*) FROM {notes} WHERE " + ofPlayer(uuid)))) {
-            bindPlayer(statement, username, uuid);
-            try (ResultSet resultSet = statement.executeQuery()) {
-                return resultSet.next() ? resultSet.getInt(1) : 0;
-            }
-        } catch (SQLException e) {
-            logger.error(e.getMessage(), e);
-            return 0;
-        }
-    }
-
-    @Override
-    public int deleteAllOf(String username, UUID uuid) {
-        try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement(manager.sql("DELETE FROM {notes} WHERE " + ofPlayer(uuid)))) {
-            bindPlayer(statement, username, uuid);
+             PreparedStatement statement = connection.prepareStatement(manager.sql("DELETE FROM {notes} WHERE "
+                     + IdentitySql.of(player, "player_uuid", "lower_nickname")))) {
+            IdentitySql.bind(statement, 1, player);
             return statement.executeUpdate();
         } catch (SQLException e) {
             logger.error(e.getMessage(), e);
@@ -202,13 +199,18 @@ public class NoteRelationalDAO implements NoteRepository {
         }
     }
 
-    private static String ofPlayer(UUID uuid) {
-        return uuid == null ? "lower_nickname = ?" : "(lower_nickname = ? OR player_uuid = ?)";
-    }
-
-    private static void bindPlayer(PreparedStatement statement, String username, UUID uuid) throws SQLException {
-        statement.setString(1, username.toLowerCase());
-        if (uuid != null) statement.setString(2, uuid.toString());
+    @Override
+    public int fillUuid(PlayerRef account) {
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(manager.sql(
+                     "UPDATE {notes} SET player_uuid = ? WHERE player_uuid IS NULL AND lower_nickname = ?"))) {
+            statement.setString(1, account.uuid().toString());
+            statement.setString(2, account.lowerName());
+            return statement.executeUpdate();
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return 0;
+        }
     }
 
     @Override
@@ -272,9 +274,14 @@ public class NoteRelationalDAO implements NoteRepository {
     }
 
     private static Note load(ResultSet rs) throws SQLException {
-        final String uuid = rs.getString("player_uuid");
-        return new Note(rs.getLong("id"), uuid == null || uuid.isBlank() ? null : UUID.fromString(uuid),
-                rs.getString("nickname"), rs.getString("author"), rs.getString("content"), SqlTime.read(rs, "created_at"));
+        final Note note = new Note(rs.getLong("id"), uuid(rs.getString("player_uuid")), rs.getString("nickname"),
+                rs.getString("author"), rs.getString("content"), SqlTime.read(rs, "created_at"));
+        note.setAuthorUuid(uuid(rs.getString("author_uuid")));
+        return note;
+    }
+
+    private static UUID uuid(String text) {
+        return text == null || text.isBlank() ? null : UUID.fromString(text);
     }
 
 }

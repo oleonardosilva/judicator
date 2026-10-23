@@ -37,14 +37,14 @@ public class SchemaUtil {
      * missing table means "no": any other failure (connection lost, no permission) is thrown, because a migration that
      * took it for "no table" would leave data behind.
      */
-    static boolean tableExists(Connection connection, String table) throws SQLException {
+    public static boolean tableExists(Connection connection, String table) throws SQLException {
         return probe(connection, "SELECT 1 FROM " + table + " WHERE 1 = 0", "42P01", "42S02", "no such table");
     }
 
     /**
      * {@link #tableExists} for a column of an existing table.
      */
-    static boolean columnExists(Connection connection, String table, String column) throws SQLException {
+    public static boolean columnExists(Connection connection, String table, String column) throws SQLException {
         return probe(connection, "SELECT " + column + " FROM " + table + " WHERE 1 = 0", "42703", "42S22", "no such column");
     }
 
@@ -64,7 +64,7 @@ public class SchemaUtil {
         }
     }
 
-    static long countRows(Connection connection, String table) throws SQLException {
+    public static long countRows(Connection connection, String table) throws SQLException {
         try (Statement stmt = connection.createStatement(); ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM " + table)) {
             return rs.next() ? rs.getLong(1) : 0;
         }

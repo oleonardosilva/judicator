@@ -50,7 +50,7 @@ public class WarnHandler {
     private void calc(Warn warn) {
         final WarnService warnService = judicator.getWarnService();
 
-        final Long count = warnService.countActiveWarns(warn.getNickname());
+        final Long count = warnService.countActiveWarns(judicator.getPlayerDirectory().refOf(warn.getAccountUuid().orElse(null), warn.getNickname()));
         // The command line gets the name without characters that could add arguments; if that changes the name, it
         // would name another account (warns for "Adm.in" punishing "Admin"), so nothing is run.
         if (!warn.getSafeNickname().equals(warn.getNickname())) {

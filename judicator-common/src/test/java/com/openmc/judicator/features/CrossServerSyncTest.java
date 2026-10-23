@@ -1,5 +1,6 @@
 package com.openmc.judicator.features;
 
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.types.PunishType;
 import com.openmc.judicator.sync.SyncMessage;
@@ -174,7 +175,7 @@ class CrossServerSyncTest {
         a.command(a.console, "extend " + mute.getId() + " 1:d");
         b.pollSync();
 
-        final Punishment cached = b.judicator.getPunishCache().getPunishment("steve").orElseThrow();
+        final Punishment cached = b.judicator.getPunishCache().getPunishment(PlayerRef.offlineUuid("Steve").toString()).orElseThrow();
         assertEquals(mute.getFinishAt().orElseThrow().plusDays(1).truncatedTo(ChronoUnit.SECONDS),
                 cached.getFinishAt().orElseThrow().truncatedTo(ChronoUnit.SECONDS));
     }
@@ -216,7 +217,7 @@ class CrossServerSyncTest {
         assertTrue(mute.getFinishAt().orElseThrow().isAfter(java.time.LocalDateTime.now().plusMinutes(59)));
         assertEquals(Outcome.BLOCKED_MUTED, b.chat(steve, "hello"));
         a.pollSync();
-        assertFalse(a.judicator.getPunishCache().getPunishment("steve").isPresent());
+        assertFalse(a.judicator.getPunishCache().getPunishment(steve.getUniqueId().toString()).isPresent());
     }
 
     @Test

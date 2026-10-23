@@ -48,7 +48,7 @@ public class BukkitListener implements Listener {
                     LegacyComponentSerializer.legacySection().serialize(kick.get()));
             return;
         }
-        connectionHandler.onLoginAllowed(username, address);
+        connectionHandler.onLoginAllowed(event.getUniqueId(), username, address);
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -67,7 +67,7 @@ public class BukkitListener implements Listener {
         platform.untrack(player);
         platform.runNextTick(() -> {
             if (Bukkit.getPlayer(uuid) != null) return;
-            platform.runAsync(() -> connectionHandler.onDisconnect(username, address));
+            platform.runAsync(() -> connectionHandler.onDisconnect(uuid, username, address));
         });
     }
 

@@ -2,10 +2,10 @@ package com.openmc.judicator.warns;
 
 import com.openmc.judicator.commons.DateTimeOffsetParser;
 import com.openmc.judicator.platform.JudicatorPlayer;
+import com.openmc.judicator.players.PlayerRef;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -16,12 +16,15 @@ public class WarnBuilder {
 
     private final LocalDateTime startedAt = LocalDateTime.now();
     private UUID playerUUID;
+    /** the staff member's UUID; null for the console and plugins */
+    private UUID punisherUuid;
     private String reason, punisher = "Console", nickname;
     private LocalDateTime finishAt;
     private boolean silent;
 
     public WarnBuilder punisher(JudicatorPlayer player) {
         this.punisher = player.getName();
+        this.punisherUuid = player.getUniqueId();
         return this;
     }
 
@@ -30,6 +33,7 @@ public class WarnBuilder {
      */
     public WarnBuilder punisher(String name) {
         this.punisher = name;
+        this.punisherUuid = null;
         return this;
     }
 
@@ -61,6 +65,12 @@ public class WarnBuilder {
         return this;
     }
 
+    public WarnBuilder target(PlayerRef player) {
+        this.nickname = player.name();
+        this.playerUUID = player.uuid();
+        return this;
+    }
+
     public WarnBuilder target(String nickname, UUID  uuid) {
         this.nickname = nickname;
         this.playerUUID = uuid;
@@ -70,9 +80,8 @@ public class WarnBuilder {
     public Warn build() {
         // warns.player_uuid is NOT NULL: a warn for a player whose UUID could not be found (never joined, Mojang
         // unreachable) would be rejected by the database and silently lost. Use the UUID an offline-mode server
-        // gives that name; warns are looked up by name anyway.
-        final UUID uuid = playerUUID != null ? playerUUID
-                : UUID.nameUUIDFromBytes(("OfflinePlayer:" + nickname).getBytes(StandardCharsets.UTF_8));
+        // gives that name, which the lookups treat as "no UUID" (Warn#getAccountUuid) until the account joins.
+        final UUID uuid = playerUUID != null ? playerUUID : PlayerRef.offlineUuid(nickname);
         final Warn warn = Warn.create(
                 uuid,
                 reason,
@@ -81,6 +90,7 @@ public class WarnBuilder {
                 startedAt,
                 finishAt
         );
+        warn.setPunisherUuid(punisherUuid);
         warn.setSilent(silent);
         return warn;
     }

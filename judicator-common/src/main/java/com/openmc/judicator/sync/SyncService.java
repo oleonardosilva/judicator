@@ -161,9 +161,11 @@ public class SyncService {
         judicator.getPunishCooldown().record(PunishCooldown.categoryOf(punishment.getType()), punishment.getNickname());
         judicator.getPunishmentEffects().punished(punishment);
         // An online-only mute starts paused where the player is not online; their time runs from now on the server they are on.
-        if (punishment.isPaused() && !judicator.isProxyMode() && judicator.getPlatform().getPlayer(punishment.getNickname()).isPresent()) {
-            judicator.getPunishService().resumeOnlineOnlyMutes(punishment.getNickname());
-        }
+        if (!punishment.isPaused() || judicator.isProxyMode()) return;
+        judicator.getPlatform().getOnlinePlayers().stream()
+                .filter(player -> judicator.getPunishService().isOnlinePlayerAffected(player, punishment))
+                .findFirst()
+                .ifPresent(player -> judicator.getPunishService().resumeOnlineOnlyMutes(judicator.getPlayerDirectory().refOf(player)));
     }
 
     private void cleanupSafely() {

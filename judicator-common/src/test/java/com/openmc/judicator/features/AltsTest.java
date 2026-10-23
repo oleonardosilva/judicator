@@ -41,10 +41,10 @@ class AltsTest {
 
         final String text = String.join("\n", server.console.messages());
         assertTrue(text.contains("Accounts that shared an IP with Steve:"), text);
-        assertTrue(text.contains("stevealt - banned"), text);
-        assertTrue(text.contains("muted - muted"), text);
-        assertFalse(text.contains("stranger"), text);
-        assertFalse(text.contains(" steve -"), "the player is not their own alt");
+        assertTrue(text.contains("SteveAlt - banned"), text);
+        assertTrue(text.contains("Muted - muted"), text);
+        assertFalse(text.contains("Stranger"), text);
+        assertFalse(text.contains(" Steve -"), "the player is not their own alt");
     }
 
     @Test
@@ -65,7 +65,7 @@ class AltsTest {
 
         server.online(new FakePlayer("Fresh", "10.0.0.1"));
 
-        assertTrue(watcher.received("[Alts] Fresh shares an IP with banned/muted account(s): banned"), watcher.messages().toString());
+        assertTrue(watcher.received("[Alts] Fresh shares an IP with banned/muted account(s): Banned"), watcher.messages().toString());
         assertFalse(plain.received("[Alts]"));
     }
 

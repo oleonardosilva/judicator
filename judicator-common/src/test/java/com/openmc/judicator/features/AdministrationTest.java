@@ -11,6 +11,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -94,7 +95,8 @@ class AdministrationTest {
         server.command(server.console, "judicator import vanilla confirm");
         assertTrue(server.console.received("Imported 1 punishments and 0 warns from vanilla."));
         assertEquals(1, server.punishments.findAllActiveByUsernameAndTypes("Notch", PunishType.BAN).size());
-        assertTrue(server.join(new FakePlayer("Notch", "10.0.0.7")).isPresent(), "imported ban is enforced");
+        assertTrue(server.join(new FakePlayer("Notch", UUID.fromString("069a79f4-44e9-4726-a5be-fca90e38aaf5"), "10.0.0.7")).isPresent(),
+                "imported ban is enforced on the account it was stored for");
 
         server.console.clearMessages();
         server.command(server.console, "judicator import vanilla confirm");

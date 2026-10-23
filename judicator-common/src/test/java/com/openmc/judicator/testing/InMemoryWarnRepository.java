@@ -1,5 +1,6 @@
 package com.openmc.judicator.testing;
 
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.judicator.warns.Warn;
 import com.openmc.judicator.warns.repository.WarnRepository;
@@ -57,22 +58,42 @@ public final class InMemoryWarnRepository implements WarnRepository {
     @Override
     public List<PunishmentRepository.StaffCount> countByStaffSince(LocalDateTime since) {
         final Map<String, List<Warn>> byStaff = find(w -> !w.getStartedAt().isBefore(since)).stream()
-                .collect(Collectors.groupingBy(w -> w.getPunisher().toLowerCase(Locale.ROOT)));
+                .collect(Collectors.groupingBy(w -> w.getPunisherUuid().map(UUID::toString).orElse(w.getPunisher().toLowerCase(Locale.ROOT))));
         return byStaff.values().stream()
                 .map(warns -> new PunishmentRepository.StaffCount(warns.get(0).getPunisher(), "WARN", warns.size()))
                 .toList();
     }
 
     @Override
-    public Long countActiveWarns(String username) {
+    public Long countActiveWarns(PlayerRef player) {
         final LocalDateTime now = LocalDateTime.now();
-        return (long) find(w -> w.getNickname().equalsIgnoreCase(username)
-                && (w.isPermanent() || w.getFinishAt().map(end -> end.isAfter(now)).orElse(false))).size();
+        return (long) find(of(player).and(w -> w.isPermanent() || w.getFinishAt().map(end -> end.isAfter(now)).orElse(false))).size();
     }
 
     @Override
-    public List<Warn> findByPunisherSince(String punisher, LocalDateTime since) {
-        return find(w -> w.getPunisher().equalsIgnoreCase(punisher) && !w.getStartedAt().isBefore(since)).stream()
+    public List<Warn> findAllOf(PlayerRef player) {
+        return find(of(player));
+    }
+
+    @Override
+    public synchronized int fillUuid(PlayerRef account) {
+        int changed = 0;
+        for (Warn row : rows.values()) {
+            if (row.getAccountUuid().isEmpty() && row.getNickname().equalsIgnoreCase(account.name())) {
+                row.setPlayerUUID(account.uuid());
+                changed++;
+            }
+        }
+        return changed;
+    }
+
+    private static Predicate<Warn> of(PlayerRef player) {
+        return w -> player.matches(w.getAccountUuid().orElse(null), w.getNickname());
+    }
+
+    @Override
+    public List<Warn> findByPunisherSince(PlayerRef staff, LocalDateTime since) {
+        return find(w -> staff.matches(w.getPunisherUuid().orElse(null), w.getPunisher()) && !w.getStartedAt().isBefore(since)).stream()
                 .sorted(Comparator.comparing(Warn::getStartedAt).thenComparing(Warn::getId).reversed())
                 .toList();
     }
@@ -85,10 +106,9 @@ public final class InMemoryWarnRepository implements WarnRepository {
     }
 
     @Override
-    public synchronized int deleteAllOf(String username, UUID uuid) {
+    public synchronized int deleteAllOf(PlayerRef player) {
         final int before = rows.size();
-        rows.values().removeIf(w -> w.getNickname().equalsIgnoreCase(username)
-                || (uuid != null && w.getPlayerUUID().map(uuid::equals).orElse(false)));
+        rows.values().removeIf(of(player));
         return before - rows.size();
     }
 
@@ -139,7 +159,9 @@ public final class InMemoryWarnRepository implements WarnRepository {
     }
 
     private static Warn copy(Warn w) {
-        return new Warn(w.getId(), w.getPlayerUUID().orElse(null), w.getReason(), w.getPunisher(), w.getNickname(),
+        final Warn row = new Warn(w.getId(), w.getPlayerUUID().orElse(null), w.getReason(), w.getPunisher(), w.getNickname(),
                 w.getStartedAt(), w.getFinishAt().orElse(null), w.isPermanent());
+        row.setPunisherUuid(w.getPunisherUuid().orElse(null));
+        return row;
     }
 }

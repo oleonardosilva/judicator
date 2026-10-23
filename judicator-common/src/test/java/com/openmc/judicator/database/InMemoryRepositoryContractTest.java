@@ -1,8 +1,9 @@
 package com.openmc.judicator.database;
 
-import com.openmc.judicator.testing.InMemoryAccessAddressRepository;
+import com.openmc.judicator.testing.InMemoryPlayerAddressRepository;
 import com.openmc.judicator.testing.InMemoryNoteRepository;
 import com.openmc.judicator.testing.InMemoryPlayerLevelRepository;
+import com.openmc.judicator.testing.InMemoryPlayerRepository;
 import com.openmc.judicator.testing.InMemoryPunishmentRepository;
 import com.openmc.judicator.testing.InMemorySyncRepository;
 import com.openmc.judicator.testing.InMemoryWarnRepository;
@@ -17,7 +18,8 @@ class InMemoryRepositoryContractTest extends RepositoryContract {
     @Override
     protected Store open(Path folder) {
         return new Store(new InMemoryPunishmentRepository(), new InMemoryWarnRepository(),
-                new InMemoryAccessAddressRepository(), new InMemoryPlayerLevelRepository(), new InMemoryNoteRepository(), new InMemorySyncRepository(), () -> {
+                new InMemoryPlayerAddressRepository(), new InMemoryPlayerLevelRepository(), new InMemoryNoteRepository(), new InMemorySyncRepository(),
+                new InMemoryPlayerRepository(), () -> {
         });
     }
 }

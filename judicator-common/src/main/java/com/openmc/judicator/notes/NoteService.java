@@ -1,6 +1,7 @@
 package com.openmc.judicator.notes;
 
 import com.openmc.judicator.notes.repository.NoteRepository;
+import com.openmc.judicator.players.PlayerRef;
 
 import java.util.List;
 import java.util.Optional;
@@ -26,12 +27,16 @@ public class NoteService {
         repository.deleteById(id);
     }
 
-    public int countByUsername(String username) {
-        return repository.countByUsername(username);
+    public int countOf(PlayerRef player) {
+        return repository.countOf(player);
     }
 
-    public List<Note> findByUsername(String username, int limit, int offset) {
-        return repository.findByUsername(username, limit, offset);
+    public List<Note> findOf(PlayerRef player, int limit, int offset) {
+        return repository.findOf(player, limit, offset);
+    }
+
+    public int fillUuid(PlayerRef account) {
+        return repository.fillUuid(account);
     }
 
 }

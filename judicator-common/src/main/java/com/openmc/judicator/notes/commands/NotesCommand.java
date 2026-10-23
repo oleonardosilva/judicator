@@ -6,6 +6,7 @@ import com.openmc.judicator.commons.command.CommandArgs;
 import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.notes.Note;
 import com.openmc.judicator.platform.JudicatorSender;
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.types.PunishPermissions;
 import net.kyori.adventure.text.Component;
@@ -41,8 +42,9 @@ public class NotesCommand extends CoreCommand {
             return;
         }
         final ConfigurationNode messages = messages(source);
-        final String nickname = target.get();
-        final int total = judicator.getNoteService().countByUsername(nickname);
+        final PlayerRef player = judicator.getPlayerDirectory().resolve(target.get());
+        final String nickname = player.name();
+        final int total = judicator.getNoteService().countOf(player);
         if (total == 0) {
             source.sendMessage(PunishUtils.format(messages, Map.of("nickname", nickname), "notes", "none"));
             return;
@@ -56,7 +58,7 @@ public class NotesCommand extends CoreCommand {
                 "count", String.valueOf(total),
                 "page", String.valueOf(page),
                 "pages", String.valueOf(pages)), "notes", "title"));
-        for (Note note : judicator.getNoteService().findByUsername(nickname, Pagination.PAGE_SIZE, Pagination.offset(page))) {
+        for (Note note : judicator.getNoteService().findOf(player, Pagination.PAGE_SIZE, Pagination.offset(page))) {
             final Map<String, String> placeholders = Map.of(
                     "id", String.valueOf(note.getId()),
                     "author", note.getAuthor(),

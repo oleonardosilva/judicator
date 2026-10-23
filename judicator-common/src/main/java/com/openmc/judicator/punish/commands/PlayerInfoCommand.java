@@ -5,7 +5,8 @@ import com.openmc.judicator.commons.command.CommandArgs;
 import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.JudicatorSender;
-import com.openmc.judicator.punish.AccessAddress;
+import com.openmc.judicator.players.PlayerRef;
+import com.openmc.judicator.punish.PlayerAddress;
 import com.openmc.judicator.punish.PunishService;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
@@ -47,18 +48,19 @@ public class PlayerInfoCommand extends CoreCommand {
         }
         final ConfigurationNode messages = messages(source);
         final Optional<JudicatorPlayer> online = judicator.getPlatform().getPlayer(target.get());
-        final String nickname = online.map(JudicatorPlayer::getName).orElse(target.get());
+        final PlayerRef player = judicator.getPlayerDirectory().resolve(target.get());
+        final String nickname = player.name();
 
-        final List<Punishment> history = judicator.getPunishService().findAllByUsername(nickname);
-        final List<Warn> warns = judicator.getWarnService().findAllByUsername(nickname);
-        final int notes = judicator.getNoteService().countByUsername(nickname);
-        final Optional<AccessAddress> lastAddress = judicator.getAddressService().findByUsername(nickname);
+        final List<Punishment> history = judicator.getPunishService().findAllOf(player);
+        final List<Warn> warns = judicator.getWarnService().findAllOf(player);
+        final int notes = judicator.getNoteService().countOf(player);
+        final Optional<PlayerAddress> lastAddress = judicator.getAddressService().findLast(player);
         if (online.isEmpty() && history.isEmpty() && warns.isEmpty() && notes == 0 && lastAddress.isEmpty()) {
             source.sendMessage(PunishUtils.format(messages, Map.of("nickname", nickname), "info", "unknown"));
             return;
         }
 
-        final UUID uuid = online.map(JudicatorPlayer::getUniqueId).orElseGet(() -> judicator.getUuidManager().getUUID(nickname));
+        final UUID uuid = online.map(JudicatorPlayer::getUniqueId).orElse(player.uuid());
         final DateTimeFormatter dates = DateTimeFormatter.ofPattern(messages.node("date-format").getString("dd/MM/yyyy HH:mm"));
         final Map<String, String> placeholders = new HashMap<>();
         placeholders.put("nickname", nickname);
@@ -70,10 +72,10 @@ public class PlayerInfoCommand extends CoreCommand {
         placeholders.put("warns", String.valueOf(warns.size()));
         placeholders.put("activeWarns", String.valueOf(warns.stream().filter(w -> w.getStatus() == WarnStatus.ACTIVE).count()));
         placeholders.put("notes", String.valueOf(notes));
-        placeholders.put("alts", String.valueOf(judicator.getAddressService().findAlts(nickname, judicator.getAddressPolicy()::isExempt).size()));
+        placeholders.put("alts", String.valueOf(judicator.getAddressService().findAlts(player, judicator.getAddressPolicy()::isExempt).size()));
         placeholders.put("lastSeen", online.isPresent()
                 ? messages.node("info", "now").getString("now").replace("&", "§")
-                : lastAddress.map(address -> dates.format(address.getLastUsage())).orElse("?"));
+                : lastAddress.map(address -> dates.format(address.lastUsage())).orElse("?"));
 
         final TextComponent.Builder text = Component.text()
                 .append(PunishUtils.format(messages, placeholders, "info", "title"))
@@ -89,7 +91,7 @@ public class PlayerInfoCommand extends CoreCommand {
                 || source.hasPermission(PunishPermissions.ADMIN.getPermission());
         if (seesAddresses) {
             final String ip = online.map(JudicatorPlayer::getHostAddress)
-                    .or(() -> lastAddress.map(AccessAddress::getHostAddress)).orElse("?");
+                    .or(() -> lastAddress.map(PlayerAddress::hostAddress)).orElse("?");
             text.append(PunishUtils.format(messages, Map.of("ip", ip), "info", "ip"));
         }
         source.sendMessage(text.build());

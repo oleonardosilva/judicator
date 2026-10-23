@@ -1,8 +1,10 @@
 package com.openmc.judicator.warns.repository.dao;
 
 import com.openmc.judicator.commons.db.Dialect;
+import com.openmc.judicator.commons.db.IdentitySql;
 import com.openmc.judicator.commons.db.RelationalDBManager;
 import com.openmc.judicator.commons.db.SqlTime;
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.judicator.warns.Warn;
 import com.openmc.judicator.warns.repository.WarnRepository;
@@ -35,15 +37,15 @@ public class WarnRelationalDAO implements WarnRepository {
                         UPDATE {warns} SET
                             player_uuid = ?, reason = ?, punisher = ?, nickname = ?,
                             lower_nickname = ?, started_at = ?, finish_at = ?,
-                            permanent = ?
+                            permanent = ?, punisher_uuid = ?
                         WHERE id = ?
                     """;
         } else {
             sql = """
                         INSERT INTO {warns} (
                             player_uuid, reason, punisher, nickname, lower_nickname,
-                            started_at, finish_at, permanent
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            started_at, finish_at, permanent, punisher_uuid
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """;
         }
         return sql;
@@ -66,7 +68,8 @@ public class WarnRelationalDAO implements WarnRepository {
                                     lower_nickname VARCHAR(20),
                                     started_at TIMESTAMP NOT NULL,
                                     finish_at TIMESTAMP,
-                                    permanent BOOLEAN NOT NULL
+                                    permanent BOOLEAN NOT NULL,
+                                    punisher_uuid VARCHAR(36)
                                 );
                                 """)
                 );
@@ -81,7 +84,8 @@ public class WarnRelationalDAO implements WarnRepository {
                             lower_nickname VARCHAR(20),
                             started_at TIMESTAMP NOT NULL,
                             finish_at TIMESTAMP,
-                            permanent BOOLEAN NOT NULL
+                            permanent BOOLEAN NOT NULL,
+                            punisher_uuid VARCHAR(36)
                         );
                         """));
             } else {
@@ -95,7 +99,8 @@ public class WarnRelationalDAO implements WarnRepository {
                             lower_nickname VARCHAR(20),
                             started_at DATETIME NOT NULL,
                             finish_at DATETIME,
-                            permanent BOOLEAN NOT NULL
+                            permanent BOOLEAN NOT NULL,
+                            punisher_uuid VARCHAR(36)
                         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                         """));
             }
@@ -103,6 +108,8 @@ public class WarnRelationalDAO implements WarnRepository {
 
             manager.ensureIndex(connection, "warns", "player_uuid");
             manager.ensureIndex(connection, "warns", "lower_nickname");
+            // tables created before 2.0
+            manager.ensureColumn(connection, "warns", "punisher_uuid", "VARCHAR(36)");
         } catch (SQLException e) {
             logger.error(e.getMessage(), e);
         }
@@ -145,30 +152,72 @@ public class WarnRelationalDAO implements WarnRepository {
     }
 
     @Override
-    public Long countActiveWarns(String username) {
-        try (Connection connection = manager.getDataSource().getConnection()) {
-            final PreparedStatement statement = connection.prepareStatement(manager.sql("""
-                    SELECT COUNT(*) FROM {warns} WHERE lower_nickname = ?
-                    AND (permanent = true OR finish_at > ?)
-                    """));
-            statement.setString(1, username.toLowerCase());
-            statement.setTimestamp(2, SqlTime.now());
-            final ResultSet resultSet = statement.executeQuery();
+    public Long countActiveWarns(PlayerRef player) {
+        final LocalDateTime now = LocalDateTime.now();
+        return findAllOf(player).stream()
+                .filter(warn -> warn.isPermanent() || warn.getFinishAt().map(end -> end.isAfter(now)).orElse(false))
+                .count();
+    }
 
-            if (resultSet.next()) {
-                return resultSet.getLong(1);
+    /**
+     * A warn of a name nobody had seen holds the offline-mode UUID of the name as it was typed, and that UUID depends
+     * on the letter case, so the rows are narrowed in SQL (the account's UUID or the name) and checked here with
+     * {@link Warn#getAccountUuid}.
+     */
+    @Override
+    public List<Warn> findAllOf(PlayerRef player) {
+        final String sql = player.identifiedByUuid()
+                ? "SELECT * FROM {warns} WHERE player_uuid = ? OR lower_nickname = ?"
+                : "SELECT * FROM {warns} WHERE lower_nickname = ?";
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(manager.sql(sql))) {
+            int index = 1;
+            if (player.identifiedByUuid()) statement.setString(index++, player.uuid().toString());
+            statement.setString(index, player.lowerName());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                final List<Warn> warns = new ArrayList<>();
+                while (resultSet.next()) {
+                    final Warn warn = load(resultSet);
+                    if (player.matches(warn.getAccountUuid().orElse(null), warn.getNickname())) warns.add(warn);
+                }
+                return warns;
             }
         } catch (SQLException e) {
             logger.error(e.getMessage(), e);
+            return List.of();
         }
-        return 0L;
+    }
+
+    @Override
+    public int fillUuid(PlayerRef account) {
+        final List<Warn> unknown = findAllOf(PlayerRef.byName(account.name(), null)).stream()
+                .filter(warn -> warn.getAccountUuid().isEmpty())
+                .toList();
+        return updateUuids(unknown, account);
+    }
+
+    private int updateUuids(List<Warn> warns, PlayerRef account) {
+        if (warns.isEmpty()) return 0;
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(manager.sql("UPDATE {warns} SET player_uuid = ? WHERE id = ?"))) {
+            for (Warn warn : warns) {
+                statement.setString(1, account.uuid().toString());
+                statement.setLong(2, warn.getId());
+                statement.addBatch();
+            }
+            statement.executeBatch();
+            return warns.size();
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return 0;
+        }
     }
 
     @Override
     public List<PunishmentRepository.StaffCount> countByStaffSince(LocalDateTime since) {
         try (Connection connection = manager.getDataSource().getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     manager.sql("SELECT MAX(punisher) AS punisher, COUNT(*) AS total FROM {warns} WHERE started_at >= ? GROUP BY LOWER(punisher)"))) {
+                     manager.sql("SELECT MAX(punisher) AS punisher, COUNT(*) AS total FROM {warns} WHERE started_at >= ? GROUP BY COALESCE(punisher_uuid, LOWER(punisher))"))) {
             statement.setTimestamp(1, SqlTime.of(since));
             try (ResultSet resultSet = statement.executeQuery()) {
                 final List<PunishmentRepository.StaffCount> counts = new ArrayList<>();
@@ -184,12 +233,11 @@ public class WarnRelationalDAO implements WarnRepository {
     }
 
     @Override
-    public List<Warn> findByPunisherSince(String punisher, LocalDateTime since) {
+    public List<Warn> findByPunisherSince(PlayerRef staff, LocalDateTime since) {
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement(
-                     manager.sql("SELECT * FROM {warns} WHERE LOWER(punisher) = ? AND started_at >= ? ORDER BY started_at DESC, id DESC"))) {
-            statement.setString(1, punisher.toLowerCase());
-            statement.setTimestamp(2, SqlTime.of(since));
+             PreparedStatement statement = connection.prepareStatement(manager.sql("SELECT * FROM {warns} WHERE "
+                     + IdentitySql.of(staff, "punisher_uuid", "LOWER(punisher)") + " AND started_at >= ? ORDER BY started_at DESC, id DESC"))) {
+            statement.setTimestamp(IdentitySql.bind(statement, 1, staff), SqlTime.of(since));
             try (ResultSet resultSet = statement.executeQuery()) {
                 final List<Warn> warns = new ArrayList<>();
                 while (resultSet.next()) {
@@ -217,14 +265,17 @@ public class WarnRelationalDAO implements WarnRepository {
     }
 
     @Override
-    public int deleteAllOf(String username, UUID uuid) {
+    public int deleteAllOf(PlayerRef player) {
+        final List<Warn> warns = findAllOf(player);
+        if (warns.isEmpty()) return 0;
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement(manager.sql(uuid == null
-                     ? "DELETE FROM {warns} WHERE lower_nickname = ?"
-                     : "DELETE FROM {warns} WHERE lower_nickname = ? OR player_uuid = ?"))) {
-            statement.setString(1, username.toLowerCase());
-            if (uuid != null) statement.setString(2, uuid.toString());
-            return statement.executeUpdate();
+             PreparedStatement statement = connection.prepareStatement(manager.sql("DELETE FROM {warns} WHERE id = ?"))) {
+            for (Warn warn : warns) {
+                statement.setLong(1, warn.getId());
+                statement.addBatch();
+            }
+            statement.executeBatch();
+            return warns.size();
         } catch (SQLException e) {
             logger.error(e.getMessage(), e);
             return 0;
@@ -265,8 +316,9 @@ public class WarnRelationalDAO implements WarnRepository {
                 stmt.setTimestamp(6, SqlTime.of(warn.getStartedAt()));
                 stmt.setTimestamp(7, SqlTime.of(warn.getFinishAt().orElse(null)));
                 stmt.setBoolean(8, warn.isPermanent());
+                stmt.setString(9, warn.getPunisherUuid().map(UUID::toString).orElse(null));
 
-                if (isUpdate) stmt.setLong(9, warn.getId());
+                if (isUpdate) stmt.setLong(10, warn.getId());
                 stmt.executeUpdate();
 
                 if (!isUpdate) {
@@ -328,6 +380,7 @@ public class WarnRelationalDAO implements WarnRepository {
                     stmt.setTimestamp(6, SqlTime.of(warn.getStartedAt()));
                     stmt.setTimestamp(7, SqlTime.of(warn.getFinishAt().orElse(null)));
                     stmt.setBoolean(8, warn.isPermanent());
+                    stmt.setString(9, warn.getPunisherUuid().map(UUID::toString).orElse(null));
                     stmt.addBatch();
                 }
                 stmt.executeBatch();
@@ -362,6 +415,8 @@ public class WarnRelationalDAO implements WarnRepository {
         warn.setPermanent(rs.getBoolean("permanent"));
         warn.setStartedAt(SqlTime.read(rs, "started_at"));
         warn.setFinishAt(SqlTime.read(rs, "finish_at"));
+        final String punisherUuid = rs.getString("punisher_uuid");
+        warn.setPunisherUuid(punisherUuid == null || punisherUuid.isBlank() ? null : UUID.fromString(punisherUuid));
         return warn;
     }
 

@@ -2,7 +2,7 @@ package com.openmc.judicator.features;
 
 import com.openmc.judicator.notes.Note;
 import com.openmc.judicator.platform.PlatformType;
-import com.openmc.judicator.punish.AccessAddress;
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.testing.FakePlayer;
 import com.openmc.judicator.testing.TestServer;
@@ -172,12 +172,12 @@ class ProxyModeTest {
     void theBackendKeepsNoAddressAndSendsNoAltOrNoteWarnings() {
         final FakePlayer staff = backend.online(new FakePlayer("Helper", "10.0.0.3", "judicator.alts.notify", "judicator.notes.notify"));
         proxy.command(proxy.console, "ban Banned hacking");
-        proxy.addresses.save(AccessAddress.create("10.0.0.1", "Banned"));
+        proxy.addresses.record(PlayerRef.byName("Banned", null), "10.0.0.1", LocalDateTime.now());
         proxy.command(proxy.console, "note Steve watch the chat");
 
         backend.online(new FakePlayer("Steve", "10.0.0.1"));
 
-        assertTrue(proxy.addresses.findAllByUsername("steve").isEmpty());
+        assertTrue(proxy.addresses.findAllOf(PlayerRef.byName("steve", null)).isEmpty());
         assertTrue(staff.messages().isEmpty(), staff.messages().toString());
     }
 
@@ -189,7 +189,7 @@ class ProxyModeTest {
                 .set("sync.enabled", true).set("proxy-mode", true).set("retention.notes", 1)
                 .sharingDatabaseWith(proxy).start());
 
-        assertEquals(1, proxy.notes.countByUsername("Steve"));
+        assertEquals(1, proxy.notes.countOf(PlayerRef.byName("Steve", null)));
     }
 
     @Test

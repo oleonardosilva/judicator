@@ -1,5 +1,6 @@
 package com.openmc.judicator.punish.commands;
 
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.commons.command.CommandArgs;
 import com.openmc.judicator.commons.command.CoreCommand;
@@ -39,7 +40,7 @@ public class PunishCommand extends CoreCommand {
 
         if (reason.isBlank()) {
             if (source.isPlayer()) {
-                final List<Punishment> history = judicator.getPunishService().findAllByUsername(targetName);
+                final List<Punishment> history = judicator.getPunishService().findAllOf(judicator.getPlayerDirectory().resolve(targetName));
                 final List<ConfiguredReason> usable = reasonCache.getReasons().stream()
                         .filter(configured -> canUseReason(source, configured))
                         .toList();
@@ -61,11 +62,12 @@ public class PunishCommand extends CoreCommand {
             return;
         }
 
+        final PlayerRef target = judicator.getPlayerDirectory().resolve(targetName);
         final ConfiguredReason.Step step = configuredReason.isProgressive()
-                ? configuredReason.stepFor(countPrevious(judicator.getPunishService().findAllByUsername(targetName), configuredReason))
+                ? configuredReason.stepFor(countPrevious(judicator.getPunishService().findAllOf(target), configuredReason))
                 : configuredReason.stepFor(0);
 
-        if (!judicator.getImmuneCache().canPunish(source, targetName, PunishCooldown.categoryOf(step.type()))) return;
+        if (!judicator.getImmuneCache().canPunish(source, target, PunishCooldown.categoryOf(step.type()))) return;
 
         final PunishmentBuilder builder = new PunishmentBuilder()
                 .type(step.type())
@@ -77,7 +79,7 @@ public class PunishCommand extends CoreCommand {
         }
 
         if (!PunishmentCommandSupport.passesStaffRules(judicator, source, builder, targetName)) return;
-        if (!PunishmentCommandSupport.resolveTarget(judicator, source, builder, targetName, configuredReason.isIp())) return;
+        if (!PunishmentCommandSupport.resolveTarget(judicator, source, builder, target, configuredReason.isIp())) return;
         PunishmentCommandSupport.submit(judicator, source, builder);
     }
 

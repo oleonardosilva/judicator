@@ -1,8 +1,10 @@
 package com.openmc.judicator.punish.hierarchy;
 
 import com.openmc.judicator.commons.db.Dialect;
+import com.openmc.judicator.commons.db.IdentitySql;
 import com.openmc.judicator.commons.db.RelationalDBManager;
 import com.openmc.judicator.commons.db.SqlTime;
+import com.openmc.judicator.players.PlayerRef;
 import org.slf4j.Logger;
 
 import java.sql.Connection;
@@ -45,6 +47,7 @@ public class PlayerLevelRelationalDAO implements PlayerLevelRepository {
             try (PreparedStatement statement = connection.prepareStatement(manager.sql(sql))) {
                 statement.execute();
             }
+            manager.ensureIndex(connection, "player_levels", "player_uuid");
         } catch (SQLException e) {
             logger.error(e.getMessage(), e);
         }
@@ -56,6 +59,15 @@ public class PlayerLevelRelationalDAO implements PlayerLevelRepository {
         final String uuidText = uuid == null ? null : uuid.toString();
         final Timestamp now = SqlTime.now();
         try (Connection connection = manager.getDataSource().getConnection()) {
+            if (uuidText != null) {
+                // the account joined under a new name: its row under the old one is not its level any more
+                try (PreparedStatement renamed = connection.prepareStatement(
+                        manager.sql("DELETE FROM {player_levels} WHERE player_uuid = ? AND lower_nickname <> ?"))) {
+                    renamed.setString(1, uuidText);
+                    renamed.setString(2, key);
+                    renamed.executeUpdate();
+                }
+            }
             if (update(connection, key, uuidText, level, now) > 0) return;
             try (PreparedStatement insert = connection.prepareStatement(
                     manager.sql("INSERT INTO {player_levels} (lower_nickname, player_uuid, level, updated_at) VALUES (?, ?, ?, ?)"))) {
@@ -86,10 +98,11 @@ public class PlayerLevelRelationalDAO implements PlayerLevelRepository {
     }
 
     @Override
-    public boolean delete(String nickname) {
+    public boolean delete(PlayerRef player) {
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement(manager.sql("DELETE FROM {player_levels} WHERE lower_nickname = ?"))) {
-            statement.setString(1, nickname.toLowerCase());
+             PreparedStatement statement = connection.prepareStatement(manager.sql("DELETE FROM {player_levels} WHERE "
+                     + IdentitySql.of(player, "player_uuid", "lower_nickname")))) {
+            IdentitySql.bind(statement, 1, player);
             return statement.executeUpdate() > 0;
         } catch (SQLException e) {
             logger.error(e.getMessage(), e);
@@ -98,11 +111,11 @@ public class PlayerLevelRelationalDAO implements PlayerLevelRepository {
     }
 
     @Override
-    public OptionalInt findLevel(String nickname) {
+    public OptionalInt findLevel(PlayerRef player) {
         try (Connection connection = manager.getDataSource().getConnection();
-             PreparedStatement statement = connection.prepareStatement(
-                     manager.sql("SELECT level FROM {player_levels} WHERE lower_nickname = ?"))) {
-            statement.setString(1, nickname.toLowerCase());
+             PreparedStatement statement = connection.prepareStatement(manager.sql("SELECT level FROM {player_levels} WHERE "
+                     + IdentitySql.of(player, "player_uuid", "lower_nickname") + " ORDER BY updated_at DESC"))) {
+            IdentitySql.bind(statement, 1, player);
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (resultSet.next()) return OptionalInt.of(resultSet.getInt("level"));
             }

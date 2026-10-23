@@ -1,7 +1,7 @@
 package com.openmc.judicator.features;
 
 import com.openmc.judicator.notes.Note;
-import com.openmc.judicator.punish.AccessAddress;
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.types.PunishType;
 import com.openmc.judicator.testing.FakePlayer;
@@ -130,10 +130,9 @@ class DataRetentionTest {
         assertTrue(server.punishments.findAllByUsername("Steve").isEmpty());
         assertTrue(server.warns.findAllByUsername("Steve").isEmpty());
         assertTrue(server.notes.all().isEmpty());
-        assertTrue(server.levels.findLevel("Steve").isEmpty());
-        final AccessAddress shared = server.addresses.findByIp("10.0.0.1").orElseThrow();
-        assertEquals(List.of("stevealt"), shared.getAccounts());
-        assertEquals(List.of("alex"), server.addresses.findByIp("10.0.0.2").orElseThrow().getAccounts());
+        assertTrue(server.levels.findLevel(PlayerRef.byName("Steve", null)).isEmpty());
+        assertEquals(List.of("stevealt"), server.addresses.accountsOn("10.0.0.1"));
+        assertEquals(List.of("alex"), server.addresses.accountsOn("10.0.0.2"));
         assertEquals(1, server.punishments.findAllByUsername("Alex").size());
         assertEquals(Outcome.ALLOWED, server.chat(back, "hi"), "the mute in force was lifted");
         assertTrue(server.console.received("Deleted the data of Steve"));
@@ -151,9 +150,9 @@ class DataRetentionTest {
         server.command(server.console, "judicator clear SteveAlt confirm");
 
         assertEquals(Outcome.ALLOWED, server.chat(bob, "free"), "the deleted IP mute no longer holds Bob");
-        assertEquals(List.of("bob"), server.addresses.findByIp("10.0.0.1").orElseThrow().getAccounts());
+        assertEquals(List.of("bob"), server.addresses.accountsOn("10.0.0.1"));
         server.command(server.console, "judicator clear Lonely confirm");
-        assertTrue(server.addresses.findByIp("10.0.0.3").isEmpty(), "no account left: the row goes");
+        assertTrue(server.addresses.accountsOn("10.0.0.3").isEmpty(), "no account left on the address");
     }
 
     @Test

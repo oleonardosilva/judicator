@@ -117,8 +117,8 @@ class AddressPolicyTest {
 
         server.command(server.console, "alts Steve");
 
-        assertTrue(server.console.received("stevealt"), server.console.messages().toString());
-        assertTrue(server.console.clicks().contains("/phistory stevealt"), server.console.clicks().toString());
+        assertTrue(server.console.received("SteveAlt"), server.console.messages().toString());
+        assertTrue(server.console.clicks().contains("/phistory SteveAlt"), server.console.clicks().toString());
     }
 
     @Test

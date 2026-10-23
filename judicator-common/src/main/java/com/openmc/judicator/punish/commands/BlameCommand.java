@@ -6,6 +6,7 @@ import com.openmc.judicator.commons.Pagination;
 import com.openmc.judicator.commons.command.CommandArgs;
 import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.platform.JudicatorSender;
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.types.PunishPermissions;
@@ -66,7 +67,8 @@ public class BlameCommand extends CoreCommand {
         final Map<String, String> placeholders = new HashMap<>(Map.of("staff", staff));
         if (period != null) placeholders.put("period", DateTimeOffsetParser.format(messages, periodMillis));
 
-        final int total = judicator.getPunishService().countByPunisher(staff, since);
+        final PlayerRef staffMember = judicator.getPlayerDirectory().resolveKnown(staff);
+        final int total = judicator.getPunishService().countByPunisher(staffMember, since);
         if (total == 0) {
             source.sendMessage(PunishUtils.format(messages, placeholders, "blame", period == null ? "none" : "none-since"));
             return;
@@ -74,7 +76,7 @@ public class BlameCommand extends CoreCommand {
 
         final int pages = Pagination.pages(total);
         final int page = Pagination.clamp(requested.getAsInt(), pages);
-        final List<Punishment> shown = judicator.getPunishService().findByPunisher(staff, since, Pagination.PAGE_SIZE, Pagination.offset(page));
+        final List<Punishment> shown = judicator.getPunishService().findByPunisher(staffMember, since, Pagination.PAGE_SIZE, Pagination.offset(page));
 
         placeholders.put("count", String.valueOf(total));
         placeholders.put("page", String.valueOf(page));

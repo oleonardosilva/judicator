@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
@@ -21,6 +22,8 @@ public interface Platform {
     boolean isOnlineMode();
 
     Optional<JudicatorPlayer> getPlayer(String username);
+
+    Optional<JudicatorPlayer> getPlayer(UUID uuid);
 
     Collection<? extends JudicatorPlayer> getOnlinePlayers();
 

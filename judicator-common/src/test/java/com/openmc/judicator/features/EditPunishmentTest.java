@@ -68,7 +68,7 @@ class EditPunishmentTest {
         steve.clearMessages();
         server.chat(steve, "hi");
 
-        final String end = server.judicator.getPunishCache().getPunishment("Steve").orElseThrow().getFinishAt().orElseThrow().toString();
+        final String end = server.judicator.getPunishCache().getPunishment(steve.getUniqueId().toString()).orElseThrow().getFinishAt().orElseThrow().toString();
         assertEquals(only("Steve").getFinishAt().orElseThrow().toString(), end);
     }
 

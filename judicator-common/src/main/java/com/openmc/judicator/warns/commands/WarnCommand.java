@@ -72,9 +72,7 @@ public class WarnCommand extends CoreCommand {
             }
         }
 
-        judicator.getPlatform().getPlayer(targetName).ifPresentOrElse(
-                builder::target, () -> builder.target(targetName, judicator.getUuidManager().getUUID(targetName))
-        );
+        builder.target(judicator.getPlayerDirectory().resolve(targetName));
 
         source.asPlayer().ifPresent(builder::punisher);
         if (!judicator.getPunishCooldown().acquire(source, PunishCooldown.WARN, targetName)) return;

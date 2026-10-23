@@ -4,13 +4,15 @@ import com.openmc.judicator.commons.db.LegacyTables;
 import com.openmc.judicator.commons.db.RelationalDBManager;
 import com.openmc.judicator.notes.Note;
 import com.openmc.judicator.notes.repository.dao.NoteRelationalDAO;
-import com.openmc.judicator.punish.AccessAddress;
+import com.openmc.judicator.players.PlayerRef;
+import com.openmc.judicator.punish.PlayerAddress;
 import com.openmc.judicator.punish.Punishment;
-import com.openmc.judicator.punish.data.repository.dao.AccessAddressRelationalDAO;
+import com.openmc.judicator.punish.data.repository.dao.PlayerAddressRelationalDAO;
 import com.openmc.judicator.punish.data.repository.dao.PunishmentRelationalDAO;
 import com.openmc.judicator.punish.hierarchy.PlayerLevelRelationalDAO;
 import com.openmc.judicator.punish.types.PunishType;
 import com.openmc.judicator.sync.repository.dao.SyncRelationalDAO;
+import com.openmc.judicator.testing.Version1Addresses;
 import com.openmc.judicator.warns.Warn;
 import com.openmc.judicator.warns.repository.dao.WarnRelationalDAO;
 import org.junit.jupiter.api.AfterEach;
@@ -75,37 +77,36 @@ class LegacyTablesTest {
         final NoteRelationalDAO notes = new NoteRelationalDAO(v1, LOGGER);
         final PlayerLevelRelationalDAO levels = new PlayerLevelRelationalDAO(v1, LOGGER);
         final SyncRelationalDAO sync = new SyncRelationalDAO(v1, LOGGER);
-        final AccessAddressRelationalDAO addresses = new AccessAddressRelationalDAO(v1, LOGGER);
         punishments.initialize();
         warns.initialize();
         notes.initialize();
         levels.initialize();
         sync.initialize();
-        addresses.initialize();
         punishments.save(Punishment.create(steve, "x-ray", "Mod", "Steve", null, start, null, List.of(), PunishType.BAN));
         warns.save(Warn.create(steve, "caps", "Mod", "Steve", start, null));
         notes.save(new Note(null, steve, "Steve", "Mod", "watch him", start));
         levels.saveLevel("Steve", steve, 5);
         sync.insert("server-a", "PUNISHED", 1);
-        addresses.save(new AccessAddress(null, "10.0.0.1", List.of("steve"), start));
+        Version1Addresses.add(v1, "10.0.0.1", "steve", start);
         v1.shutdown();
     }
 
     private Daos daosOf(RelationalDBManager manager) {
         final Daos daos = new Daos(new PunishmentRelationalDAO(manager, LOGGER), new WarnRelationalDAO(manager, LOGGER),
                 new NoteRelationalDAO(manager, LOGGER), new PlayerLevelRelationalDAO(manager, LOGGER),
-                new SyncRelationalDAO(manager, LOGGER), new AccessAddressRelationalDAO(manager, LOGGER));
+                new SyncRelationalDAO(manager, LOGGER), new PlayerAddressRelationalDAO(manager, LOGGER));
         daos.punishments.initialize();
         daos.warns.initialize();
         daos.notes.initialize();
         daos.levels.initialize();
         daos.sync.initialize();
         daos.addresses.initialize();
+        daos.addresses.migrateLegacy(name -> null);
         return daos;
     }
 
     private record Daos(PunishmentRelationalDAO punishments, WarnRelationalDAO warns, NoteRelationalDAO notes,
-                        PlayerLevelRelationalDAO levels, SyncRelationalDAO sync, AccessAddressRelationalDAO addresses) {
+                        PlayerLevelRelationalDAO levels, SyncRelationalDAO sync, PlayerAddressRelationalDAO addresses) {
     }
 
     /**
@@ -132,10 +133,10 @@ class LegacyTablesTest {
     private void assertVersion1DataIsThere(Daos daos) {
         assertEquals("x-ray", daos.punishments.findAllByUsername("steve").get(0).getReason().orElseThrow());
         assertEquals("caps", daos.warns.findAllByUsername("steve").get(0).getReason());
-        assertEquals(1, daos.notes.countByUsername("steve"));
-        assertEquals(5, daos.levels.findLevel("steve").orElseThrow());
+        assertEquals(1, daos.notes.countOf(PlayerRef.byName("steve", null)));
+        assertEquals(5, daos.levels.findLevel(PlayerRef.byName("steve", null)).orElseThrow());
         assertEquals(1, daos.sync.maxId().orElseThrow());
-        assertTrue(daos.addresses.findByIp("10.0.0.1").orElseThrow().contains("steve"));
+        assertEquals(List.of("steve"), daos.addresses.findByAddress("10.0.0.1").stream().map(PlayerAddress::nickname).toList());
     }
 
     @Test
@@ -147,9 +148,12 @@ class LegacyTablesTest {
         assertVersion1DataIsThere(daos);
         final List<String> tables = names(opened.get(opened.size() - 1), "table");
         for (String table : TABLES) {
-            assertTrue(tables.contains("judicator_" + table), tables.toString());
+            // 2.0 copies the IP history into player_addresses and keeps the old table as a backup
+            final String expected = table.equals("access_addresses") ? "judicator_access_addresses_old" : "judicator_" + table;
+            assertTrue(tables.contains(expected), tables.toString());
             assertFalse(tables.contains(table), tables.toString());
         }
+        assertTrue(tables.contains("judicator_player_addresses"), tables.toString());
     }
 
     @Test
@@ -160,7 +164,8 @@ class LegacyTablesTest {
 
         final List<String> indexes = names(opened.get(opened.size() - 1), "index");
         assertTrue(indexes.contains("idx_judicator_punishments_player_uuid"), indexes.toString());
-        assertTrue(indexes.contains("idx_judicator_access_addresses_host_address"), indexes.toString());
+        assertTrue(indexes.contains("idx_judicator_player_addresses_host_address"), indexes.toString());
+        assertFalse(indexes.contains("idx_access_addresses_host_address"), indexes.toString());
         assertFalse(indexes.contains("idx_punishments_player_uuid"), indexes.toString());
         assertFalse(indexes.contains("idx_notes_lower_nickname"), indexes.toString());
     }
@@ -175,6 +180,26 @@ class LegacyTablesTest {
 
         assertEquals(2, daos.punishments.findAllByUsername("steve").size());
         assertVersion1DataIsThere(daos);
+    }
+
+    @Test
+    void aCopyLeftHalfDone_isFinishedOnTheNextStart() throws SQLException {
+        writeVersion1Database();
+        final RelationalDBManager manager = open(null);
+        LegacyTables.migrate(manager, LOGGER);
+        // a start that claimed the IP history of 1.x and stopped before copying it
+        try (Connection connection = manager.getDataSource().getConnection(); Statement statement = connection.createStatement()) {
+            statement.executeUpdate("ALTER TABLE judicator_access_addresses RENAME TO judicator_access_addresses_migrating");
+        }
+
+        final Daos daos = daosOf(manager);
+
+        assertEquals(List.of("steve"), daos.addresses.findByAddress("10.0.0.1").stream().map(PlayerAddress::nickname).toList());
+        final List<String> tables = names(manager, "table");
+        assertTrue(tables.contains("judicator_access_addresses_old"), tables.toString());
+        assertFalse(tables.contains("judicator_access_addresses_migrating"), tables.toString());
+        daos.addresses.migrateLegacy(name -> null);
+        assertEquals(1, daos.addresses.findByAddress("10.0.0.1").size(), "copied once");
     }
 
     @Test

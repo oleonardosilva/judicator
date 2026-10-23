@@ -3,13 +3,15 @@ package com.openmc.judicator.punish.handlers;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.Platform;
+import com.openmc.judicator.punish.PunishService;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 /**
@@ -50,7 +52,7 @@ public class PunishmentEffects {
             if (!proxyMode && !punishment.isSoft()) {
                 player.sendMessage(PunishUtils.getMessageList(judicator.messagesFor(player), punishment, "runners", "mute-alert"));
             }
-            judicator.getPunishCache().putMutePunishment(player.getName().toLowerCase(), punishment);
+            judicator.getPunishCache().putMutePunishment(PunishService.cacheKey(player), punishment);
         }));
         if (proxyMode) return;
         judicator.getStaffNotifier().notifyPunishment(punishment);
@@ -60,7 +62,7 @@ public class PunishmentEffects {
     private void announce(Punishment punishment, String key) {
         if (!PunishUtils.announces(judicator.getConfig(), key)) return;
         final Platform platform = judicator.getPlatform();
-        platform.getPlayer(punishment.getNickname()).ifPresent(player -> platform.announceToServerOf(player,
+        target(platform, punishment).ifPresent(player -> platform.announceToServerOf(player,
                 recipient -> PunishUtils.getMessageList(judicator.messagesFor(recipient), punishment, "announcements", key)));
     }
 
@@ -70,20 +72,34 @@ public class PunishmentEffects {
      */
     public void pardoned(Collection<Punishment> revoked) {
         if (judicator.isProxyMode()) return;
-        final Map<String, Boolean> noticed = new LinkedHashMap<>();
-        revoked.forEach(punishment -> noticed.merge(punishment.getNickname().toLowerCase(Locale.ROOT), !punishment.isSoft(), Boolean::logicalOr));
-        noticed.forEach((nickname, tell) -> {
+        final Map<UUID, Boolean> noticed = new LinkedHashMap<>();
+        final Map<UUID, JudicatorPlayer> players = new LinkedHashMap<>();
+        revoked.forEach(punishment -> target(judicator.getPlatform(), punishment).ifPresent(player -> {
+            players.putIfAbsent(player.getUniqueId(), player);
+            noticed.merge(player.getUniqueId(), !punishment.isSoft(), Boolean::logicalOr);
+        }));
+        noticed.forEach((uuid, tell) -> {
             if (!tell) return;
-            judicator.getPlatform().getPlayer(nickname).ifPresent(player ->
-                    player.sendMessage(PunishUtils.getMessage(judicator.messagesFor(player), "success", "got-pardon")));
+            final JudicatorPlayer player = players.get(uuid);
+            player.sendMessage(PunishUtils.getMessage(judicator.messagesFor(player), "success", "got-pardon"));
         });
     }
 
-    static Stream<? extends JudicatorPlayer> affectedPlayers(Platform platform, Punishment punishment) {
+    Stream<? extends JudicatorPlayer> affectedPlayers(Platform platform, Punishment punishment) {
         return punishment.getIpAddress()
                 .<Stream<? extends JudicatorPlayer>>map(ip -> platform.getOnlinePlayers().stream()
                         .filter(player -> player.getHostAddress().equals(ip)))
-                .orElseGet(() -> platform.getPlayer(punishment.getNickname()).stream());
+                .orElseGet(() -> target(platform, punishment).stream());
+    }
+
+    /**
+     * The player online here the punishment was applied to: by UUID, or by name for one stored without a UUID (and in
+     * offline mode, where the name is the identity).
+     */
+    private Optional<JudicatorPlayer> target(Platform platform, Punishment punishment) {
+        final Optional<UUID> uuid = punishment.getPlayerUUID().filter(ignored -> judicator.trustsUuids());
+        if (uuid.isPresent()) return platform.getPlayer(uuid.get());
+        return platform.getPlayer(punishment.getNickname());
     }
 
 }

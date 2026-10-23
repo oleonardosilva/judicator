@@ -3,6 +3,8 @@ package com.openmc.judicator.commons;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.platform.JudicatorSender;
 import com.openmc.judicator.platform.PlatformTask;
+import com.openmc.judicator.players.PlayerRef;
+import com.openmc.judicator.punish.PunishService;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.types.PunishStatus;
 import com.openmc.judicator.sync.SyncKind;
@@ -12,13 +14,11 @@ import org.spongepowered.configurate.ConfigurationNode;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 
 /**
  * Personal data kept no longer than needed (IP addresses and histories are personal data):
@@ -85,18 +85,18 @@ public class DataRetentionService {
 
     /**
      * Without {@code confirm}, tells what is stored about the player; with it, deletes all of it: punishments
-     * (those in force are lifted), warns, staff notes, the name in the IP addresses it used and the staff level.
+     * (those in force are lifted), warns, staff notes, the IP addresses it used, the staff level and the account's name
+     * in the {@code players} table.
      */
     public void clear(JudicatorSender sender, String username, boolean confirm) {
-        final UUID uuid = judicator.getUuidManager().getUUID(username);
-        final List<Punishment> punishments = ofPlayer(repositories.punishments().findAllByUsername(username),
-                uuid == null ? List.of() : repositories.punishments().findAllByUUID(uuid), Punishment::getId);
-        final List<Warn> warns = ofPlayer(repositories.warns().findAllByUsername(username),
-                uuid == null ? List.of() : repositories.warns().findAllByUUID(uuid), Warn::getId);
+        final PlayerRef player = judicator.getPlayerDirectory().resolve(username);
+        final UUID uuid = player.uuid();
+        final List<Punishment> punishments = repositories.punishments().findAllOf(player);
+        final List<Warn> warns = repositories.warns().findAllOf(player);
         final long inForce = punishments.stream().filter(p -> p.getStatus() == PunishStatus.ACTIVE).count();
-        final int notes = repositories.notes().countAllOf(username, uuid);
-        final int addresses = repositories.addresses().findAllByUsername(username).size();
-        final boolean level = repositories.levels().findLevel(username).isPresent();
+        final int notes = repositories.notes().countOf(player);
+        final int addresses = judicator.getAddressService().countAddresses(player);
+        final boolean level = repositories.levels().findLevel(player).isPresent();
         final String summary = punishments.size() + " punishment(s) (" + inForce + " in force), " + warns.size() + " warn(s), "
                 + notes + " staff note(s), " + addresses + " IP address record(s)" + (level ? ", a staff level" : "");
 
@@ -107,27 +107,18 @@ public class DataRetentionService {
             return;
         }
 
-        repositories.punishments().deleteAllOf(username, uuid);
-        repositories.warns().deleteAllOf(username, uuid);
-        repositories.notes().deleteAllOf(username, uuid);
-        judicator.getAddressService().removeAccount(username);
-        repositories.levels().delete(username);
+        repositories.punishments().deleteAllOf(player);
+        repositories.warns().deleteAllOf(player);
+        repositories.notes().deleteAllOf(player);
+        judicator.getAddressService().removeAccount(player);
+        repositories.levels().delete(player);
+        judicator.getPlayerDirectory().forget(player);
         punishments.forEach(punishment -> judicator.getPunishCache().forgetMute(punishment.getId()));
         punishments.stream().filter(punishment -> punishment.getStatus() == PunishStatus.ACTIVE)
                 .forEach(punishment -> judicator.getSyncService().publish(SyncKind.DELETED, punishment.getId()));
-        judicator.getPunishCache().removeMutePunishment(username);
+        judicator.getPunishCache().removeMutePunishment(PunishService.cacheKey(player));
         judicator.getLogger().info("{} deleted the data of {}: {}", sender.getName(), username, summary);
         send(sender, "§aDeleted the data of " + username + ": " + summary + ".");
-    }
-
-    /**
-     * The records found by name and by UUID, each once.
-     */
-    private static <T> List<T> ofPlayer(List<T> byName, List<T> byUuid, Function<T, Long> id) {
-        final Map<Long, T> all = new LinkedHashMap<>();
-        byName.forEach(record -> all.put(id.apply(record), record));
-        byUuid.forEach(record -> all.putIfAbsent(id.apply(record), record));
-        return List.copyOf(all.values());
     }
 
     private static void send(JudicatorSender sender, String message) {

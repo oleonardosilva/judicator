@@ -133,7 +133,7 @@ class SoftAndOnlineOnlyMuteTest {
         final long left = Duration.between(LocalDateTime.now(), running.getFinishAt().orElseThrow()).toMillis();
         assertTrue(left > 0 && left <= paused.getPausedRemaining() + 1000, String.valueOf(left));
         assertEquals(Outcome.BLOCKED_MUTED, server.chat(back, "hi"));
-        final LocalDateTime cachedEnd = server.judicator.getPunishCache().getPunishment("Steve").orElseThrow().getFinishAt()
+        final LocalDateTime cachedEnd = server.judicator.getPunishCache().getPunishment(back.getUniqueId().toString()).orElseThrow().getFinishAt()
                 .orElseThrow(() -> new AssertionError("the cached mute must have its new end"));
         assertTrue(Math.abs(Duration.between(running.getFinishAt().orElseThrow(), cachedEnd).toMillis()) < 1000,
                 "the cached mute ends when the stored one does: " + cachedEnd);
@@ -163,9 +163,9 @@ class SoftAndOnlineOnlyMuteTest {
         final long longId = server.punishments.findAllByUsername("Steve").stream()
                 .filter(p -> !p.isOnlineOnly()).findFirst().orElseThrow().getId();
 
-        server.online(new FakePlayer("Steve", "10.0.0.1"));
+        final FakePlayer steve = server.online(new FakePlayer("Steve", "10.0.0.1"));
 
-        assertEquals(longId, server.judicator.getPunishCache().getPunishment("Steve").orElseThrow().getId(),
+        assertEquals(longId, server.judicator.getPunishCache().getPunishment(steve.getUniqueId().toString()).orElseThrow().getId(),
                 "a paused mute is not permanent: the 30-day one is the one that holds");
     }
 
@@ -200,8 +200,10 @@ class SoftAndOnlineOnlyMuteTest {
         server.command(server.console, "tempmute Steve 1:h -o spam");
 
         // authenticated, but the server is full / whitelisted: the player never joins
+        final FakePlayer steve = new FakePlayer("Steve", "10.0.0.1");
         server.judicator.getConnectionHandler().checkPreLogin("Steve", "10.0.0.1");
-        server.judicator.getConnectionHandler().onLoginAllowed("Steve", "10.0.0.1");
+        server.judicator.getConnectionHandler().checkLogin(steve.getUniqueId(), "Steve", "10.0.0.1");
+        server.judicator.getConnectionHandler().onLoginAllowed(steve.getUniqueId(), "Steve", "10.0.0.1");
 
         assertTrue(only("Steve").isPaused());
     }

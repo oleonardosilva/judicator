@@ -69,8 +69,8 @@ public class AddressPolicy {
     }
 
     /**
-     * Account limits for a player about to join. Nothing is recorded here: on Velocity this runs before the player is
-     * authenticated, so a name that never logs in must not count (see {@link #recordLogin}).
+     * Account limits for a player about to join (after authentication, before the login is allowed). Nothing is
+     * recorded here: a login refused later (whitelist, full server) must not count (see {@link #recordLogin}).
      *
      * @return the disconnect message when the address already has too many accounts
      */

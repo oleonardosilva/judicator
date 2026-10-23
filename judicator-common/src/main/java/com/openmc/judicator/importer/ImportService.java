@@ -5,9 +5,9 @@ import com.openmc.judicator.notes.Note;
 import com.openmc.judicator.notes.repository.NoteRepository;
 import com.openmc.judicator.notes.repository.dao.NoteRelationalDAO;
 import com.openmc.judicator.platform.JudicatorSender;
-import com.openmc.judicator.punish.AccessAddress;
+import com.openmc.judicator.punish.PlayerAddress;
 import com.openmc.judicator.punish.Punishment;
-import com.openmc.judicator.punish.data.repository.AccessAddressRepository;
+import com.openmc.judicator.punish.data.repository.PlayerAddressRepository;
 import com.openmc.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.judicator.punish.data.repository.dao.PunishmentRelationalDAO;
 import com.openmc.judicator.warns.Warn;
@@ -40,13 +40,13 @@ public class ImportService {
     private final Judicator judicator;
     private final PunishmentRepository punishments;
     private final WarnRepository warns;
-    private final AccessAddressRepository addresses;
+    private final PlayerAddressRepository addresses;
     private final NoteRepository notes;
     private final Map<String, ImportSource> sources;
     private final AtomicBoolean running = new AtomicBoolean();
 
     public ImportService(Judicator judicator, PunishmentRepository punishments, WarnRepository warns,
-                         AccessAddressRepository addresses, NoteRepository notes) {
+                         PlayerAddressRepository addresses, NoteRepository notes) {
         this.judicator = judicator;
         this.punishments = punishments;
         this.warns = warns;
@@ -120,17 +120,17 @@ public class ImportService {
         send(sender, "§e" + source.name() + ": §f" + newPunishments.size() + "§e punishments and §f" + newWarns.size()
                 + "§e warns to import" + (result.getNotes().isEmpty() ? "" : ", §f" + newNotes.size() + "§e staff notes")
                 + ", §f" + duplicates + "§e already in Judicator.");
-        final List<AccessAddress> addressChanges = new ArrayList<>();
+        final List<PlayerAddress> addressChanges = new ArrayList<>();
         int newAddresses = 0;
-        for (AccessAddress address : result.getAddresses()) {
-            final Optional<AccessAddress> merged = merge(address);
-            if (merged.isEmpty()) continue;
-            if (merged.get().getId() == null) newAddresses++;
-            addressChanges.add(merged.get());
+        for (PlayerAddress address : result.getAddresses()) {
+            final Optional<PlayerAddress> stored = addresses.findSame(address);
+            if (stored.isPresent() && !address.lastUsage().isAfter(stored.get().lastUsage())) continue;
+            if (stored.isEmpty()) newAddresses++;
+            addressChanges.add(address);
         }
         if (!result.getAddresses().isEmpty()) {
-            send(sender, "§e  IP addresses (for /alts): §f" + newAddresses + "§e new, §f" + (addressChanges.size() - newAddresses)
-                    + "§e to merge with accounts already known, §f" + (result.getAddresses().size() - addressChanges.size())
+            send(sender, "§e  IP addresses (for /alts, per account): §f" + newAddresses + "§e new, §f" + (addressChanges.size() - newAddresses)
+                    + "§e used more recently in the source, §f" + (result.getAddresses().size() - addressChanges.size())
                     + "§e already up to date.");
         }
         result.getSkipped().forEach((reason, count) -> send(sender, "§7  skipped " + count + ": " + reason));
@@ -163,30 +163,8 @@ public class ImportService {
         send(sender, "§aImported " + written + " punishments"
                 + (writtenNotes == 0 ? " and " + writtenWarns + " warns" : ", " + writtenWarns + " warns and " + writtenNotes + " staff notes")
                 + " from " + source.name()
-                + (addressChanges.isEmpty() ? "" : " and updated " + addressChanges.size() + " IP addresses")
+                + (addressChanges.isEmpty() ? "" : " and updated " + addressChanges.size() + " IP address records")
                 + ". Online players pick up imported mutes when they rejoin.");
-    }
-
-    /**
-     * @return the address as it must be stored (new, or the stored one with the source's accounts and newer last use
-     * added), or empty when the stored one already has everything
-     */
-    private Optional<AccessAddress> merge(AccessAddress incoming) {
-        final Optional<AccessAddress> stored = addresses.findByIp(incoming.getHostAddress());
-        if (stored.isEmpty()) return Optional.of(incoming);
-        final AccessAddress address = stored.get();
-        boolean changed = false;
-        for (String account : incoming.getAccounts()) {
-            if (!address.contains(account)) {
-                address.addAccount(account);
-                changed = true;
-            }
-        }
-        if (incoming.getLastUsage().isAfter(address.getLastUsage())) {
-            address.setLastUsage(incoming.getLastUsage());
-            changed = true;
-        }
-        return changed ? Optional.of(address) : Optional.empty();
     }
 
     private static void send(JudicatorSender sender, String message) {

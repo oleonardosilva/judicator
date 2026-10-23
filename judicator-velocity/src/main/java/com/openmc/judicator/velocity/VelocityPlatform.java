@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
@@ -54,6 +55,11 @@ public class VelocityPlatform implements Platform {
     @Override
     public Optional<JudicatorPlayer> getPlayer(String username) {
         return server.getPlayer(username).map(VelocityPlayer::new);
+    }
+
+    @Override
+    public Optional<JudicatorPlayer> getPlayer(UUID uuid) {
+        return server.getPlayer(uuid).map(VelocityPlayer::new);
     }
 
     @Override

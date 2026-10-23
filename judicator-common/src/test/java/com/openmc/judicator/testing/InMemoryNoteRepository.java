@@ -3,6 +3,7 @@ package com.openmc.judicator.testing;
 import com.openmc.judicator.notes.Note;
 import com.openmc.judicator.notes.repository.NoteRepository;
 import com.openmc.judicator.notes.repository.dao.NoteRelationalDAO;
+import com.openmc.judicator.players.PlayerRef;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -14,7 +15,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.UUID;
 import java.util.function.Predicate;
 
 /**
@@ -48,31 +48,38 @@ public final class InMemoryNoteRepository implements NoteRepository {
     }
 
     @Override
-    public int countByUsername(String username) {
-        return find(n -> n.getNickname().equalsIgnoreCase(username)).size();
+    public int countOf(PlayerRef player) {
+        return find(of(player)).size();
     }
 
     @Override
-    public List<Note> findByUsername(String username, int limit, int offset) {
-        return find(n -> n.getNickname().equalsIgnoreCase(username)).stream()
+    public List<Note> findOf(PlayerRef player, int limit, int offset) {
+        return find(of(player)).stream()
                 .sorted(Comparator.comparing(Note::getCreatedAt).thenComparing(Note::getId).reversed())
                 .skip(offset).limit(limit).toList();
     }
 
     @Override
-    public int countAllOf(String username, UUID uuid) {
-        return find(of(username, uuid)).size();
-    }
-
-    @Override
-    public synchronized int deleteAllOf(String username, UUID uuid) {
+    public synchronized int deleteAllOf(PlayerRef player) {
         final int before = rows.size();
-        rows.values().removeIf(of(username, uuid));
+        rows.values().removeIf(of(player));
         return before - rows.size();
     }
 
-    private static Predicate<Note> of(String username, UUID uuid) {
-        return n -> n.getNickname().equalsIgnoreCase(username) || (uuid != null && n.getPlayerUUID().map(uuid::equals).orElse(false));
+    @Override
+    public synchronized int fillUuid(PlayerRef account) {
+        int changed = 0;
+        for (Note row : rows.values()) {
+            if (row.getPlayerUUID().isEmpty() && row.getNickname().equalsIgnoreCase(account.name())) {
+                row.setPlayerUUID(account.uuid());
+                changed++;
+            }
+        }
+        return changed;
+    }
+
+    private static Predicate<Note> of(PlayerRef player) {
+        return n -> player.matches(n.getPlayerUUID().orElse(null), n.getNickname());
     }
 
     @Override
@@ -122,7 +129,9 @@ public final class InMemoryNoteRepository implements NoteRepository {
     }
 
     private static Note copy(Note n) {
-        return new Note(n.getId(), n.getPlayerUUID().orElse(null), n.getNickname(), n.getAuthor(), n.getContent(), trim(n.getCreatedAt()));
+        final Note row = new Note(n.getId(), n.getPlayerUUID().orElse(null), n.getNickname(), n.getAuthor(), n.getContent(), trim(n.getCreatedAt()));
+        row.setAuthorUuid(n.getAuthorUuid().orElse(null));
+        return row;
     }
 
     private static LocalDateTime trim(LocalDateTime time) {

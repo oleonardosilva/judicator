@@ -4,6 +4,7 @@ import com.openmc.judicator.Judicator;
 import com.openmc.judicator.commons.command.CommandArgs;
 import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.platform.JudicatorSender;
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.types.PunishPermissions;
 import net.kyori.adventure.text.Component;
@@ -15,7 +16,6 @@ import org.spongepowered.configurate.ConfigurationNode;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 public class AltsCommand extends CoreCommand {
 
@@ -33,7 +33,8 @@ public class AltsCommand extends CoreCommand {
         final String targetName = optTarget.get();
         final ConfigurationNode messages = messages(source);
 
-        final Set<String> alts = judicator.getAddressService().findAlts(targetName, judicator.getAddressPolicy()::isExempt);
+        final List<PlayerRef> alts = judicator.getAddressService().findAlts(judicator.getPlayerDirectory().resolve(targetName),
+                judicator.getAddressPolicy()::isExempt);
         if (alts.isEmpty()) {
             source.sendMessage(PunishUtils.format(messages, Map.of("nickname", targetName), "alts", "none"));
             return;
@@ -41,8 +42,9 @@ public class AltsCommand extends CoreCommand {
 
         final TextComponent.Builder text = Component.text()
                 .append(PunishUtils.format(messages, Map.of("nickname", targetName), "alts", "title"));
-        for (String alt : alts) {
-            final String status = messages.node("alts", "status", judicator.getPunishService().statusOf(alt))
+        for (PlayerRef account : alts) {
+            final String alt = account.name();
+            final String status = messages.node("alts", "status", judicator.getPunishService().statusOf(account))
                     .getString("").replace("&", "§");
             text.append(Component.text("\n"))
                     .append(PunishUtils.format(messages, Map.of("account", alt, "status", status), "alts", "line")

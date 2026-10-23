@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
@@ -86,6 +87,12 @@ public final class FakePlatform implements Platform {
     @Override
     public Optional<JudicatorPlayer> getPlayer(String username) {
         return Optional.ofNullable(players.get(username.toLowerCase(Locale.ROOT)));
+    }
+
+    @Override
+    public Optional<JudicatorPlayer> getPlayer(UUID uuid) {
+        return players.values().stream().filter(player -> player.getUniqueId().equals(uuid))
+                .<JudicatorPlayer>map(player -> player).findFirst();
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.openmc.judicator.punish.data.repository;
 
 import com.openmc.judicator.commons.db.Repository;
+import com.openmc.judicator.players.PlayerRef;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.types.PunishType;
 
@@ -13,20 +14,49 @@ import java.util.UUID;
 
 public interface PunishmentRepository extends Repository<Punishment, Long> {
 
+    /**
+     * Punishments stored under this name (any letter case), whatever their UUID. To find a player's punishments use
+     * {@link #findAllOf}.
+     */
     List<Punishment> findAllByUsername(String username);
 
+    /**
+     * {@link #findAllByUsername} limited to those in force.
+     */
     List<Punishment> findAllActiveByUsernameAndTypes(String username, PunishType... types);
 
-    List<Punishment> findAllActiveByUsernameOrIpAndTypes(String username, String ipAddress, PunishType... types);
-
+    /**
+     * Punishments stored with this UUID.
+     */
     List<Punishment> findAllByUUID(UUID uuid);
 
     /**
-     * Punishments of these types in force for any of these player names (case-insensitive), in one query.
+     * Every punishment of a player ({@link PlayerRef#matches}), oldest first as stored.
      */
-    List<Punishment> findAllActiveByUsernamesAndTypes(Collection<String> usernames, PunishType... types);
+    List<Punishment> findAllOf(PlayerRef player);
 
-    List<Punishment> findAllActiveByUUIDAndTypes(UUID uuid, PunishType... types);
+    /**
+     * Punishments of these types in force for a player, IP punishments included when the player was the account named.
+     */
+    List<Punishment> findAllActiveOf(PlayerRef player, PunishType... types);
+
+    /**
+     * IP punishments of these types in force on an address.
+     */
+    List<Punishment> findAllActiveOfAddress(String ipAddress, PunishType... types);
+
+    /**
+     * Punishments of these types in force for any of these players, in a bounded number of queries.
+     */
+    List<Punishment> findAllActiveOfAny(Collection<PlayerRef> players, PunishType... types);
+
+    /**
+     * Gives the account's UUID to the punishments stored under its name without a UUID (applied to a name nobody had
+     * seen): from now on they follow the account.
+     *
+     * @return how many were changed
+     */
+    int fillUuid(PlayerRef account);
 
     boolean revoke(Long id, String reason);
 
@@ -62,35 +92,36 @@ public interface PunishmentRepository extends Repository<Punishment, Long> {
     int deleteFinishedBefore(LocalDateTime cutoff);
 
     /**
-     * Deletes every punishment of a player: by name and, when known, by UUID (older names of the same account).
+     * Deletes every punishment of a player ({@link PlayerRef#matches}).
      *
      * @return how many were deleted
      */
-    int deleteAllOf(String username, UUID uuid);
+    int deleteAllOf(PlayerRef player);
 
     /**
-     * How many punishments a staff member applied (the {@code punisher} name, case-insensitive).
+     * How many punishments a staff member applied: by {@code punisher_uuid}, and by the {@code punisher} name
+     * (case-insensitive) for those stored without it (the console, plugins, records older than 2.0).
      */
-    default int countByPunisher(String punisher) {
-        return countByPunisher(punisher, null);
+    default int countByPunisher(PlayerRef staff) {
+        return countByPunisher(staff, null);
     }
 
     /**
      * @param since only punishments started at or after this moment; null for all
      */
-    int countByPunisher(String punisher, LocalDateTime since);
+    int countByPunisher(PlayerRef staff, LocalDateTime since);
 
     /**
      * One page of the punishments applied by a staff member, newest first.
      */
-    default List<Punishment> findByPunisher(String punisher, int limit, int offset) {
-        return findByPunisher(punisher, null, limit, offset);
+    default List<Punishment> findByPunisher(PlayerRef staff, int limit, int offset) {
+        return findByPunisher(staff, null, limit, offset);
     }
 
     /**
      * @param since only punishments started at or after this moment; null for all
      */
-    List<Punishment> findByPunisher(String punisher, LocalDateTime since, int limit, int offset);
+    List<Punishment> findByPunisher(PlayerRef staff, LocalDateTime since, int limit, int offset);
 
     /**
      * How many punishments of these types are in force (not revoked, not over).
@@ -103,8 +134,8 @@ public interface PunishmentRepository extends Repository<Punishment, Long> {
     List<Punishment> findActiveByTypes(int limit, int offset, PunishType... types);
 
     /**
-     * How many punishments each staff member applied since a moment, per type ({@code punisher} compared
-     * case-insensitively).
+     * How many punishments each staff member applied since a moment, per type (one staff member: the same
+     * {@code punisher_uuid}, or the same {@code punisher} name case-insensitively when it has none).
      */
     List<StaffCount> countByStaffSince(LocalDateTime since);
 

@@ -23,9 +23,12 @@ import java.util.concurrent.CompletableFuture;
  * only on an unexpected error; refusals are an {@link ActionStatus}.
  *
  * <h2>Lookups</h2>
- * Players are matched by the account a punishment was recorded for: by name (any letter case) or by the UUID stored
- * with it. An IP punishment applied to another account on the same address is not found through this player; a
- * punishment stored without a UUID (a player who never joined and could not be looked up) is found only by name.
+ * Players are matched by their account: a UUID finds the punishments stored with it, and a name is first turned into
+ * the account it means (the player online with it, the account that joined last with it, or the Mojang API's in online
+ * mode), so a name change keeps a player's history and the next owner of a name gets nothing. A punishment stored
+ * without a UUID (applied to a name nobody had seen) belongs to that name until an account joins with it. In offline
+ * mode the name is the player. An IP punishment applied to another account on the same address is not found through
+ * this player.
  *
  * <h2>Applying and revoking</h2>
  * Actions go through the same path as the commands: the punishment is stored, cached, synced to the other servers

@@ -3,9 +3,12 @@ package com.openmc.judicator.database;
 import com.openmc.judicator.notes.Note;
 import com.openmc.judicator.notes.repository.NoteRepository;
 import com.openmc.judicator.notes.repository.dao.NoteRelationalDAO;
-import com.openmc.judicator.punish.AccessAddress;
+import com.openmc.judicator.players.KnownPlayer;
+import com.openmc.judicator.players.PlayerRef;
+import com.openmc.judicator.players.repository.PlayerRepository;
+import com.openmc.judicator.punish.PlayerAddress;
 import com.openmc.judicator.punish.Punishment;
-import com.openmc.judicator.punish.data.repository.AccessAddressRepository;
+import com.openmc.judicator.punish.data.repository.PlayerAddressRepository;
 import com.openmc.judicator.punish.data.repository.PunishmentRepository;
 import com.openmc.judicator.punish.data.repository.dao.PunishmentRelationalDAO;
 import com.openmc.judicator.punish.hierarchy.PlayerLevelRepository;
@@ -41,10 +44,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 abstract class RepositoryContract {
 
     /**
-     * The four repositories of one fresh, empty store.
+     * The repositories of one fresh, empty store.
      */
-    protected record Store(PunishmentRepository punishments, WarnRepository warns, AccessAddressRepository addresses,
-                           PlayerLevelRepository levels, NoteRepository notes, SyncRepository sync, Runnable close) {
+    protected record Store(PunishmentRepository punishments, WarnRepository warns, PlayerAddressRepository addresses,
+                           PlayerLevelRepository levels, NoteRepository notes, SyncRepository sync, PlayerRepository players,
+                           Runnable close) {
     }
 
     @TempDir
@@ -64,6 +68,7 @@ abstract class RepositoryContract {
         store.levels().initialize();
         store.notes().initialize();
         store.sync().initialize();
+        store.players().initialize();
     }
 
     // --- sync notices ---
@@ -100,6 +105,10 @@ abstract class RepositoryContract {
     private static Punishment punishment(String nickname, String address, PunishType type, LocalDateTime start,
                                          LocalDateTime end, String punisher) {
         return Punishment.create(uuidOf(nickname), "reason", punisher, nickname, address, start, end, List.of(), type);
+    }
+
+    private static PlayerRef byName(String nickname) {
+        return PlayerRef.byName(nickname, null);
     }
 
     private static UUID uuidOf(String nickname) {
@@ -229,51 +238,105 @@ abstract class RepositoryContract {
         assertEquals(2, store.warns().findAllByUsername("steve").size());
         assertTrue(store.warns().findById(permanent.getId()).isPresent() && store.warns().findById(recent.getId()).isPresent());
 
-        final AccessAddress stale = AccessAddress.create("10.0.0.1", "Steve");
-        stale.setLastUsage(now.minusDays(40));
-        store.addresses().save(stale);
-        store.addresses().save(AccessAddress.create("10.0.0.2", "Steve"));
+        store.addresses().record(byName("Steve"), "10.0.0.1", now.minusDays(40));
+        store.addresses().record(byName("Steve"), "10.0.0.2", now);
         assertEquals(1, store.addresses().deleteUnusedBefore(cutoff));
-        assertTrue(store.addresses().findByIp("10.0.0.1").isEmpty());
-        assertTrue(store.addresses().findByIp("10.0.0.2").isPresent());
+        assertTrue(store.addresses().findByAddress("10.0.0.1").isEmpty());
+        assertEquals(1, store.addresses().findByAddress("10.0.0.2").size());
 
         store.notes().save(new Note(null, null, "Steve", "Mod", "old", now.minusDays(40)));
         store.notes().save(new Note(null, null, "Steve", "Mod", "new", now.minusDays(1)));
         assertEquals(1, store.notes().deleteBefore(cutoff));
-        assertEquals(1, store.notes().countByUsername("Steve"));
+        assertEquals(1, store.notes().countOf(byName("Steve")));
     }
 
     @Test
-    void everythingOfOnePlayerIsDeletedByNameOrUuid() {
+    void everythingOfOneAccountIsDeleted_underItsUuidAndUnderItsNameWithoutAUuid() {
         final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
         final UUID steve = UUID.randomUUID();
+        final PlayerRef account = PlayerRef.account(steve, "Steve");
         final Punishment current = punishment("Steve", null, PunishType.BAN, now.minusDays(1), null, "Mod");
         current.setPlayerUUID(steve);
         store.punishments().save(current);
         final Punishment oldName = punishment("Steve_Old", null, PunishType.MUTE, now.minusDays(9), null, "Mod");
         oldName.setPlayerUUID(steve);
         store.punishments().save(oldName);
+        final Punishment byNameOnly = punishment("Steve", null, PunishType.KICK, now.minusDays(2), now.minusDays(2), "Mod");
+        byNameOnly.setPlayerUUID(null);
+        store.punishments().save(byNameOnly);
+        final Punishment newOwnerOfOldName = punishment("Steve_Old", null, PunishType.BAN, now.minusDays(1), null, "Mod");
+        newOwnerOfOldName.setPlayerUUID(UUID.randomUUID());
+        store.punishments().save(newOwnerOfOldName);
         final Punishment other = store.punishments().save(punishment("Alex", null, PunishType.BAN, now.minusDays(1), null, "Mod"));
         store.warns().save(Warn.create(steve, "a", "Mod", "Steve_Old", now.minusDays(2), null));
+        store.warns().save(Warn.create(PlayerRef.offlineUuid("Steve"), "unknown account", "Mod", "Steve", now.minusDays(3), null));
         store.warns().save(Warn.create(UUID.randomUUID(), "b", "Mod", "Alex", now.minusDays(2), null));
         store.notes().save(new Note(null, steve, "Steve_Old", "Mod", "x", now));
         store.notes().save(new Note(null, null, "steve", "Mod", "y", now));
         store.notes().save(new Note(null, null, "Alex", "Mod", "z", now));
         store.levels().saveLevel("Steve", steve, 10);
 
-        assertEquals(2, store.notes().countAllOf("Steve", steve));
-        assertEquals(1, store.notes().countAllOf("Steve", null));
-        assertEquals(2, store.punishments().deleteAllOf("STEVE", steve));
-        assertEquals(1, store.warns().deleteAllOf("steve", steve));
-        assertEquals(2, store.notes().deleteAllOf("Steve", steve));
-        assertTrue(store.levels().delete("steve"));
-        assertFalse(store.levels().delete("steve"));
+        assertEquals(2, store.notes().countOf(account));
+        assertEquals(1, store.notes().countOf(byName("Steve")));
+        assertEquals(3, store.punishments().deleteAllOf(account));
+        assertEquals(2, store.warns().deleteAllOf(account));
+        assertEquals(2, store.notes().deleteAllOf(account));
+        assertTrue(store.levels().delete(account));
+        assertFalse(store.levels().delete(account));
 
         assertTrue(store.punishments().findById(other.getId()).isPresent());
+        assertTrue(store.punishments().findById(newOwnerOfOldName.getId()).isPresent(), "another account now named Steve_Old");
         assertEquals(1, store.warns().findAllByUsername("Alex").size());
-        assertEquals(1, store.notes().countByUsername("Alex"));
-        assertTrue(store.levels().findLevel("Steve").isEmpty());
-        assertEquals(0, store.punishments().deleteAllOf("Alex_Typo", null));
+        assertEquals(1, store.notes().countOf(byName("Alex")));
+        assertTrue(store.levels().findLevel(account).isEmpty());
+        assertEquals(0, store.punishments().deleteAllOf(byName("Alex_Typo")));
+    }
+
+    @Test
+    void anAccountFindsItsRecordsUnderOldNames_andThoseOfItsNameWithoutAUuid_butNotAnotherAccountsWithItsName() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final UUID alex = UUID.randomUUID();
+        final UUID newSteve = UUID.randomUUID();
+        final Punishment asSteve = punishment("Steve", null, PunishType.BAN, now.minusDays(5), null, "Mod");
+        asSteve.setPlayerUUID(alex);
+        store.punishments().save(asSteve);
+        final Punishment unknown = punishment("Alex", null, PunishType.MUTE, now.minusDays(4), null, "Mod");
+        unknown.setPlayerUUID(null);
+        store.punishments().save(unknown);
+        final Punishment ofNewSteve = punishment("Steve", null, PunishType.MUTE, now.minusDays(1), null, "Mod");
+        ofNewSteve.setPlayerUUID(newSteve);
+        store.punishments().save(ofNewSteve);
+
+        assertEquals(Set.of(asSteve.getId(), unknown.getId()),
+                new java.util.HashSet<>(store.punishments().findAllOf(PlayerRef.account(alex, "Alex")).stream().map(Punishment::getId).toList()));
+        assertEquals(List.of(ofNewSteve.getId()),
+                store.punishments().findAllActiveOf(PlayerRef.account(newSteve, "Steve"), PunishType.values()).stream().map(Punishment::getId).toList());
+        assertEquals(2, store.punishments().findAllOf(byName("steve")).size(), "offline mode: the name is the identity");
+
+        assertEquals(1, store.punishments().fillUuid(PlayerRef.account(alex, "ALEX")));
+        assertEquals(alex, store.punishments().findById(unknown.getId()).orElseThrow().getPlayerUUID().orElseThrow());
+        assertEquals(0, store.punishments().fillUuid(PlayerRef.account(UUID.randomUUID(), "Alex")), "already the account's");
+    }
+
+    @Test
+    void recordsOfANameWithoutAUuid_getTheAccountsUuid() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final UUID steve = UUID.randomUUID();
+        final PlayerRef account = PlayerRef.account(steve, "Steve");
+        store.warns().save(Warn.create(PlayerRef.offlineUuid("Steve"), "unknown", "Mod", "Steve", now, null));
+        store.warns().save(Warn.create(UUID.randomUUID(), "someone else", "Mod", "Steve", now, null));
+        store.notes().save(new Note(null, null, "steve", "Mod", "unknown", now));
+        store.addresses().record(byName("Steve"), "10.0.0.1", now);
+
+        assertEquals(1L, store.warns().countActiveWarns(account).longValue());
+        assertEquals(1, store.warns().fillUuid(account));
+        assertEquals(1, store.notes().fillUuid(account));
+        assertEquals(1, store.addresses().fillUuid(account));
+
+        assertEquals(steve, store.notes().findOf(account, 10, 0).get(0).getPlayerUUID().orElseThrow());
+        assertEquals(steve, store.addresses().findByAddress("10.0.0.1").get(0).uuid());
+        assertEquals(1L, store.warns().countActiveWarns(account).longValue());
+        assertEquals(List.of(steve), store.warns().findAllOf(account).stream().map(w -> w.getPlayerUUID().orElseThrow()).toList());
     }
 
     @Test
@@ -302,8 +365,8 @@ abstract class RepositoryContract {
 
         assertEquals(1, store.punishments().findAllActiveByUsernameAndTypes("STEVE", PunishType.values()).size());
         assertEquals(0, store.punishments().findAllActiveByUsernameAndTypes("steve", PunishType.MUTE, PunishType.TEMPMUTE).size());
-        assertEquals(2, store.punishments().findAllActiveByUsernameOrIpAndTypes("steve", "10.0.0.1", PunishType.values()).size());
-        assertEquals(1, store.punishments().findAllActiveByUUIDAndTypes(uuidOf("Steve"), PunishType.TEMPBAN).size());
+        assertEquals(1, store.punishments().findAllActiveOfAddress("10.0.0.1", PunishType.values()).size());
+        assertEquals(1, store.punishments().findAllActiveOf(PlayerRef.account(uuidOf("Steve"), "Steve"), PunishType.TEMPBAN).size());
         assertEquals(2, store.punishments().findAllByUUID(uuidOf("Steve")).size());
 
         assertTrue(store.punishments().revoke(ban.getId(), "appeal"));
@@ -324,15 +387,15 @@ abstract class RepositoryContract {
         final Punishment revoked = store.punishments().save(punishment("Bob", null, PunishType.BAN, now.minusDays(1), null, "Mod"));
         store.punishments().revoke(revoked.getId(), "x");
 
-        final List<String> names = new java.util.ArrayList<>();
-        for (int i = 0; i < 450; i++) names.add("account" + i); // more names than one statement takes
-        names.addAll(List.of("STEVE", "alex", "bob"));
+        final List<PlayerRef> accounts = new java.util.ArrayList<>();
+        for (int i = 0; i < 450; i++) accounts.add(PlayerRef.account(UUID.randomUUID(), "account" + i)); // more than one statement takes
+        accounts.addAll(List.of(PlayerRef.account(uuidOf("Steve"), "STEVE"), byName("alex"), byName("bob")));
 
         final Set<Long> found = new java.util.HashSet<>();
-        store.punishments().findAllActiveByUsernamesAndTypes(names, PunishType.BAN, PunishType.TEMPBAN).forEach(p -> found.add(p.getId()));
+        store.punishments().findAllActiveOfAny(accounts, PunishType.BAN, PunishType.TEMPBAN).forEach(p -> found.add(p.getId()));
 
         assertEquals(Set.of(steve.getId(), alex.getId()), found);
-        assertTrue(store.punishments().findAllActiveByUsernamesAndTypes(List.of(), PunishType.BAN).isEmpty());
+        assertTrue(store.punishments().findAllActiveOfAny(List.of(), PunishType.BAN).isEmpty());
     }
 
     @Test
@@ -343,7 +406,7 @@ abstract class RepositoryContract {
         store.punishments().save(kick);
 
         assertTrue(store.punishments().findAllActiveByUsernameAndTypes("steve", PunishType.values()).isEmpty());
-        assertTrue(store.punishments().findAllActiveByUUIDAndTypes(uuidOf("Steve"), PunishType.values()).isEmpty());
+        assertTrue(store.punishments().findAllActiveOf(PlayerRef.account(uuidOf("Steve"), "Steve"), PunishType.values()).isEmpty());
         assertEquals(PunishType.KICK, store.punishments().findAllByUsername("steve").get(0).getType());
     }
 
@@ -353,12 +416,12 @@ abstract class RepositoryContract {
         for (int i = 0; i < 12; i++) {
             store.punishments().save(punishment("Player" + i, null, PunishType.BAN, start.plusDays(i), null, i % 2 == 0 ? "Mod" : "Admin"));
         }
-        assertEquals(6, store.punishments().countByPunisher("MOD"));
+        assertEquals(6, store.punishments().countByPunisher(byName("MOD")));
         assertEquals(List.of("Player10", "Player8", "Player6", "Player4"),
-                store.punishments().findByPunisher("mod", 4, 0).stream().map(Punishment::getNickname).toList());
+                store.punishments().findByPunisher(byName("mod"), 4, 0).stream().map(Punishment::getNickname).toList());
         assertEquals(List.of("Player2", "Player0"),
-                store.punishments().findByPunisher("mod", 4, 4).stream().map(Punishment::getNickname).toList());
-        assertEquals(0, store.punishments().countByPunisher("nobody"));
+                store.punishments().findByPunisher(byName("mod"), 4, 4).stream().map(Punishment::getNickname).toList());
+        assertEquals(0, store.punishments().countByPunisher(byName("nobody")));
     }
 
     @Test
@@ -368,10 +431,30 @@ abstract class RepositoryContract {
         store.punishments().save(punishment("Recent", null, PunishType.BAN, now.minusHours(1), null, "Mod"));
         store.punishments().save(punishment("Newest", null, PunishType.BAN, now.minusMinutes(1), null, "mod"));
 
-        assertEquals(3, store.punishments().countByPunisher("Mod", null));
-        assertEquals(2, store.punishments().countByPunisher("Mod", now.minusDays(1)));
+        assertEquals(3, store.punishments().countByPunisher(byName("Mod"), null));
+        assertEquals(2, store.punishments().countByPunisher(byName("Mod"), now.minusDays(1)));
         assertEquals(List.of("Newest", "Recent"),
-                store.punishments().findByPunisher("MOD", now.minusDays(1), 10, 0).stream().map(Punishment::getNickname).toList());
+                store.punishments().findByPunisher(byName("MOD"), now.minusDays(1), 10, 0).stream().map(Punishment::getNickname).toList());
+    }
+
+    @Test
+    void aStaffMembersPunishmentsFollowTheirAccount_andThoseWithoutAStaffUuidTheirName() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final UUID mod = UUID.randomUUID();
+        final Punishment asOldName = punishment("A", null, PunishType.BAN, now.minusHours(3), null, "OldMod");
+        asOldName.setPunisherUuid(mod);
+        store.punishments().save(asOldName);
+        store.punishments().save(punishment("B", null, PunishType.BAN, now.minusHours(2), null, "Mod"));
+        final Punishment otherAccount = punishment("C", null, PunishType.BAN, now.minusHours(1), null, "Mod");
+        otherAccount.setPunisherUuid(UUID.randomUUID());
+        store.punishments().save(otherAccount);
+        final Punishment read = store.punishments().findById(asOldName.getId()).orElseThrow();
+
+        assertEquals(mod, read.getPunisherUuid().orElseThrow());
+        assertEquals(List.of("B", "A"), store.punishments().findByPunisher(PlayerRef.account(mod, "Mod"), 10, 0).stream()
+                .map(Punishment::getNickname).toList());
+        assertEquals(3, store.punishments().countByStaffSince(now.minusDays(1)).stream().mapToInt(PunishmentRepository.StaffCount::count).sum());
+        assertEquals(3, store.punishments().countByStaffSince(now.minusDays(1)).size(), "OldMod's account, the name Mod, the other account");
     }
 
     @Test
@@ -436,7 +519,7 @@ abstract class RepositoryContract {
         store.warns().save(Warn.create(uuid, "b", "Mod", "Steve", now.minusDays(2), now.plusDays(1)));
         final Warn expired = store.warns().save(Warn.create(uuid, "c", "Mod", "Steve", now.minusDays(2), now.minusDays(1)));
 
-        assertEquals(2L, store.warns().countActiveWarns("steve").longValue());
+        assertEquals(2L, store.warns().countActiveWarns(byName("steve")).longValue());
         assertEquals(3, store.warns().findAllByUsername("Steve").size());
         assertEquals(3, store.warns().findAllByUUID(uuid).size());
         assertEquals(1, store.warns().findAllImportKeys().size(), "same player and start: one key");
@@ -453,7 +536,7 @@ abstract class RepositoryContract {
         store.warns().save(Warn.create(UUID.randomUUID(), "c", "Mod", "C", now.minusDays(3), null));
         store.warns().save(Warn.create(UUID.randomUUID(), "d", "Other", "D", now.minusHours(1), null));
 
-        final List<Warn> found = store.warns().findByPunisherSince("MOD", now.minusDays(1));
+        final List<Warn> found = store.warns().findByPunisherSince(byName("MOD"), now.minusDays(1));
 
         assertEquals(List.of(newer.getId(), older.getId()), found.stream().map(Warn::getId).toList());
     }
@@ -465,10 +548,10 @@ abstract class RepositoryContract {
         final Note newer = store.notes().save(new Note(null, null, "steve", "Helper", "second", now.minusHours(1)));
         store.notes().save(new Note(null, null, "Alex", "Mod", "other", now));
 
-        assertEquals(2, store.notes().countByUsername("STEVE"));
+        assertEquals(2, store.notes().countOf(byName("STEVE")));
         assertEquals(List.of(newer.getId(), older.getId()),
-                store.notes().findByUsername("Steve", 10, 0).stream().map(Note::getId).toList());
-        assertEquals(List.of(older.getId()), store.notes().findByUsername("Steve", 1, 1).stream().map(Note::getId).toList());
+                store.notes().findOf(byName("Steve"), 10, 0).stream().map(Note::getId).toList());
+        assertEquals(List.of(older.getId()), store.notes().findOf(byName("Steve"), 1, 1).stream().map(Note::getId).toList());
         final Note read = store.notes().findById(older.getId()).orElseThrow();
         assertEquals("first", read.getContent());
         assertEquals("Mod", read.getAuthor());
@@ -478,39 +561,95 @@ abstract class RepositoryContract {
         assertEquals(Set.of(NoteRelationalDAO.importKey(older), NoteRelationalDAO.importKey(newer),
                 NoteRelationalDAO.importKey("alex", "mod", now)), store.notes().findAllImportKeys());
         assertEquals(1, store.notes().insertAll(List.of(new Note(null, null, "Steve", "Mod", "imported", now.minusDays(1)))));
-        assertEquals(3, store.notes().countByUsername("steve"));
+        assertEquals(3, store.notes().countOf(byName("steve")));
 
         store.notes().deleteById(older.getId());
         assertTrue(store.notes().findById(older.getId()).isEmpty());
     }
 
     @Test
-    void addressHistoryMatchesWholeNamesNewestFirst() {
-        final AccessAddress first = AccessAddress.create("10.0.0.1", "Steve");
-        first.setLastUsage(LocalDateTime.now().minusDays(1).truncatedTo(ChronoUnit.SECONDS));
-        store.addresses().save(first);
-        final AccessAddress second = AccessAddress.create("10.0.0.2", "Steve");
-        second.addAccount("Steve2");
-        store.addresses().save(second);
+    void addressHistoryIsPerAccountNewestFirst() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final UUID steve = UUID.randomUUID();
+        store.addresses().record(PlayerRef.account(steve, "Steve"), "10.0.0.1", now.minusDays(1));
+        store.addresses().record(PlayerRef.account(steve, "Steve"), "10.0.0.2", now);
+        store.addresses().record(byName("Steve2"), "10.0.0.2", now.minusHours(1));
+        // the same account joins again under a new name: one row per address, with the new name
+        store.addresses().record(PlayerRef.account(steve, "Alex"), "10.0.0.1", now.minusHours(2));
 
-        assertEquals("10.0.0.2", store.addresses().findByUsername("steve").orElseThrow().getHostAddress());
         assertEquals(List.of("10.0.0.2", "10.0.0.1"),
-                store.addresses().findAllByUsername("steve").stream().map(AccessAddress::getHostAddress).toList());
-        assertEquals(1, store.addresses().findAllByUsername("steve2").size());
-        assertTrue(store.addresses().findAllByUsername("stev").isEmpty(), "a part of a name is not a match");
+                store.addresses().findAllOf(PlayerRef.account(steve, "Alex")).stream().map(PlayerAddress::hostAddress).toList());
+        assertEquals(List.of("Alex"), store.addresses().findByAddress("10.0.0.1").stream().map(PlayerAddress::nickname).toList());
+        assertEquals(List.of("Steve", "Steve2"), store.addresses().findByAddress("10.0.0.2").stream().map(PlayerAddress::nickname).toList());
+        assertTrue(store.addresses().findAllOf(byName("stev")).isEmpty(), "a part of a name is not a match");
+        assertTrue(store.addresses().findByAddress("10.9.9.9").isEmpty());
 
-        final AccessAddress reloaded = store.addresses().findByIp("10.0.0.1").orElseThrow();
-        reloaded.addAccount("Alex");
-        store.addresses().save(reloaded);
-        assertTrue(store.addresses().findByIp("10.0.0.1").orElseThrow().contains("alex"));
-        assertTrue(store.addresses().findByIp("10.9.9.9").isEmpty());
+        final PlayerAddress imported = new PlayerAddress(null, null, "Steve2", "10.0.0.2", now.plusHours(1));
+        assertTrue(store.addresses().findSame(imported).isPresent());
+        store.addresses().save(imported);
+        store.addresses().save(new PlayerAddress(null, null, "Bob", "10.0.0.3", now));
+        assertEquals(now.plusHours(1), store.addresses().findSame(imported).orElseThrow().lastUsage());
+        assertEquals(1, store.addresses().findByAddress("10.0.0.3").size());
+        assertEquals(1, store.addresses().deleteAllOf(byName("Bob")));
     }
 
     @Test
-    void staffLevelsAreInsertedThenUpdated() {
-        assertEquals(OptionalInt.empty(), store.levels().findLevel("Mod"));
-        store.levels().saveLevel("Mod", UUID.randomUUID(), 10);
-        store.levels().saveLevel("MOD", UUID.randomUUID(), 50);
-        assertEquals(OptionalInt.of(50), store.levels().findLevel("mod"));
+    void aWarnOfANameTypedInAnotherLetterCase_isFoundAndFilledForTheAccount() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final UUID steve = UUID.randomUUID();
+        // "/warn steve" before the account was known: the stand-in UUID is the offline-mode one of "steve"
+        store.warns().save(Warn.create(PlayerRef.offlineUuid("steve"), "caps", "Mod", "steve", now, null));
+        final PlayerRef account = PlayerRef.account(steve, "Steve");
+
+        assertEquals(1L, store.warns().countActiveWarns(account).longValue());
+        assertEquals(1, store.warns().fillUuid(account));
+        assertEquals(steve, store.warns().findAllOf(account).get(0).getPlayerUUID().orElseThrow());
+        assertEquals(1, store.warns().deleteAllOf(account));
+    }
+
+    @Test
+    void aRowCopiedFrom1xAndTheAccountsOwnRowOnOneAddress_becomeOne() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final UUID steve = UUID.randomUUID();
+        store.addresses().save(new PlayerAddress(null, null, "Steve", "10.0.0.1", now.minusDays(3)));
+        store.addresses().save(new PlayerAddress(null, steve, "Steve", "10.0.0.1", now.minusDays(2)));
+
+        store.addresses().record(PlayerRef.account(steve, "Steve"), "10.0.0.1", now);
+
+        assertEquals(1, store.addresses().countOf(PlayerRef.account(steve, "Steve")));
+        assertEquals(now, store.addresses().findByAddress("10.0.0.1").get(0).lastUsage());
+    }
+
+    @Test
+    void aPlayerIsKnownByTheNameTheyLastJoinedWith() {
+        final LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final UUID first = UUID.randomUUID();
+        final UUID second = UUID.randomUUID();
+        assertTrue(store.players().record(first, "Steve", now.minusDays(2)));
+        assertFalse(store.players().record(first, "STEVE", now.minusDays(1)), "the same name in another letter case");
+        assertTrue(store.players().record(first, "Alex", now.minusHours(5)));
+        assertTrue(store.players().record(second, "Steve", now.minusHours(1)));
+
+        assertEquals(second, store.players().findLatestByName("steve").orElseThrow().uuid());
+        assertEquals("Alex", store.players().findByUuid(first).map(KnownPlayer::name).orElseThrow());
+        assertTrue(store.players().findLatestByName("nobody").isEmpty());
+        assertEquals(Map.of("steve", second, "alex", first), store.players().latestUuidsByName());
+        assertEquals(1, store.players().deleteByUuid(second));
+        assertTrue(store.players().findLatestByName("Steve").isEmpty());
+    }
+
+    @Test
+    void staffLevelsAreInsertedThenUpdated_andFollowTheAccountAfterANameChange() {
+        final UUID mod = UUID.randomUUID();
+        assertEquals(OptionalInt.empty(), store.levels().findLevel(byName("Mod")));
+        store.levels().saveLevel("Mod", mod, 10);
+        store.levels().saveLevel("MOD", mod, 50);
+        assertEquals(OptionalInt.of(50), store.levels().findLevel(byName("mod")));
+
+        store.levels().saveLevel("NewMod", mod, 60);
+        assertEquals(OptionalInt.of(60), store.levels().findLevel(PlayerRef.account(mod, "NewMod")));
+        assertEquals(OptionalInt.empty(), store.levels().findLevel(byName("Mod")), "the old name is not the account's any more");
+        store.levels().saveLevel("Mod", UUID.randomUUID(), 5);
+        assertEquals(OptionalInt.of(60), store.levels().findLevel(PlayerRef.account(mod, "NewMod")));
     }
 }

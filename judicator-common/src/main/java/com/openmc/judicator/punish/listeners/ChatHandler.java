@@ -3,6 +3,7 @@ package com.openmc.judicator.punish.listeners;
 import com.openmc.judicator.Judicator;
 import com.openmc.judicator.commons.ChatContext;
 import com.openmc.judicator.platform.JudicatorPlayer;
+import com.openmc.judicator.punish.PunishService;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
 import com.openmc.judicator.punish.PunishmentBuilder;
@@ -80,13 +81,13 @@ public final class ChatHandler {
     }
 
     /**
-     * The mute that applies to the player: the one cached under their name (applied while online, or restored at
+     * The mute that applies to the player: the one cached under their UUID (applied while online, or restored at
      * login) or under their address (IP mute restored at login, which also covers new accounts on that address).
      * A cached mute that has ended or was revoked meanwhile is dropped instead of blocking until the next login.
      */
     private Optional<Punishment> activeMute(JudicatorPlayer player) {
         final PunishCache cache = judicator.getPunishCache();
-        return stillActive(cache, player.getName()).or(() -> stillActive(cache, player.getHostAddress()));
+        return stillActive(cache, PunishService.cacheKey(player)).or(() -> stillActive(cache, player.getHostAddress()));
     }
 
     private static Optional<Punishment> stillActive(PunishCache cache, String key) {

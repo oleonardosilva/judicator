@@ -157,7 +157,7 @@ class MuteTest {
         server.command(server.console, "muteip Steve spam");
         server.quit(steve);
 
-        assertTrue(server.judicator.getPunishCache().getPunishment("steve").isEmpty(), "no leftover entry for a player who left");
+        assertTrue(server.judicator.getPunishCache().getPunishment(steve.getUniqueId().toString()).isEmpty(), "no leftover entry for a player who left");
     }
 
     @Test
