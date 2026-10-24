@@ -623,6 +623,10 @@ the player's messages file (their language with `per-player-language`).
 
 ### ⚙️ Other
 
+* **`/judicator help {category}`**
+  The commands you can use, by category: hover a command for its usage, click it to write it in the chat.
+  **Permission:** `judicator.admin`
+
 * **`/punish (player) {reason}`**
   Quick punishment based on preset configuration.
   **Permission:** `judicator.punish`

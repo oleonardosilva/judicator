@@ -341,6 +341,161 @@ pagination:
   next: " &eNext &e&l»"
   hover: "&7Click to open page {page}"
 
+help:
+  title: "&6&lJudicator &7v{version} &8» &fcommands\n"
+  category: "\n &e▸ &f{name} &8({count}) &7{description}"
+  category-hover: "&f{commands}\n\n&eClick to see these commands"
+  hint: "\n\n&8Click a category to open it."
+  category-title: "&6&lJudicator &8» &e{name}\n"
+  command: "\n &e{command} &8- &7{description}"
+  command-hover: "&f{usage}\n&7{description}\n\n&eClick to write it in the chat"
+  back: "\n\n&8« &7Back to the categories"
+  back-hover: "&7Click to see the categories"
+  unknown-category: "&cThere is no help category '{category}'."
+  categories:
+    punish:
+      name: "Punish"
+      description: "ban, mute, kick, warn"
+    revoke:
+      name: "Revoke and edit"
+      description: "unban, unmute, extend"
+    lookup:
+      name: "Look up"
+      description: "info, history, alts, lists"
+    notes:
+      name: "Notes"
+      description: "notes about players"
+    reports:
+      name: "Reports"
+      description: "player reports"
+    staff:
+      name: "Staff"
+      description: "what each staff member did"
+    admin:
+      name: "Administration"
+      description: "reload, import, clear"
+  commands:
+    punish:
+      usage: "/punish (player) [reason]"
+      description: "Applies a reason set in the config."
+    ban:
+      usage: "/ban (player) [reason]"
+      description: "Bans a player for good."
+    tempban:
+      usage: "/tempban (player) (time, e.g. 7:d) [reason]"
+      description: "Bans a player for a while."
+    banip:
+      usage: "/banip (player) [reason]"
+      description: "Bans the IP of a player."
+    tempbanip:
+      usage: "/tempbanip (player) (time, e.g. 7:d) [reason]"
+      description: "Bans the IP of a player for a while."
+    mute:
+      usage: "/mute (player) [reason]"
+      description: "Mutes a player for good."
+    tempmute:
+      usage: "/tempmute (player) (time, e.g. 2:h) [-o] [reason]"
+      description: "Mutes a player for a while (-o: only while online)."
+    muteip:
+      usage: "/muteip (player) [reason]"
+      description: "Mutes the IP of a player."
+    tempmuteip:
+      usage: "/tempmuteip (player) (time, e.g. 2:h) [reason]"
+      description: "Mutes the IP of a player for a while."
+    softmute:
+      usage: "/softmute (player) [reason]"
+      description: "Mutes without them noticing."
+    tempsoftmute:
+      usage: "/tempsoftmute (player) (time, e.g. 2:h) [-o] [reason]"
+      description: "Soft-mutes for a while (-o: only while online)."
+    kick:
+      usage: "/kick (player) [reason]"
+      description: "Kicks a player out of the server."
+    warn:
+      usage: "/warn (player) (reason)"
+      description: "Warns a player."
+    tempwarn:
+      usage: "/tempwarn (player) (time, e.g. 30:d) (reason)"
+      description: "Warns a player for a while."
+    unban:
+      usage: "/unban (player) [-s] [reason]"
+      description: "Lifts every ban of a player."
+    unmute:
+      usage: "/unmute (player) [-s] [reason]"
+      description: "Lifts every mute of a player."
+    revoke:
+      usage: "/revoke (id)"
+      description: "Revokes one punishment."
+    unwarn:
+      usage: "/unwarn (id)"
+      description: "Deletes a warn."
+    extend:
+      usage: "/extend (id) (time, e.g. 3:d)"
+      description: "Adds time to a punishment in force."
+    changereason:
+      usage: "/changereason (id) (reason)"
+      description: "Changes the reason of a punishment."
+    playerinfo:
+      usage: "/playerinfo (player)"
+      description: "Everything about a player at once."
+    punishhistory:
+      usage: "/phistory (player)"
+      description: "Punishments of a player."
+    punishview:
+      usage: "/pview (id)"
+      description: "Details of a punishment."
+    warnhistory:
+      usage: "/whistory (player)"
+      description: "Warns of a player."
+    warnview:
+      usage: "/wview (id)"
+      description: "Details of a warn."
+    alts:
+      usage: "/alts (player)"
+      description: "Accounts that shared an IP."
+    banlist:
+      usage: "/banlist [page]"
+      description: "Bans in force."
+    mutelist:
+      usage: "/mutelist [page]"
+      description: "Mutes in force."
+    note:
+      usage: "/note (player) (text)"
+      description: "Writes a note about a player."
+    notes:
+      usage: "/notes (player) [page]"
+      description: "Notes about a player."
+    delnote:
+      usage: "/delnote (id)"
+      description: "Deletes a note."
+    report:
+      usage: "/report (player) (reason)"
+      description: "Reports a player to the staff."
+    reports:
+      usage: "/reports [list open|assigned|closed|all] [page]"
+      description: "Lists and handles reports."
+    blame:
+      usage: "/blame (staff) [period, e.g. 7:d] [page]"
+      description: "Punishments a staff member applied."
+    activity:
+      usage: "/activity (period, e.g. 24:h) [page]"
+      description: "How much each staff member punished."
+    staffrollback:
+      usage: "/staffrollback (staff) (period, e.g. 24:h) [confirm]"
+      description: "Undoes what a staff member applied."
+    judicator-reload:
+      usage: "/judicator reload"
+      description: "Reloads the configuration files."
+    judicator-version:
+      usage: "/judicator version"
+      description: "Shows the plugin version."
+    judicator-import:
+      usage: "/judicator import (source) [confirm]"
+      description: "Imports from another plugin (console)."
+    judicator-clear:
+      usage: "/judicator clear (player) [confirm]"
+      description: "Deletes all data of a player (console)."
+
 edit:
   extended: "&aPunishment #{id} of {nickname} now ends {finishAt}."
   reason-changed: "&aThe reason of punishment #{id} of {nickname} is now: &f{reason}"

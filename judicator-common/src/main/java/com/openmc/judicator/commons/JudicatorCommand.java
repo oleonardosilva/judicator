@@ -8,8 +8,6 @@ import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.types.PunishPermissions;
 import com.openmc.plugin.judicator.BuildConstants;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.TextComponent;
-import net.kyori.adventure.text.event.ClickEvent;
 
 import java.util.List;
 import java.util.Optional;
@@ -17,49 +15,11 @@ import java.util.stream.Stream;
 
 public class JudicatorCommand extends CoreCommand {
 
-    private static final List<HelpEntry> HELP = List.of(
-            new HelpEntry("/judicator reload", "Reloads the Judicator plugin configurations.", "/judicator reload"),
-            new HelpEntry("/judicator help", "Displays this help message.", "/judicator help"),
-            new HelpEntry("/judicator version", "Displays the current version of the Judicator plugin.", "/judicator version"),
-            new HelpEntry("/punish <player> [reason]", "Punishes a player with the specified reason.", "/punish "),
-            new HelpEntry("/ban <player> [reason]", "Bans a player with the specified reason.", "/ban "),
-            new HelpEntry("/banip <player> [reason]", "Bans a player by IP with the specified reason.", "/banip "),
-            new HelpEntry("/tempban <player> <duration> [reason]", "Temporarily bans a player for the specified duration with an optional reason.", "/tempban "),
-            new HelpEntry("/tempbanip <player> <duration> [reason]", "Temporarily bans a player by IP for the specified duration with an optional reason.", "/tempbanip "),
-            new HelpEntry("/mute <player> [reason]", "Mutes a player with the specified reason.", "/mute "),
-            new HelpEntry("/muteip <player> [reason]", "Mutes a player by IP with the specified reason.", "/muteip "),
-            new HelpEntry("/tempmute <player> <duration> [-o] [reason]", "Temporarily mutes a player for the specified duration with an optional reason (-o: the time only counts while they are online).", "/tempmute "),
-            new HelpEntry("/softmute <player> [reason]", "Mutes a player without them noticing: they still see their own messages, nobody else does.", "/softmute "),
-            new HelpEntry("/tempsoftmute <player> <duration> [-o] [reason]", "Temporarily soft-mutes a player (-o: the time only counts while they are online).", "/tempsoftmute "),
-            new HelpEntry("/tempmuteip <player> <duration> [reason]", "Temporarily mutes a player by IP for the specified duration with an optional reason.", "/tempmuteip "),
-            new HelpEntry("/warn <player> <reason>", "Warns a player with the specified reason.", "/warn "),
-            new HelpEntry("/tempwarn <player> <duration> <reason>", "Temporarily warns a player for the specified duration with an optional reason.", "/tempwarn "),
-            new HelpEntry("/wview <id>", "Views the details of a warn by its ID.", "/wview "),
-            new HelpEntry("/whistory <player>", "Views the warn history of a player.", "/whistory "),
-            new HelpEntry("/pview <id>", "Views the details of a punishment by its ID.", "/pview "),
-            new HelpEntry("/phistory <player>", "Views the punishment history of a player.", "/phistory "),
-            new HelpEntry("/unwarn <id>", "Deletes a warn by its ID.", "/unwarn "),
-            new HelpEntry("/revoke <id>", "Revokes a punishment by its ID.", "/revoke "),
-            new HelpEntry("/unban <player> [-s] [reason]", "Revokes every active ban of a player.", "/unban "),
-            new HelpEntry("/unmute <player> [-s] [reason]", "Revokes every active mute of a player.", "/unmute "),
-            new HelpEntry("/alts <player>", "Lists accounts that shared an IP with a player.", "/alts "),
-            new HelpEntry("/blame <staff> [period] [page]", "Lists the punishments applied by a staff member, optionally only in the last period (e.g. 7:d).", "/blame "),
-            new HelpEntry("/activity <period> [page]", "Shows how many punishments each staff member applied in the last period (e.g. 24:h).", "/activity "),
-            new HelpEntry("/staffrollback <staff> <period> [confirm]", "Revokes the bans/mutes in force and deletes the active warns a staff member applied in the last period.", "/staffrollback "),
-            new HelpEntry("/extend <id> <duration>", "Adds time to a temporary punishment in force.", "/extend "),
-            new HelpEntry("/changereason <id> <reason>", "Changes the reason of a punishment in force.", "/changereason "),
-            new HelpEntry("/note <player> <text>", "Writes a staff note about a player.", "/note "),
-            new HelpEntry("/notes <player> [page]", "Lists the staff notes about a player.", "/notes "),
-            new HelpEntry("/delnote <id>", "Deletes a staff note.", "/delnote "),
-            new HelpEntry("/playerinfo <player>", "Shows punishments in force, history, warns, notes, alts and last login of a player.", "/playerinfo "),
-            new HelpEntry("/banlist [page]", "Lists the bans in force.", "/banlist"),
-            new HelpEntry("/mutelist [page]", "Lists the mutes in force.", "/mutelist"),
-            new HelpEntry("/judicator import <source> [confirm]", "Imports punishments from another plugin (console only).", "/judicator import "),
-            new HelpEntry("/judicator clear <player> [confirm]", "Deletes everything stored about a player: punishments, warns, notes, IP records (console only).", "/judicator clear ")
-    );
+    private final HelpMenu helpMenu;
 
     public JudicatorCommand(Judicator judicator) {
         super(judicator, "judicator", List.of("jud"), PunishPermissions.ADMIN.getPermission());
+        this.helpMenu = new HelpMenu(judicator);
     }
 
     @Override
@@ -67,7 +27,7 @@ public class JudicatorCommand extends CoreCommand {
         final String subcommand = args.word().orElse("").toLowerCase();
         switch (subcommand) {
             case "reload" -> reload(source);
-            case "help" -> help(source);
+            case "", "help" -> helpMenu.show(source, args.word(), messages(source));
             case "version" -> source.sendMessage(Component.text("§aJudicator Version: " + BuildConstants.VERSION));
             case "import" -> importPunishments(source, args);
             case "clear" -> clear(source, args);
@@ -78,6 +38,9 @@ public class JudicatorCommand extends CoreCommand {
     @Override
     public List<String> suggest(JudicatorSender sender, String[] args) {
         final String prefix = args.length == 0 ? "" : args[0].toLowerCase();
+        if (args.length == 2 && args[0].equalsIgnoreCase("help")) {
+            return helpMenu.categoriesFor(sender).stream().filter(s -> s.startsWith(args[1].toLowerCase())).toList();
+        }
         if (args.length == 2 && args[0].equalsIgnoreCase("import")) {
             final String source = args[1].toLowerCase();
             return judicator.getImportService().sourceNames().stream().sorted().filter(s -> s.startsWith(source)).toList();
@@ -129,19 +92,6 @@ public class JudicatorCommand extends CoreCommand {
         }
         final boolean confirm = args.word().map(word -> word.equalsIgnoreCase("confirm")).orElse(false);
         judicator.getDataRetentionService().clear(source, name.get(), confirm);
-    }
-
-    private void help(JudicatorSender source) {
-        final TextComponent.Builder text = Component.text().content("§aJudicator Commands\n");
-        for (HelpEntry entry : HELP) {
-            text.append(Component.text("\n§3" + entry.usage())
-                    .hoverEvent(Component.text("§7" + entry.description()))
-                    .clickEvent(ClickEvent.suggestCommand(entry.suggestion())));
-        }
-        source.sendMessage(text.build());
-    }
-
-    private record HelpEntry(String usage, String description, String suggestion) {
     }
 
 }

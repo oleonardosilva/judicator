@@ -117,4 +117,45 @@ class AdministrationTest {
         assertTrue(server.console.received("Import failed: Set jdbc-url for this source in import.yml."), server.console.messages().toString());
         assertTrue(Files.exists(folder.resolve("import.yml")), "the file is created for the owner to fill in");
     }
+
+    @Test
+    void help_listsTheCategoriesThatOpenWithAClick() {
+        final FakePlayer admin = server.online(new FakePlayer("Admin", "10.0.0.2", "judicator.admin"));
+
+        server.command(admin, "judicator");
+
+        assertTrue(admin.received("Punish (14) ban, mute, kick, warn"), admin.messages().toString());
+        assertTrue(admin.received("Administration (4)"));
+        assertTrue(admin.clicks().contains("/judicator help punish"), admin.clicks().toString());
+        assertTrue(admin.hovers().stream().anyMatch(hover -> hover.startsWith("/report, /reports")), admin.hovers().toString());
+    }
+
+    @Test
+    void help_categoryShowsEachCommandWithItsUsageOnHoverAndWritesItOnClick() {
+        final FakePlayer admin = server.online(new FakePlayer("Admin", "10.0.0.2", "judicator.admin"));
+
+        server.command(admin, "judicator help punish");
+
+        assertTrue(admin.received("/tempban - Bans a player for a while."), admin.messages().toString());
+        assertFalse(admin.received("/unban"), "only the commands of the category");
+        assertTrue(admin.hovers().stream().anyMatch(hover -> hover.startsWith("/tempban (player) (time, e.g. 7:d) [reason]")), admin.hovers().toString());
+        assertTrue(admin.suggestions().contains("/tempban "), admin.suggestions().toString());
+        assertTrue(admin.clicks().contains("/judicator help"), "the way back to the categories");
+    }
+
+    @Test
+    void help_onTheConsoleShowsTheUsageOnTheLine() {
+        server.command(server.console, "judicator help admin");
+
+        assertTrue(server.console.received("/judicator import (source) [confirm] - Imports from another plugin (console)."), server.console.messages().toString());
+        assertTrue(server.console.received("/judicator version - Shows the plugin version."));
+    }
+
+    @Test
+    void help_unknownCategoryFallsBackToTheCategories() {
+        server.command(server.console, "judicator help bans");
+
+        assertTrue(server.console.received("There is no help category 'bans'."), server.console.messages().toString());
+        assertTrue(server.console.received("Revoke and edit (6)"));
+    }
 }

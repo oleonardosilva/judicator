@@ -1,5 +1,6 @@
 package com.openmc.judicator.features;
 
+import com.openmc.judicator.commons.HelpMenu;
 import com.openmc.judicator.commons.command.CoreCommand;
 import com.openmc.judicator.testing.TestServer;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -71,6 +73,27 @@ class MessagesTest {
             final ConfigurationNode usages = load(language).node("usages");
             for (String name : names) {
                 assertTrue(usages.node(name).getString("").contains("/"), "usages." + name + " in messages_" + language + ".yml");
+            }
+        }
+    }
+
+    @Test
+    void everyCommandIsInTheHelpWithItsTextsInEveryLanguage() throws Exception {
+        final Set<String> listed = new TreeSet<>();
+        HelpMenu.CATEGORIES.values().forEach(listed::addAll);
+        try (TestServer server = TestServer.in(folder).start()) {
+            server.judicator.getCommands().stream().map(CoreCommand::getName)
+                    .filter(name -> !name.equals("judicator"))
+                    .forEach(name -> assertTrue(listed.contains(name), name + " is in no category of HelpMenu"));
+        }
+        for (String language : LANGUAGES) {
+            final ConfigurationNode help = load(language).node("help");
+            for (String category : HelpMenu.CATEGORIES.keySet()) {
+                assertFalse(help.node("categories", category, "name").virtual(), "help.categories." + category + " in messages_" + language + ".yml");
+            }
+            for (String command : listed) {
+                assertTrue(help.node("commands", command, "usage").getString("").startsWith("/"), "help.commands." + command + ".usage in messages_" + language + ".yml");
+                assertFalse(help.node("commands", command, "description").getString("").isBlank(), "help.commands." + command + ".description in messages_" + language + ".yml");
             }
         }
     }

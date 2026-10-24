@@ -107,6 +107,13 @@ public final class FakePlayer implements JudicatorPlayer {
         return received.stream().flatMap(message -> Texts.hovers(message).stream()).toList();
     }
 
+    /**
+     * Commands a click puts in the chat box in every message received.
+     */
+    public List<String> suggestions() {
+        return received.stream().flatMap(message -> Texts.suggestions(message).stream()).toList();
+    }
+
     public boolean received(String fragment) {
         return messages().stream().anyMatch(message -> message.contains(fragment));
     }

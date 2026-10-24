@@ -62,8 +62,9 @@ There is no lint task.
 - `runAsync` for I/O (database, HTTP). `runSync` for anything that touches the game: on Bukkit it is the main thread,
   on a proxy it is just another async task.
 - Commands are `CoreCommand` subclasses (`execute(sender, CommandArgs)`, `suggest`, `canUse`). The adapters run
-  `execute` asynchronously on both platforms. New commands must be added to `Judicator#createCommands` and, for
-  Bukkit, to `judicator-bukkit/src/main/resources/plugin.yml`.
+  `execute` asynchronously on both platforms. New commands must be added to `Judicator#createCommands`, to a category of
+  `commons/HelpMenu` with `help.commands.<name>` (usage and description) in every messages file (`MessagesTest` fails
+  otherwise) and, for Bukkit, to `judicator-bukkit/src/main/resources/plugin.yml`.
 - Login/chat logic lives in `ConnectionHandler` and `ChatHandler`; each platform listener only translates its events.
   `ChatHandler.chatDecision` returns `ALLOW`/`BLOCK`/`SOFT` (soft mute: Bukkit keeps the message for the sender only,
   in a HIGHEST listener; the proxies deny it and echo `softMuteEcho` to the sender).

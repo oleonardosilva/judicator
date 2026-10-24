@@ -341,6 +341,161 @@ pagination:
   next: " &eSiguiente &e&l»"
   hover: "&7Haz clic para abrir la página {page}"
 
+help:
+  title: "&6&lJudicator &7v{version} &8» &fcomandos\n"
+  category: "\n &e▸ &f{name} &8({count}) &7{description}"
+  category-hover: "&f{commands}\n\n&eHaz clic para ver estos comandos"
+  hint: "\n\n&8Haz clic en una categoría para abrirla."
+  category-title: "&6&lJudicator &8» &e{name}\n"
+  command: "\n &e{command} &8- &7{description}"
+  command-hover: "&f{usage}\n&7{description}\n\n&eHaz clic para escribirlo en el chat"
+  back: "\n\n&8« &7Volver a las categorías"
+  back-hover: "&7Haz clic para ver las categorías"
+  unknown-category: "&cNo existe la categoría de ayuda '{category}'."
+  categories:
+    punish:
+      name: "Castigar"
+      description: "ban, mute, kick, warn"
+    revoke:
+      name: "Revocar y editar"
+      description: "unban, unmute, extend"
+    lookup:
+      name: "Consultar"
+      description: "info, historial, alts, listas"
+    notes:
+      name: "Notas"
+      description: "notas sobre jugadores"
+    reports:
+      name: "Reportes"
+      description: "reportes de jugadores"
+    staff:
+      name: "Staff"
+      description: "lo que hizo cada miembro del staff"
+    admin:
+      name: "Administración"
+      description: "reload, import, clear"
+  commands:
+    punish:
+      usage: "/punish (jugador) [motivo]"
+      description: "Aplica un motivo definido en la config."
+    ban:
+      usage: "/ban (jugador) [motivo]"
+      description: "Banea a un jugador para siempre."
+    tempban:
+      usage: "/tempban (jugador) (tiempo, p. ej. 7:d) [motivo]"
+      description: "Banea a un jugador por un tiempo."
+    banip:
+      usage: "/banip (jugador) [motivo]"
+      description: "Banea la IP de un jugador."
+    tempbanip:
+      usage: "/tempbanip (jugador) (tiempo, p. ej. 7:d) [motivo]"
+      description: "Banea la IP de un jugador por un tiempo."
+    mute:
+      usage: "/mute (jugador) [motivo]"
+      description: "Silencia a un jugador para siempre."
+    tempmute:
+      usage: "/tempmute (jugador) (tiempo, p. ej. 2:h) [-o] [motivo]"
+      description: "Silencia por un tiempo (-o: solo en línea)."
+    muteip:
+      usage: "/muteip (jugador) [motivo]"
+      description: "Silencia la IP de un jugador."
+    tempmuteip:
+      usage: "/tempmuteip (jugador) (tiempo, p. ej. 2:h) [motivo]"
+      description: "Silencia la IP por un tiempo."
+    softmute:
+      usage: "/softmute (jugador) [motivo]"
+      description: "Silencia sin que el jugador lo note."
+    tempsoftmute:
+      usage: "/tempsoftmute (jugador) (tiempo, p. ej. 2:h) [-o] [motivo]"
+      description: "Soft-mute por un tiempo (-o: solo en línea)."
+    kick:
+      usage: "/kick (jugador) [motivo]"
+      description: "Expulsa a un jugador del servidor."
+    warn:
+      usage: "/warn (jugador) (motivo)"
+      description: "Advierte a un jugador."
+    tempwarn:
+      usage: "/tempwarn (jugador) (tiempo, p. ej. 30:d) (motivo)"
+      description: "Advierte a un jugador por un tiempo."
+    unban:
+      usage: "/unban (jugador) [-s] [motivo]"
+      description: "Quita todos los baneos de un jugador."
+    unmute:
+      usage: "/unmute (jugador) [-s] [motivo]"
+      description: "Quita todos los silencios de un jugador."
+    revoke:
+      usage: "/revoke (id)"
+      description: "Revoca un castigo."
+    unwarn:
+      usage: "/unwarn (id)"
+      description: "Borra una advertencia."
+    extend:
+      usage: "/extend (id) (tiempo, p. ej. 3:d)"
+      description: "Suma tiempo a un castigo vigente."
+    changereason:
+      usage: "/changereason (id) (motivo)"
+      description: "Cambia el motivo de un castigo."
+    playerinfo:
+      usage: "/playerinfo (jugador)"
+      description: "Todo sobre un jugador de una vez."
+    punishhistory:
+      usage: "/phistory (jugador)"
+      description: "Castigos de un jugador."
+    punishview:
+      usage: "/pview (id)"
+      description: "Detalles de un castigo."
+    warnhistory:
+      usage: "/whistory (jugador)"
+      description: "Advertencias de un jugador."
+    warnview:
+      usage: "/wview (id)"
+      description: "Detalles de una advertencia."
+    alts:
+      usage: "/alts (jugador)"
+      description: "Cuentas que compartieron una IP."
+    banlist:
+      usage: "/banlist [página]"
+      description: "Baneos vigentes."
+    mutelist:
+      usage: "/mutelist [página]"
+      description: "Silencios vigentes."
+    note:
+      usage: "/note (jugador) (texto)"
+      description: "Escribe una nota sobre un jugador."
+    notes:
+      usage: "/notes (jugador) [página]"
+      description: "Notas sobre un jugador."
+    delnote:
+      usage: "/delnote (id)"
+      description: "Borra una nota."
+    report:
+      usage: "/report (jugador) (motivo)"
+      description: "Reporta a un jugador al staff."
+    reports:
+      usage: "/reports [list open|assigned|closed|all] [página]"
+      description: "Lista y gestiona los reportes."
+    blame:
+      usage: "/blame (staff) [periodo, p. ej. 7:d] [página]"
+      description: "Castigos aplicados por un staff."
+    activity:
+      usage: "/activity (periodo, p. ej. 24:h) [página]"
+      description: "Cuánto castigó cada staff."
+    staffrollback:
+      usage: "/staffrollback (staff) (periodo, p. ej. 24:h) [confirm]"
+      description: "Deshace lo que aplicó un staff."
+    judicator-reload:
+      usage: "/judicator reload"
+      description: "Recarga los archivos de configuración."
+    judicator-version:
+      usage: "/judicator version"
+      description: "Muestra la versión del plugin."
+    judicator-import:
+      usage: "/judicator import (origen) [confirm]"
+      description: "Importa desde otro plugin (consola)."
+    judicator-clear:
+      usage: "/judicator clear (jugador) [confirm]"
+      description: "Borra todos los datos de un jugador (consola)."
+
 edit:
   extended: "&aEl castigo #{id} de {nickname} ahora termina {finishAt}."
   reason-changed: "&aEl motivo del castigo #{id} de {nickname} ahora es: &f{reason}"
