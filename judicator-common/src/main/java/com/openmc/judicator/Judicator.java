@@ -181,7 +181,7 @@ public class Judicator {
 
         final Repositories repositories;
         if (providedRepositories == null) {
-            this.relationalDBManager = new RelationalDBManager();
+            this.relationalDBManager = new RelationalDBManager(platform.databaseDrivers().orElse(null));
             this.relationalDBManager.initialize(dbConfig, dataDirectory, logger);
             LegacyTables.migrate(relationalDBManager, logger);
             repositories = new Repositories(

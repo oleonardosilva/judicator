@@ -98,11 +98,13 @@ final class VanillaImporter implements ImportSource {
                 true, created.get(), finishAt, permanent, true, "vanilla"));
     }
 
+    // new JsonParser().parse(...): Spigot 1.8 provides Gson 2.2.4, which has no JsonParser.parseReader
+    @SuppressWarnings("deprecation")
     private static Iterable<JsonObject> entries(Path file) throws Exception {
         final java.util.List<JsonObject> list = new java.util.ArrayList<>();
         if (!Files.isRegularFile(file)) return list;
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-            final JsonElement root = JsonParser.parseReader(reader);
+            final JsonElement root = new JsonParser().parse(reader);
             if (!root.isJsonArray()) throw new ImportException(file.getFileName() + " is not a JSON list.");
             final JsonArray array = root.getAsJsonArray();
             for (JsonElement element : array) {

@@ -50,7 +50,7 @@ public class BukkitPlayer implements JudicatorPlayer {
     @Override
     public Optional<Locale> getLocale() {
         // "pt_br" (vanilla) or whatever a resource pack uses
-        final String locale = handle.getLocale();
+        final String locale = BukkitCompat.locale(handle);
         if (locale == null || locale.isBlank()) return Optional.empty();
         return Optional.of(Locale.forLanguageTag(locale.replace('_', '-')));
     }

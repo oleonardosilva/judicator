@@ -31,6 +31,7 @@ public class BukkitPlatform implements Platform {
     private final BukkitAudiences audiences;
     private final Logger logger;
     private final Map<String, BukkitPlayer> onlinePlayers = new ConcurrentHashMap<>();
+    private ClassLoader databaseDrivers;
 
     public BukkitPlatform(JavaPlugin plugin, BukkitAudiences audiences) {
         this.plugin = plugin;
@@ -59,6 +60,15 @@ public class BukkitPlatform implements Platform {
 
     BukkitAudiences audiences() {
         return audiences;
+    }
+
+    void databaseDrivers(ClassLoader drivers) {
+        this.databaseDrivers = drivers;
+    }
+
+    @Override
+    public Optional<ClassLoader> databaseDrivers() {
+        return Optional.ofNullable(databaseDrivers);
     }
 
     @Override

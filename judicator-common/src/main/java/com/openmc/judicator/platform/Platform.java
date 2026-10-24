@@ -42,6 +42,14 @@ public interface Platform {
     void dispatchConsoleCommand(String command);
 
     /**
+     * A class loader with the JDBC driver of the configured database, when the platform could not put it on the
+     * plugin class path (Spigot/Paper before 1.16.5 has no {@code libraries:}); empty otherwise.
+     */
+    default Optional<ClassLoader> databaseDrivers() {
+        return Optional.empty();
+    }
+
+    /**
      * The backend server the player is on (the proxy); empty on Spigot/Paper and while connecting.
      */
     Optional<String> serverOf(JudicatorPlayer player);

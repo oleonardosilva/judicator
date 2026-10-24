@@ -1,6 +1,5 @@
-package com.openmc.judicator.velocity;
+package com.openmc.judicator.commons.libs;
 
-import com.velocitypowered.api.plugin.PluginManager;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -20,9 +19,10 @@ import java.util.Locale;
 import java.util.regex.Pattern;
 
 /**
- * Downloads the libraries Velocity does not provide (JDBC drivers, HikariCP, Caffeine) into {@code libs/} and adds
- * them to the plugin class path. Every library has a SHA-256 fixed in the code: a jar that does not match is never
- * loaded, so a compromised repository or network cannot run code in the proxy.
+ * Downloads the libraries a platform does not provide (JDBC drivers on every platform; HikariCP and Caffeine on
+ * Velocity) into {@code libs/}; the platform then loads them. Every library has a SHA-256 fixed in the code
+ * ({@link Libraries}): a jar that does not match is never handed over, so a compromised repository or network cannot
+ * run code in the server.
  */
 public class DependencyManager {
 
@@ -30,31 +30,28 @@ public class DependencyManager {
     private static final int CONNECT_TIMEOUT_MILLIS = 10_000;
     private static final int READ_TIMEOUT_MILLIS = 60_000;
 
-    private final Object plugin;
-    private final PluginManager pluginManager;
     private final Logger logger;
     private final Path libsDirectory;
     private final String repository;
 
-    public DependencyManager(Object plugin, PluginManager pluginManager, Logger logger, Path dataDirectory) {
-        this(plugin, pluginManager, logger, dataDirectory, MAVEN_CENTRAL);
+    public DependencyManager(Logger logger, Path dataDirectory) {
+        this(logger, dataDirectory, MAVEN_CENTRAL);
     }
 
-    DependencyManager(Object plugin, PluginManager pluginManager, Logger logger, Path dataDirectory, String repository) {
-        this.plugin = plugin;
-        this.pluginManager = pluginManager;
+    DependencyManager(Logger logger, Path dataDirectory, String repository) {
         this.logger = logger;
         this.libsDirectory = dataDirectory.resolve("libs");
         this.repository = repository.endsWith("/") ? repository : repository + "/";
     }
 
     /**
-     * Makes sure every dependency is in {@code libs/} with the expected hash (downloading it otherwise) and loads
-     * exactly those jars; other files in the folder are ignored.
+     * Makes sure every dependency is in {@code libs/} with the expected hash, downloading it otherwise; other files in
+     * the folder are ignored.
      *
+     * @return the verified jars, in the order of the dependencies
      * @throws IllegalStateException if a dependency could not be obtained with the expected hash
      */
-    public void downloadAndLoadDependencies(List<Dependency> dependencies) {
+    public List<Path> download(List<Dependency> dependencies) {
         try {
             Files.createDirectories(libsDirectory);
         } catch (IOException e) {
@@ -75,10 +72,8 @@ public class DependencyManager {
             throw new IllegalStateException("Dependencies not loaded: " + String.join(", ", failed));
         }
 
-        for (Path jar : verified) {
-            pluginManager.addToClasspath(plugin, jar);
-        }
-        logger.info("Loaded {} verified dependencies", verified.size());
+        logger.info("{} verified dependencies ready", verified.size());
+        return verified;
     }
 
     /**

@@ -161,8 +161,10 @@ public class UUIDManager {
         return uuid;
     }
 
+    // new JsonParser().parse(...): Spigot 1.8 provides Gson 2.2.4, which has no JsonParser.parseString/parseReader
+    @SuppressWarnings("deprecation")
     private String parseJSON(String json) {
-        final JsonElement element = JsonParser.parseString(json);
+        final JsonElement element = new JsonParser().parse(json);
         if (element instanceof JsonNull) {
             return null;
         }
@@ -170,8 +172,9 @@ public class UUIDManager {
         return obj != null ? obj.toString().replace("\"", "") : null;
     }
 
+    @SuppressWarnings("deprecation")
     private String parseJSON(InputStreamReader json) {
-        final JsonElement element = JsonParser.parseReader(json);
+        final JsonElement element = new JsonParser().parse(json);
         if (element instanceof JsonNull) {
             return null;
         }

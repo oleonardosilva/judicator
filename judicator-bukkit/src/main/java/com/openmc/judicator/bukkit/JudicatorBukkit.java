@@ -10,6 +10,8 @@ import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.IOException;
+import java.net.URLClassLoader;
 import java.util.logging.Level;
 
 public class JudicatorBukkit extends JavaPlugin {
@@ -18,6 +20,8 @@ public class JudicatorBukkit extends JavaPlugin {
     private static final int BSTATS_PLUGIN_ID = 34895;
 
     private BukkitAudiences audiences;
+    /** the JDBC driver on servers without libraries: (before 1.16.5) */
+    private URLClassLoader drivers;
     private Judicator judicator;
     private Runnable unhookPlaceholders;
 
@@ -25,6 +29,14 @@ public class JudicatorBukkit extends JavaPlugin {
     public void onEnable() {
         this.audiences = BukkitAudiences.create(this);
         final BukkitPlatform platform = new BukkitPlatform(this, audiences);
+        try {
+            this.drivers = LegacyDrivers.load(getDataFolder().toPath(), platform.getLogger()).orElse(null);
+        } catch (IllegalStateException e) {
+            getLogger().severe("Judicator was not enabled: " + e.getMessage());
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        platform.databaseDrivers(drivers);
         platform.trackOnlinePlayers();
 
         final Judicator core = new Judicator(platform);
@@ -74,6 +86,14 @@ public class JudicatorBukkit extends JavaPlugin {
         if (judicator != null) {
             judicator.disable();
             judicator = null;
+        }
+        if (drivers != null) {
+            try {
+                drivers.close();
+            } catch (IOException e) {
+                getLogger().log(Level.WARNING, "Could not close the database driver", e);
+            }
+            drivers = null;
         }
         if (audiences != null) {
             audiences.close();

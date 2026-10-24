@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 **Judicator** is a moderation plugin (bans, mutes, kicks, warns) for Minecraft. It runs on the
-[Velocity](https://velocitypowered.com/) and BungeeCord proxies and on Spigot/Paper servers (1.18+), backed by PostgreSQL, MySQL or SQLite,
+[Velocity](https://velocitypowered.com/) and BungeeCord proxies and on Spigot/Paper servers (1.8.8+, Java 17+), backed by PostgreSQL, MySQL or SQLite,
 with Discord webhook notifications and multi-language support.
 
 ## Build Commands
@@ -50,9 +50,9 @@ There is no lint task.
 |---|---|
 | `judicator-api` | Public API for other plugins, package `com.openmc.judicator.api`: `JudicatorApi` (async lookups, apply/revoke), `JudicatorProvider`, immutable views (`PunishmentView`, `WarnView`), requests, `ActionResult`, the `EventBus` and its events. Plain Java 17 with no dependencies (no Velocity, Bukkit, Adventure, Configurate or core types). Shipped unrelocated inside every platform JAR (never add it to a `relocate`). |
 | `judicator-common` | Platform-independent core: `Judicator` (bootstrap of configs, caches, DB and services), commands, services, repositories/DAOs, caches, messages, resources (`*.yml`) and the `platform/` abstraction. Must not import Velocity, BungeeCord or Bukkit APIs. |
-| `judicator-velocity` | Velocity entry point (`JudicatorVelocity`, `@Plugin`), `VelocityPlatform`, command adapter (`SimpleCommand`), event listener, runtime `DependencyManager` (Maven Central only; every jar has a SHA-256 fixed in `JudicatorVelocity` and is not loaded if it does not match — changing a version means changing its hash). |
+| `judicator-velocity` | Velocity entry point (`JudicatorVelocity`, `@Plugin`), `VelocityPlatform`, command adapter (`SimpleCommand`), event listener, downloads its libraries with the core's `commons/libs/DependencyManager` (Maven Central only; every jar has a SHA-256 fixed in `commons/libs/Libraries` and is not loaded if it does not match — changing a version means changing its hash). |
 | `judicator-bungee` | BungeeCord entry point (`JudicatorBungee`, `bungee.yml`), `BungeePlatform`, command adapter (`Command` + `TabExecutor`), event listener. Shades and relocates Adventure, Configurate and slf4j (BungeeCord keeps its own slf4j internal); JDBC drivers (SQLite included), HikariCP and Caffeine come from `libraries:` in `bungee.yml`. |
-| `judicator-bukkit` | Spigot/Paper entry point (`JudicatorBukkit`, `plugin.yml`), `BukkitPlatform`, command adapter (`TabExecutor`), event listener. Shades and relocates Adventure and Configurate; JDBC drivers, HikariCP and Caffeine come from `libraries:` in `plugin.yml`. |
+| `judicator-bukkit` | Spigot/Paper entry point (`JudicatorBukkit`, `plugin.yml`), `BukkitPlatform`, command adapter (`TabExecutor`), event listener. Supports 1.8.8 to the latest version: it compiles against `spigot-api` 1.8.8, and API added later goes through reflection in `BukkitCompat` (never reference a `Material` constant or a method that 1.8 lacks). Shades and relocates Adventure, Configurate, HikariCP, Caffeine and slf4j (+ `slf4j-jdk14`); Gson stays the server's (1.8 has Gson 2.2.4: no `JsonParser.parseString`). The MySQL/PostgreSQL drivers come from `libraries:` in `plugin.yml` (1.16.5+); before 1.16.5 `LegacyDrivers` downloads the driver of `data.yml` into a class loader of its own, which `RelationalDBManager` uses through a `DriverDataSource` (`Platform.databaseDrivers()`). |
 
 ### Platform abstraction (`judicator-common/.../platform`)
 

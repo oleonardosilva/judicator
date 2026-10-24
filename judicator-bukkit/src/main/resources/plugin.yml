@@ -1,16 +1,15 @@
 name: Judicator
 version: '${version}'
 main: com.openmc.judicator.bukkit.JudicatorBukkit
-api-version: '1.18'
+api-version: '1.13'
 author: oleonardosilva
 website: https://github.com/oleonardosilva
 description: A moderation plugin
 softdepend: [PlaceholderAPI]
+# 1.16.5+; older servers download the driver of data.yml on the first start (LegacyDrivers)
 libraries:
-  - com.zaxxer:HikariCP:6.3.0
   - com.mysql:mysql-connector-j:9.3.0
   - org.postgresql:postgresql:42.7.7
-  - com.github.ben-manes.caffeine:caffeine:3.1.8
 commands:
   judicator:
     permission: judicator.admin

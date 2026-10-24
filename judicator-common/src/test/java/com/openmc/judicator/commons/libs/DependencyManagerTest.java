@@ -1,13 +1,11 @@
-package com.openmc.judicator.velocity;
+package com.openmc.judicator.commons.libs;
 
-import com.velocitypowered.api.plugin.PluginManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.helpers.NOPLogger;
 
 import java.io.IOException;
-import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The hash check that keeps a tampered repository or network from loading code into the proxy. The "repository" is
+ * The hash check that keeps a tampered repository or network from loading code into the server. The "repository" is
  * a local folder with the Maven layout.
  */
 class DependencyManagerTest {
@@ -39,20 +37,14 @@ class DependencyManagerTest {
 
     @BeforeEach
     void setUp() {
-        final PluginManager pluginManager = (PluginManager) Proxy.newProxyInstance(getClass().getClassLoader(),
-                new Class<?>[]{PluginManager.class}, (proxy, method, args) -> {
-                    if (method.getName().equals("addToClasspath")) classpath.add((Path) args[1]);
-                    return null;
-                });
-        manager = new DependencyManager(new Object(), pluginManager, NOPLogger.NOP_LOGGER, dataDirectory,
-                repository.toUri().toString());
+        manager = new DependencyManager(NOPLogger.NOP_LOGGER, dataDirectory, repository.toUri().toString());
     }
 
     @Test
     void downloadsAndLoadsAJarWithTheExpectedHash() throws IOException {
         publish("org.example", "lib", "1.0", GOOD_JAR);
 
-        manager.downloadAndLoadDependencies(List.of(dependency("org.example:lib:1.0", GOOD_JAR)));
+        load(List.of(dependency("org.example:lib:1.0", GOOD_JAR)));
 
         final Path jar = dataDirectory.resolve("libs/lib-1.0.jar");
         assertEquals(List.of(jar), classpath);
@@ -64,7 +56,7 @@ class DependencyManagerTest {
         publish("org.example", "lib", "1.0", TAMPERED_JAR);
 
         final IllegalStateException error = assertThrows(IllegalStateException.class,
-                () -> manager.downloadAndLoadDependencies(List.of(dependency("org.example:lib:1.0", GOOD_JAR))));
+                () -> load(List.of(dependency("org.example:lib:1.0", GOOD_JAR))));
 
         assertTrue(error.getMessage().contains("org.example:lib:1.0"), error.getMessage());
         assertTrue(classpath.isEmpty());
@@ -78,7 +70,7 @@ class DependencyManagerTest {
         publish("org.example", "good", "1.0", GOOD_JAR);
         publish("org.example", "bad", "1.0", TAMPERED_JAR);
 
-        assertThrows(IllegalStateException.class, () -> manager.downloadAndLoadDependencies(List.of(
+        assertThrows(IllegalStateException.class, () -> load(List.of(
                 dependency("org.example:good:1.0", GOOD_JAR),
                 dependency("org.example:bad:1.0", GOOD_JAR))));
 
@@ -92,7 +84,7 @@ class DependencyManagerTest {
         Files.createDirectories(jar.getParent());
         Files.write(jar, TAMPERED_JAR);
 
-        manager.downloadAndLoadDependencies(List.of(dependency("org.example:lib:1.0", GOOD_JAR)));
+        load(List.of(dependency("org.example:lib:1.0", GOOD_JAR)));
 
         assertArrayEquals(GOOD_JAR, Files.readAllBytes(jar));
         assertEquals(List.of(jar), classpath);
@@ -105,7 +97,7 @@ class DependencyManagerTest {
         Files.write(jar, GOOD_JAR);
 
         // Nothing is published: a download attempt would fail.
-        manager.downloadAndLoadDependencies(List.of(dependency("org.example:lib:1.0", GOOD_JAR)));
+        load(List.of(dependency("org.example:lib:1.0", GOOD_JAR)));
 
         assertEquals(List.of(jar), classpath);
     }
@@ -117,7 +109,7 @@ class DependencyManagerTest {
         Files.createDirectories(stray.getParent());
         Files.write(stray, TAMPERED_JAR);
 
-        manager.downloadAndLoadDependencies(List.of(dependency("org.example:lib:1.0", GOOD_JAR)));
+        load(List.of(dependency("org.example:lib:1.0", GOOD_JAR)));
 
         assertFalse(classpath.contains(stray));
         assertEquals(1, classpath.size());
@@ -133,6 +125,10 @@ class DependencyManagerTest {
     @Test
     void theProductionRepositoryIsMavenCentralOverHttps() {
         assertEquals("https://repo1.maven.org/maven2/", DependencyManager.MAVEN_CENTRAL);
+    }
+
+    private void load(List<DependencyManager.Dependency> dependencies) {
+        classpath.addAll(manager.download(dependencies));
     }
 
     private void publish(String group, String artifact, String version, byte[] content) throws IOException {

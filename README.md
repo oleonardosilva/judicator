@@ -16,13 +16,16 @@ Download it!
 |---|---|---|
 | Velocity (proxy) | `Judicator-Velocity-<version>.jar` | Velocity 3.4+, Java 17+ |
 | BungeeCord (proxy) | `Judicator-BungeeCord-<version>.jar` | BungeeCord 1.21+, Java 17+ |
-| Spigot / Paper (server) | `Judicator-Bukkit-<version>.jar` | Minecraft 1.18+, Java 17+ |
+| Spigot / Paper (server) | `Judicator-Bukkit-<version>.jar` | Minecraft 1.8.8+, Java 17+ (also on 1.8–1.16 servers) |
 
 Use the Velocity or BungeeCord build when you run a network behind a proxy: punishments then apply to every backend
 server. Use the Spigot/Paper build on a standalone server. Several servers sharing one database: see
-[Networks and Multiple Servers](#networks-and-multiple-servers). On Spigot/Paper and BungeeCord the database drivers,
-HikariCP and Caffeine are downloaded by the server itself (`libraries` in `plugin.yml`/`bungee.yml`); on Velocity they
-are downloaded by the plugin on the first start.
+[Networks and Multiple Servers](#networks-and-multiple-servers). On BungeeCord the database drivers, HikariCP and
+Caffeine are downloaded by the server itself (`libraries` in `bungee.yml`); on Velocity they are downloaded by the
+plugin on the first start. The Spigot/Paper build carries HikariCP and Caffeine; Spigot/Paper 1.16.5+ downloads the
+MySQL and PostgreSQL drivers itself (`libraries` in `plugin.yml`), and on older servers the plugin downloads the driver of
+`data.yml` into `plugins/<Judicator folder>/libs/` on the first start (from Maven Central, checked against a fixed
+SHA-256; the server needs internet access that time).
 
 Running the Spigot/Paper build on backends behind Velocity or BungeeCord with UUID forwarding? Those servers report
 `online-mode=false`, so set **`trust-uuids: true`** in `config.yml` to check bans by UUID too (a banned player who
@@ -38,8 +41,8 @@ follows that account. On a real offline-mode server the name is the player, as b
 ### Database
 
 Judicator starts on **SQLite**, so it works out of the box with no database server: the data is kept in
-`plugins/<Judicator folder>/judicator.db` (`file` in `data.yml`). Spigot/Paper already include the SQLite driver;
-BungeeCord and Velocity download it on the first start with the other libraries (Velocity only while `type` is
+`plugins/<Judicator folder>/judicator.db` (`file` in `data.yml`). Spigot/Paper 1.16.5+ already include the SQLite
+driver (older ones bundle one too old for Judicator, so the plugin downloads its own); BungeeCord and Velocity download it on the first start with the other libraries (Velocity only while `type` is
 `sqlite`). SQLite suits a single server or a small network; a network with several Spigot/Paper servers sharing
 punishments needs PostgreSQL or MySQL: set `type` in `data.yml` to `postgres` or `mysql` (also for MariaDB), fill in
 the connection settings and restart (changing `type` is not applied by `/judicator reload`). To bring the punishments

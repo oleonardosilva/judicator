@@ -10,10 +10,12 @@ import javax.sql.DataSource;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.sql.Driver;
 import java.sql.SQLException;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -28,6 +30,8 @@ public class RelationalDBManager {
     private static final Pattern VALID_PREFIX = Pattern.compile("([a-z][a-z0-9_]{0,15})?");
     private static final Pattern NAME = Pattern.compile("\\{([a-z_]+)}");
 
+    /** where the JDBC driver comes from when it is not on the plugin class path; null otherwise */
+    private final ClassLoader driverLoader;
     private HikariDataSource dataSource;
     private Dialect dialect;
     /** {@code database.table-prefix}, read at startup only; null before the first {@link #initialize} */
@@ -36,6 +40,16 @@ public class RelationalDBManager {
     private final Map<String, String> statements = new ConcurrentHashMap<>();
 
     public RelationalDBManager() {
+        this(null);
+    }
+
+    /**
+     * @param driverLoader a class loader with the JDBC driver of the configured database, used through a data source of
+     *                     its own; null when the driver is on the plugin class path (what every platform but Spigot/Paper
+     *                     before 1.16.5 has)
+     */
+    public RelationalDBManager(ClassLoader driverLoader) {
+        this.driverLoader = driverLoader;
     }
 
     public void initialize(ConfigurationNode config, Path dataDirectory, Logger logger) {
@@ -56,26 +70,22 @@ public class RelationalDBManager {
             }
 
             final String driverClass = configured.getDriverClass();
-            try {
-                Class.forName(driverClass);
-                logger.info("Database driver loaded successfully: {}", driverClass);
-            } catch (ClassNotFoundException e) {
-                logger.error("Database driver not found: {}. Make sure dependencies are loaded first.", driverClass);
-                throw new RuntimeException("Database driver not available", e);
-            }
-
             final HikariConfig hikari = new HikariConfig();
-            hikari.setDriverClassName(driverClass);
             hikari.setPoolName("Judicator");
+            // passed to the driver on each connection, e.g. useSSL for MySQL or sslmode for PostgreSQL
+            final Properties properties = new Properties();
+            final String url;
+            String user = null;
+            String password = null;
 
             if (configured == Dialect.SQLITE) {
                 final Path file = dataDirectory.resolve(config.node("file").getString("judicator.db")).normalize();
                 if (file.getParent() != null) Files.createDirectories(file.getParent());
-                hikari.setJdbcUrl("jdbc:sqlite:" + file.toAbsolutePath());
+                url = "jdbc:sqlite:" + file.toAbsolutePath();
                 // One file, one writer at a time: WAL lets reads run during a write and busy_timeout makes a second
                 // writer wait instead of failing with SQLITE_BUSY.
-                hikari.addDataSourceProperty("journal_mode", "WAL");
-                hikari.addDataSourceProperty("busy_timeout", "10000");
+                properties.setProperty("journal_mode", "WAL");
+                properties.setProperty("busy_timeout", "10000");
                 hikari.setMaximumPoolSize(4);
                 hikari.setMinimumIdle(1);
                 logger.info("Using SQLite database file {}", file.toAbsolutePath());
@@ -83,19 +93,44 @@ public class RelationalDBManager {
                 final String host = config.node("host").getString("localhost");
                 final String port = config.node("port").getString("").trim();
                 final String database = config.node("database").getString("postgres");
-                hikari.setJdbcUrl((configured == Dialect.POSTGRESQL ? "jdbc:postgresql://" : "jdbc:mysql://")
-                        + host + ":" + (port.isEmpty() ? configured.getDefaultPort() : port) + "/" + database);
-                hikari.setUsername(config.node("user").getString("postgres"));
-                hikari.setPassword(config.node("password").getString("password"));
+                url = (configured == Dialect.POSTGRESQL ? "jdbc:postgresql://" : "jdbc:mysql://")
+                        + host + ":" + (port.isEmpty() ? configured.getDefaultPort() : port) + "/" + database;
+                user = config.node("user").getString("postgres");
+                password = config.node("password").getString("password");
                 final ConfigurationNode pool = config.node("pool");
                 hikari.setMaximumPoolSize(Math.max(1, pool.node("maximum-size").getInt(10)));
                 hikari.setMinimumIdle(Math.max(0, Math.min(hikari.getMaximumPoolSize(), pool.node("minimum-idle").getInt(2))));
                 hikari.setConnectionTimeout(TimeUnit.SECONDS.toMillis(Math.max(1, pool.node("connection-timeout").getLong(30))));
-                // Passed to the driver as connection properties, e.g. useSSL for MySQL or sslmode for PostgreSQL.
                 config.node("properties").childrenMap().forEach((key, value) -> {
-                    if (value.getString() != null) hikari.addDataSourceProperty(String.valueOf(key), value.getString());
+                    if (value.getString() != null) properties.setProperty(String.valueOf(key), value.getString());
                 });
             }
+
+            if (driverLoader == null) {
+                try {
+                    Class.forName(driverClass);
+                } catch (ClassNotFoundException e) {
+                    logger.error("Database driver not found: {}. Make sure dependencies are loaded first.", driverClass);
+                    throw new RuntimeException("Database driver not available", e);
+                }
+                hikari.setDriverClassName(driverClass);
+                hikari.setJdbcUrl(url);
+                if (user != null) hikari.setUsername(user);
+                if (password != null) hikari.setPassword(password);
+                properties.forEach((key, value) -> hikari.addDataSourceProperty(String.valueOf(key), value));
+            } else {
+                final Driver driver;
+                try {
+                    driver = (Driver) Class.forName(driverClass, true, driverLoader).getDeclaredConstructor().newInstance();
+                } catch (ReflectiveOperationException e) {
+                    logger.error("Database driver not found: {}. Make sure dependencies are loaded first.", driverClass);
+                    throw new RuntimeException("Database driver not available", e);
+                }
+                if (user != null) properties.setProperty("user", user);
+                if (password != null) properties.setProperty("password", password);
+                hikari.setDataSource(new DriverDataSource(driver, url, properties));
+            }
+            logger.info("Database driver loaded successfully: {}", driverClass);
 
             this.dataSource = new HikariDataSource(hikari);
             this.dialect = configured;
