@@ -17,6 +17,7 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.plugin.Plugin;
 
 import java.util.EnumSet;
 import java.util.Map;
@@ -37,10 +38,15 @@ final class BukkitMenus implements MenuRenderer, Listener {
     private static final int LEGACY_TITLE_LENGTH = 32;
     private static final Set<ClickType> CLICKS = EnumSet.of(ClickType.LEFT, ClickType.RIGHT, ClickType.SHIFT_LEFT, ClickType.SHIFT_RIGHT);
 
+    private final Plugin plugin;
     private final MenuItems items = new MenuItems();
-    /** the menu inventory each player has open */
-    private final Map<UUID, Inventory> open = new ConcurrentHashMap<>();
+    /** the menu each player has open */
+    private final Map<UUID, Holder> open = new ConcurrentHashMap<>();
     private Supplier<MenuService> service = () -> null;
+
+    BukkitMenus(Plugin plugin) {
+        this.plugin = plugin;
+    }
 
     /**
      * The holder of a menu inventory: which {@link Menu} it shows.
@@ -73,14 +79,34 @@ final class BukkitMenus implements MenuRenderer, Listener {
         for (Map.Entry<Integer, MenuItem> entry : menu.items().entrySet()) {
             inventory.setItem(entry.getKey(), items.create(entry.getValue()));
         }
-        open.put(player.getUniqueId(), inventory);
+        open.put(player.getUniqueId(), holder);
         player.openInventory(inventory);
     }
 
+    /**
+     * On the next tick: a close often comes from a click, and closing an inventory inside its click event leaves a
+     * ghost item on the cursor. While the plugin is being disabled (no more ticks for it), at once.
+     */
     @Override
     public void close(JudicatorPlayer viewer) {
-        final Player player = Bukkit.getPlayer(viewer.getUniqueId());
-        if (player != null && open.containsKey(player.getUniqueId())) player.closeInventory();
+        final Holder shown = open.get(viewer.getUniqueId());
+        if (shown == null) return;
+        final Runnable close = () -> {
+            final Player player = Bukkit.getPlayer(viewer.getUniqueId());
+            if (player != null && open.get(player.getUniqueId()) == shown) player.closeInventory();
+        };
+        if (plugin.isEnabled()) Bukkit.getScheduler().runTask(plugin, close);
+        else close.run();
+    }
+
+    /**
+     * The menu of the clicking player, when the event is about it. Only players with a menu open get their inventory's
+     * holder asked for (on Paper, the holder of a chest is a block state snapshot). Compared by holder, never by the
+     * inventory object: 1.8 hands events a new wrapper of the same inventory.
+     */
+    private Holder menuOf(UUID player, Inventory inventory) {
+        final Holder shown = open.get(player);
+        return shown != null && inventory.getHolder() == shown ? shown : null;
     }
 
     private String title(String title) {
@@ -93,7 +119,8 @@ final class BukkitMenus implements MenuRenderer, Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onClick(InventoryClickEvent event) {
         final Inventory top = event.getInventory();
-        if (!(top.getHolder() instanceof Holder holder)) return;
+        final Holder holder = menuOf(event.getWhoClicked().getUniqueId(), top);
+        if (holder == null) return;
         event.setCancelled(true);
         final int slot = event.getRawSlot();
         if (!(event.getWhoClicked() instanceof Player player) || slot < 0 || slot >= top.getSize()
@@ -102,16 +129,30 @@ final class BukkitMenus implements MenuRenderer, Listener {
         if (menus != null) menus.click(player.getUniqueId(), holder.menu, slot);
     }
 
+    /**
+     * Again after every other plugin: one that un-cancels inventory clicks must not let items out of a menu.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onClickLate(InventoryClickEvent event) {
+        if (menuOf(event.getWhoClicked().getUniqueId(), event.getInventory()) != null) event.setCancelled(true);
+    }
+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onDrag(InventoryDragEvent event) {
-        if (event.getInventory().getHolder() instanceof Holder) event.setCancelled(true);
+        if (menuOf(event.getWhoClicked().getUniqueId(), event.getInventory()) != null) event.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onDragLate(InventoryDragEvent event) {
+        onDrag(event);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onClose(InventoryCloseEvent event) {
-        if (!(event.getInventory().getHolder() instanceof Holder holder)) return;
         final UUID uuid = event.getPlayer().getUniqueId();
-        open.remove(uuid, event.getInventory());
+        final Holder holder = menuOf(uuid, event.getInventory());
+        if (holder == null) return;
+        open.remove(uuid, holder);
         final MenuService menus = service.get();
         if (menus != null) menus.closed(uuid, holder.menu);
     }

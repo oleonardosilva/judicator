@@ -140,22 +140,28 @@ public class MenuService {
     }
 
     /**
-     * A click on a slot of the menu the player sees (game thread). Ignored while the next screen is being built, and
-     * when the menu is not the one of the session (a click arriving after the screen changed).
+     * A click on a slot of the menu the player sees (game thread). Ignored while the next screen is being built or an
+     * action of this menu is running (a double click must not run a command twice), and when the menu is not the one
+     * of the session (a click arriving after the screen changed). Every action ends in a new screen, a close or a
+     * question, which releases the menu.
      */
     public void click(UUID viewer, Menu menu, int slot) {
         final Session session = sessions.get(viewer);
         if (session == null || session.building || session.current != menu) return;
-        menu.item(slot).map(MenuItem::action).ifPresent(Runnable::run);
+        final Optional<Runnable> action = menu.item(slot).map(MenuItem::action);
+        if (action.isEmpty()) return;
+        session.building = true;
+        action.get().run();
     }
 
     /**
-     * The player closed the menu (game thread). Opening the next screen closes the previous one too: that menu is no
-     * longer the current one and the session stays.
+     * The player closed the menu (game thread), also while the next screen was being built: it is then not shown.
+     * Opening the next screen closes the previous one too: that menu is no longer the current one and the session
+     * stays.
      */
     public void closed(UUID viewer, Menu menu) {
         final Session session = sessions.get(viewer);
-        if (session != null && session.current == menu && !session.building) sessions.remove(viewer);
+        if (session != null && session.current == menu) sessions.remove(viewer);
     }
 
     /**
@@ -330,6 +336,11 @@ public class MenuService {
                 if (sessions.get(viewer.getUniqueId()) != session || session.generation != generation) return;
                 session.building = false;
                 final Optional<MenuRenderer> renderer = platform().menus();
+                if (platform().getPlayer(viewer.getUniqueId()).isEmpty()) {
+                    // left meanwhile (a question answered just before quitting)
+                    sessions.remove(viewer.getUniqueId());
+                    return;
+                }
                 if (menu == null || renderer.isEmpty()) {
                     sessions.remove(viewer.getUniqueId());
                     renderer.ifPresent(r -> r.close(viewer));

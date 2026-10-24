@@ -496,6 +496,40 @@ class MenusTest {
     }
 
     @Test
+    void aDoubleClickRunsTheActionOnce() {
+        start();
+        final FakePlayer admin = admin();
+        final FakePlayer steve = server.online(new FakePlayer("Steve", "10.0.0.1"));
+        server.command(admin, "jmenu Steve");
+        menus.click(admin, "Punish");
+        menus.click(admin, "Cheating");
+
+        server.platform.holdAsync();
+        menus.click(admin, "Apply now");
+        menus.click(admin, "Apply now");
+        menus.click(admin, "Cancel");
+        server.platform.releaseAsync();
+
+        assertEquals(1, server.judicator.getPunishService().findAllOf(server.judicator.getPlayerDirectory().refOf(steve)).size());
+        assertEquals("Steve", menus.title(admin), "back on the player once, not twice");
+    }
+
+    @Test
+    void aMenuClosedWhileTheNextOneIsBuiltStaysClosed() {
+        start();
+        final FakePlayer admin = admin();
+        server.command(admin, "jmenu");
+
+        server.platform.holdAsync();
+        menus.click(admin, "Bans in force");
+        menus.escape(admin);
+        server.platform.releaseAsync();
+
+        assertNull(menus.title(admin));
+        assertFalse(server.judicator.getMenuService().hasOpen(admin.getUniqueId()));
+    }
+
+    @Test
     void aClickOnAMenuThatWasReplacedIsIgnored() {
         start();
         final FakePlayer admin = admin();

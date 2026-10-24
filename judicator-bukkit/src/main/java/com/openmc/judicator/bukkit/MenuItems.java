@@ -43,7 +43,7 @@ final class MenuItems {
         look(MenuIcon.WARN, "ORANGE_DYE", "INK_SACK", 14);
         look(MenuIcon.NOTE, "BOOK", "BOOK", 0);
         look(MenuIcon.ALTS, "NAME_TAG", "NAME_TAG", 0);
-        look(MenuIcon.REPORT, "OAK_SIGN", "SIGN", 0);
+        look(MenuIcon.REPORT, "OAK_SIGN|SIGN", "SIGN", 0);
         look(MenuIcon.HISTORY, "BOOKSHELF", "BOOKSHELF", 0);
         look(MenuIcon.ONLINE, "EMERALD", "EMERALD", 0);
         look(MenuIcon.SEARCH, "COMPASS", "COMPASS", 0);
@@ -72,8 +72,19 @@ final class MenuItems {
         return modern;
     }
 
-    private void look(MenuIcon icon, String modernName, String legacyName, int data) {
-        Material material = modern ? Material.getMaterial(modernName) : Material.getMaterial(legacyName);
+    /**
+     * @param modernNames the 1.13+ names to try in order, separated by | (OAK_SIGN is 1.14+, SIGN on 1.13)
+     */
+    private void look(MenuIcon icon, String modernNames, String legacyName, int data) {
+        Material material = null;
+        if (modern) {
+            for (String name : modernNames.split("\\|")) {
+                material = Material.getMaterial(name);
+                if (material != null) break;
+            }
+        } else {
+            material = Material.getMaterial(legacyName);
+        }
         short value = modern ? 0 : (short) data;
         if (material == null) {
             material = Material.getMaterial("PAPER");

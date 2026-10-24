@@ -33,12 +33,13 @@ public class BukkitPlatform implements Platform {
     private final Logger logger;
     private final Map<String, BukkitPlayer> onlinePlayers = new ConcurrentHashMap<>();
     private ClassLoader databaseDrivers;
-    private final BukkitMenus menus = new BukkitMenus();
+    private final BukkitMenus menus;
 
     public BukkitPlatform(JavaPlugin plugin, BukkitAudiences audiences) {
         this.plugin = plugin;
         this.audiences = audiences;
         this.logger = new JulLoggerAdapter(plugin.getLogger());
+        this.menus = new BukkitMenus(plugin);
     }
 
     void trackOnlinePlayers() {

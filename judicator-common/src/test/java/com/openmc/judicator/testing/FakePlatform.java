@@ -47,6 +47,8 @@ public final class FakePlatform implements Platform {
     private final Set<String> refusing = new HashSet<>();
     private final List<String> teleports = new ArrayList<>();
     private TeleportOutcome teleportOutcome = TeleportOutcome.TELEPORTED;
+    /** tasks waiting while {@link #holdAsync()} is on, like work on a slow database */
+    private List<Runnable> heldAsync;
     /** the inventory menus of a Spigot/Paper server */
     public final FakeMenus menus = new FakeMenus();
 
@@ -147,7 +149,24 @@ public final class FakePlatform implements Platform {
 
     @Override
     public void runAsync(Runnable task) {
-        task.run();
+        if (heldAsync != null) heldAsync.add(task);
+        else task.run();
+    }
+
+    /**
+     * From now on background tasks wait for {@link #releaseAsync()} instead of running at once.
+     */
+    public void holdAsync() {
+        heldAsync = new ArrayList<>();
+    }
+
+    /**
+     * Runs the background tasks held so far (and the ones they start) and stops holding them.
+     */
+    public void releaseAsync() {
+        final List<Runnable> held = heldAsync;
+        heldAsync = null;
+        held.forEach(Runnable::run);
     }
 
     @Override
