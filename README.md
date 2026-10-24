@@ -255,6 +255,30 @@ The following commands are used to apply, remove, or check punishments for playe
 
 ---
 
+### 🗂️ Menus (Spigot/Paper)
+
+* **`/jmenu {player}`** (alias `/judicatormenu`)
+  Inventory menus with what the commands show in the chat: the bans and mutes in force, the reports (open, assigned,
+  closed, all), the players online and a search by name; a player's page has the `/playerinfo` summary and opens their
+  punishment history, warns, staff notes and alt accounts, each entry opening its details. Every list pages 45 entries
+  at a time, with back and close at the bottom.
+  The actions are the commands, with their permissions and staff rules (immunity, hierarchy, time limits, cooldowns):
+  punish by one of the configured reasons (applied at once, or after adding evidence in the chat, silently with
+  `judicator.silent`), kick, warn, write a note, unban, unmute, revoke a punishment, add time, change the reason,
+  remove a warn, delete a note, and assign, reopen, close or go to a report. What changes data asks for confirmation;
+  a reason, a note or a duration is typed in the chat (`cancel` goes back), then the menu reopens where it was.
+  A button only shows up with the permission of its command, which is checked again when it is clicked.
+  **Permission:** `judicator.menu`
+* `menus.replace-commands: true` in `config.yml` makes `/playerinfo`, `/phistory`, `/whistory`, `/notes`, `/alts` and
+  `/punish` with a player, `/pview` and `/wview` with an id, and `/banlist`, `/mutelist` and `/reports` open the menu
+  for players (the console still gets the chat answer).
+* Behind a proxy running Judicator, the proxy answers its own commands first: use `/jmenu` (only the Spigot/Paper build
+  has it), and see [Networks and Multiple Servers](#networks-and-multiple-servers) for the backends.
+* Nothing can be taken from or put into a menu. The items are the right ones on each version (1.8.8 to the latest);
+  titles longer than 32 characters are cut on servers before 1.13.
+
+---
+
 ### 📝 Staff Notes
 
 * **`/note (player) (text)`** — writes a note about a player (up to 255 characters) for the rest of the staff; the

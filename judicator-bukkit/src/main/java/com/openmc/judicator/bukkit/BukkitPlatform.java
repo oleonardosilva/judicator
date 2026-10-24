@@ -1,5 +1,6 @@
 package com.openmc.judicator.bukkit;
 
+import com.openmc.judicator.menus.MenuRenderer;
 import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.JulLoggerAdapter;
 import com.openmc.judicator.platform.Platform;
@@ -32,6 +33,7 @@ public class BukkitPlatform implements Platform {
     private final Logger logger;
     private final Map<String, BukkitPlayer> onlinePlayers = new ConcurrentHashMap<>();
     private ClassLoader databaseDrivers;
+    private final BukkitMenus menus = new BukkitMenus();
 
     public BukkitPlatform(JavaPlugin plugin, BukkitAudiences audiences) {
         this.plugin = plugin;
@@ -69,6 +71,15 @@ public class BukkitPlatform implements Platform {
     @Override
     public Optional<ClassLoader> databaseDrivers() {
         return Optional.ofNullable(databaseDrivers);
+    }
+
+    BukkitMenus menuRenderer() {
+        return menus;
+    }
+
+    @Override
+    public Optional<MenuRenderer> menus() {
+        return Optional.of(menus);
     }
 
     @Override

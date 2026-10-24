@@ -132,6 +132,10 @@ commands:
   reports:
     description: Lists, assigns and closes player reports.
     permission: judicator.command.reports
+  jmenu:
+    description: Opens the menus (lists, players, actions).
+    permission: judicator.command.jmenu
+    aliases: [judicatormenu]
 permissions:
   judicator.admin:
     description: Full access to every Judicator command.
@@ -173,6 +177,7 @@ permissions:
       judicator.command.tempsoftmute: true
       judicator.command.report: true
       judicator.command.reports: true
+      judicator.command.jmenu: true
       judicator.report.offline: true
       judicator.reports.manage: true
       judicator.reports.tp: true
@@ -432,3 +437,10 @@ permissions:
   judicator.reports.notify:
     description: Told about new reports and, when joining, how many are open.
     default: op
+  judicator.menu:
+    description: /jmenu (each button still needs the permission of its command).
+    default: op
+    children:
+      judicator.command.jmenu: true
+  judicator.command.jmenu:
+    default: false

@@ -34,6 +34,7 @@ public class BukkitCommandAdapter implements TabExecutor {
             sender.sendMessage(noPermissionMessage());
             return true;
         }
+        if (judicator.getMenuService().redirect(sender, command.getName(), args)) return true;
         final CommandArgs commandArgs = CommandArgs.of(args);
         platform.runAsync(() -> {
             try {

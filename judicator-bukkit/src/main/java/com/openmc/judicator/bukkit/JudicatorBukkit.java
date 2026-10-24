@@ -62,6 +62,8 @@ public class JudicatorBukkit extends JavaPlugin {
         }
 
         getServer().getPluginManager().registerEvents(new BukkitListener(core, platform), this);
+        platform.menuRenderer().bind(core::getMenuService);
+        getServer().getPluginManager().registerEvents(platform.menuRenderer(), this);
         // /reports tp on the proxy: the backend teleports the staff member it was sent
         if (core.isProxyMode()) {
             getServer().getMessenger().registerIncomingPluginChannel(this, TeleportRequest.CHANNEL, new BukkitTeleportListener(this));
