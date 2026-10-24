@@ -182,11 +182,12 @@ public class RelationalDBManager {
 
     /**
      * Reads {@code database.type} from {@code data.yml} before the plugin is enabled, so a platform can fetch only
-     * the driver it needs. A missing or unreadable file means the default (PostgreSQL).
+     * the driver it needs. A missing file is about to be created from the bundled one, which uses SQLite; an
+     * unreadable file or one without {@code type} means PostgreSQL, as in {@link Dialect#fromConfig}.
      */
     public static Dialect readConfiguredDialect(Path dataDirectory) {
         final Path file = dataDirectory.resolve("data.yml");
-        if (!Files.exists(file)) return Dialect.POSTGRESQL;
+        if (!Files.exists(file)) return Dialect.SQLITE;
         try {
             return Dialect.fromConfig(YamlConfigurationLoader.builder().path(file).build().load()
                     .node("database", "type").getString("postgres"));

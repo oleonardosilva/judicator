@@ -130,7 +130,7 @@ that applies where the player is. `reports/`: `ReportService` (cooldown, states 
 
 Configured in `data.yml`. Every table and index name carries `database.table-prefix` (`judicator_`): DAOs write
 `{table}` in their SQL and `RelationalDBManager.sql()` puts the prefixed name in; `ensureColumn`/`ensureIndex` take the
-name without it. `commons/db/LegacyTables` renames the 1.x tables at startup. PostgreSQL (default), MySQL and SQLite (`commons/db/Dialect`). HikariCP pool in
+name without it. `commons/db/LegacyTables` renames the 1.x tables at startup. SQLite (default in the bundled `data.yml`), PostgreSQL and MySQL (`commons/db/Dialect`; a `data.yml` without `type` still means PostgreSQL, the 1.x default). HikariCP pool in
 `RelationalDBManager`; DDL for the three dialects lives in each `*RelationalDAO.initialize()`. A column added after
 1.0.0 goes in the `CREATE TABLE` **and** in `SchemaUtil.ensureColumnExists` (for tables created by older versions).
 A paused online-only mute has `finish_at` NULL and `paused_remaining` set, so "in force" queries stay the same.

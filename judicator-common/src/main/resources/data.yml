@@ -5,7 +5,9 @@
 # To move the data to another database (e.g. SQLite -> MySQL), see 'judicator' in import.yml.
 
 database:
-  type: 'postgres' # postgres, mysql (also for MariaDB) or sqlite
+  # sqlite (default) keeps everything in one file and needs no database server: fine for a single server or a small
+  # network. For several Spigot/Paper servers sharing punishments, switch to postgres or mysql (also for MariaDB).
+  type: 'sqlite' # sqlite, postgres or mysql
   # Put before every table name so they never clash with another plugin's tables in the same database: a-z, 0-9 and
   # _, up to 16 characters ('' = no prefix). The same on every server sharing the database; changing it needs a
   # restart, and the tables already created keep their old names (rename them by hand). Tables of Judicator 1.x are

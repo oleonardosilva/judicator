@@ -1,5 +1,6 @@
 package com.openmc.judicator;
 
+import com.openmc.judicator.commons.db.Dialect;
 import org.junit.jupiter.api.Test;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
@@ -46,9 +47,10 @@ class BundledConfigTest {
     }
 
     @Test
-    void data_usesTheDefaultPortOfTheTypeAndASizedPool() throws IOException {
+    void data_usesSqliteTheDefaultPortOfTheTypeAndASizedPool() throws IOException {
         final ConfigurationNode database = load("data.yml").node("database");
-        assertEquals("postgres", database.node("type").getString());
+        assertEquals(Dialect.SQLITE, Dialect.fromConfig(database.node("type").getString()));
+        assertEquals("judicator.db", database.node("file").getString());
         assertEquals("", database.node("port").getString());
         assertTrue(database.node("properties").childrenMap().isEmpty());
         assertEquals(10, database.node("pool", "maximum-size").getInt());

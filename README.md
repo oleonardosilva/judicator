@@ -37,12 +37,13 @@ follows that account. On a real offline-mode server the name is the player, as b
 
 ### Database
 
-Set `type` in `data.yml` to `postgres` (default), `mysql` or `sqlite`. SQLite needs no database server: the data is
-kept in `plugins/<Judicator folder>/judicator.db` (`file` in `data.yml`). Spigot/Paper already include the SQLite
-driver; BungeeCord downloads it on the first start with the other libraries; on Velocity it is downloaded on the first
-start with `type: 'sqlite'`. Use SQLite for a single server or a
-small network; a network with several Spigot/Paper servers sharing punishments needs PostgreSQL or MySQL. Changing
-`type` requires a restart (it is not applied by `/judicator reload`).
+Judicator starts on **SQLite**, so it works out of the box with no database server: the data is kept in
+`plugins/<Judicator folder>/judicator.db` (`file` in `data.yml`). Spigot/Paper already include the SQLite driver;
+BungeeCord and Velocity download it on the first start with the other libraries (Velocity only while `type` is
+`sqlite`). SQLite suits a single server or a small network; a network with several Spigot/Paper servers sharing
+punishments needs PostgreSQL or MySQL: set `type` in `data.yml` to `postgres` or `mysql` (also for MariaDB), fill in
+the connection settings and restart (changing `type` is not applied by `/judicator reload`). To bring the punishments
+already recorded in SQLite along, see `judicator` under [importing](#importing-from-other-plugins).
 
 Every table and index starts with **`table-prefix`** (`judicator_` by default: `judicator_punishments`…), so they
 never clash with other plugins in the same database. Use the same prefix on every server sharing the database; it is
