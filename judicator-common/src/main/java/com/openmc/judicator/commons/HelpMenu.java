@@ -46,7 +46,7 @@ public final class HelpMenu {
         categories.put("punish", List.of("punish", "ban", "tempban", "banip", "tempbanip", "mute", "tempmute", "muteip",
                 "tempmuteip", "softmute", "tempsoftmute", "kick", "warn", "tempwarn"));
         categories.put("revoke", List.of("unban", "unmute", "revoke", "unwarn", "extend", "changereason"));
-        categories.put("lookup", List.of("playerinfo", "punishhistory", "punishview", "warnhistory", "warnview", "alts",
+        categories.put("lookup", List.of("jmenu", "playerinfo", "punishhistory", "punishview", "warnhistory", "warnview", "alts",
                 "banlist", "mutelist"));
         categories.put("notes", List.of("note", "notes", "delnote"));
         categories.put("reports", List.of("report", "reports"));

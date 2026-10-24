@@ -58,6 +58,11 @@ public final class FakePlayer implements JudicatorPlayer {
         return this;
     }
 
+    public FakePlayer deny(String... permissions) {
+        List.of(permissions).forEach(this.permissions::remove);
+        return this;
+    }
+
     @Override
     public String getName() {
         return name;

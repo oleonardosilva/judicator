@@ -46,12 +46,10 @@ public class RevokeCommand extends CoreCommand {
         }
 
         final String author = source.asPlayer().map(JudicatorPlayer::getName).orElse("Console");
-        judicator.getPlatform().runAsync(() -> {
-            final boolean revoked = !new RevokeHandler(judicator).revoke(List.of(punishment), reason, author, true).isEmpty();
-            source.sendMessage(revoked
-                    ? PunishUtils.getMessage(messages, "success", "pardon")
-                    : PunishUtils.getMessage(messages, "error", "unknown"));
-        });
+        final boolean revoked = !new RevokeHandler(judicator).revoke(List.of(punishment), reason, author, true).isEmpty();
+        source.sendMessage(revoked
+                ? PunishUtils.getMessage(messages, "success", "pardon")
+                : PunishUtils.getMessage(messages, "error", "unknown"));
     }
 
     @Override

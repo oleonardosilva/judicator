@@ -17,6 +17,7 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import org.spongepowered.configurate.ConfigurationNode;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -34,13 +35,15 @@ public class ReportsCommand extends CoreCommand {
     /**
      * What {@code /reports list} can show; "open" is every report not closed yet.
      */
-    private static final Map<String, Set<ReportState>> FILTERS = new LinkedHashMap<>();
+    public static final Map<String, Set<ReportState>> FILTERS = filters();
 
-    static {
-        FILTERS.put("open", Set.of(ReportState.OPEN, ReportState.ASSIGNED));
-        FILTERS.put("assigned", Set.of(ReportState.ASSIGNED));
-        FILTERS.put("closed", Set.of(ReportState.CLOSED));
-        FILTERS.put("all", Set.of(ReportState.values()));
+    private static Map<String, Set<ReportState>> filters() {
+        final Map<String, Set<ReportState>> filters = new LinkedHashMap<>();
+        filters.put("open", Set.of(ReportState.OPEN, ReportState.ASSIGNED));
+        filters.put("assigned", Set.of(ReportState.ASSIGNED));
+        filters.put("closed", Set.of(ReportState.CLOSED));
+        filters.put("all", Set.of(ReportState.values()));
+        return Collections.unmodifiableMap(filters);
     }
 
     private static final List<String> SUBCOMMANDS = List.of("list", "info", "assign", "unassign", "close", "tp");

@@ -204,6 +204,7 @@ public class ConnectionHandler {
     }
 
     public void onDisconnect(UUID uuid, String username, String address) {
+        judicator.getMenuService().forget(uuid);
         if (!judicator.isProxyMode()) judicator.getPunishService().pauseOnlineOnlyMutes(judicator.getPlayerDirectory().refOf(uuid, username));
         judicator.getPunishService().cleanupMutePunishmentCache(uuid, address);
     }

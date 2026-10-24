@@ -53,6 +53,7 @@ public final class TestServer implements AutoCloseable {
         this.players = sharedDatabase == null ? new InMemoryPlayerRepository() : sharedDatabase.players;
         this.reports = sharedDatabase == null ? new InMemoryReportRepository() : sharedDatabase.reports;
         this.judicator = boot();
+        platform.menus.bind(() -> judicator.getMenuService());
     }
 
     private Judicator boot() {
@@ -189,7 +190,9 @@ public final class TestServer implements AutoCloseable {
         final String[] parts = line.trim().split(" ", 2);
         final CoreCommand command = find(parts[0]);
         if (!command.canUse(sender)) return false;
-        command.execute(sender, CommandArgs.of(parts.length > 1 ? parts[1] : ""));
+        final String arguments = parts.length > 1 ? parts[1].trim() : "";
+        if (judicator.getMenuService().redirect(sender, command.getName(), arguments.isEmpty() ? new String[0] : arguments.split(" "))) return true;
+        command.execute(sender, CommandArgs.of(arguments));
         return true;
     }
 

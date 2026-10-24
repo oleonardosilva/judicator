@@ -149,6 +149,8 @@ chat-on-backends: false # proxy only (Velocity, BungeeCord): true when the backe
 scopes: # punishments for one server or a group of servers of the network: /ban Steve -scope=survival hacking
   server-name: '' # Spigot/Paper only: this server's name as the proxy's config calls it; empty = only global punishments here
   groups: {} # e.g. survival: [survival1, survival2] (a group wins over a server with the same name)
+menus: # Spigot/Paper: inventory menus of /jmenu
+  replace-commands: false # true: /playerinfo, /phistory, /whistory, /notes, /alts and /punish (player), /pview and /wview (id), /banlist, /mutelist and /reports open the menu for players (the console keeps the chat answer); behind a proxy running Judicator, the proxy answers those commands first
 reports: # /report and /reports
   require-permission: false # true: only players with judicator.report can use /report (on a proxy nobody has it without a permissions plugin)
   cooldown: 60 # seconds a player waits between two reports

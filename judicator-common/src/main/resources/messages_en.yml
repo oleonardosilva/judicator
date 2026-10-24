@@ -266,6 +266,7 @@ usages:
   note: "&cIncorrect command. Use: /note (player) (text)."
   notes: "&cIncorrect command. Use: /notes (player) [page]."
   delnote: "&cIncorrect command. Use: /delnote (id)."
+  jmenu: "&cIncorrect command. Use: /jmenu [player]."
   playerinfo: "&cIncorrect command. Use: /playerinfo (player)."
   softmute: "&cIncorrect command. Use: /softmute (player) [reason]."
   tempsoftmute: "&cIncorrect command. Use: /tempsoftmute (player) \"(number:days,number:hours...)\" [-o] [reason]."
@@ -435,6 +436,9 @@ help:
     changereason:
       usage: "/changereason (id) (reason)"
       description: "Changes the reason of a punishment."
+    jmenu:
+      usage: "/jmenu [player]"
+      description: "Menus with the lists, the players and the actions (Spigot/Paper)."
     playerinfo:
       usage: "/playerinfo (player)"
       description: "Everything about a player at once."
@@ -596,3 +600,404 @@ reports:
     assigned: "assigned"
     closed: "closed"
     all: "all"
+
+# Inventory menus of /jmenu (Spigot/Paper). Titles longer than 32 characters (colour codes count) are cut on servers
+# before 1.13.
+menu:
+  only-players: "&cMenus are for players in the game."
+  error: "&cThe menu could not be opened; see the server console."
+  no-permission: "&cYou do not have permission to do this."
+  prompt: "&eType {what} in the chat, or &f{cancel} &eto go back."
+  denied:
+    name: "&cYou cannot see this"
+    lore:
+      - "&7Your permissions changed."
+  gone:
+    name: "&7It no longer exists"
+    lore:
+      - "&7It was deleted meanwhile."
+  empty:
+    name: "&7Nothing here"
+    lore: []
+  navigation:
+    back:
+      name: "&e« Back"
+      lore:
+        - "&7To the previous menu."
+    close:
+      name: "&cClose"
+      lore: []
+    previous:
+      name: "&e« Previous page"
+      lore:
+        - "&7Page {page} of {pages}."
+    next:
+      name: "&eNext page »"
+      lore:
+        - "&7Page {page} of {pages}."
+    page:
+      name: "&fPage {page}/{pages}"
+      lore:
+        - "&7{count} in total."
+        - "&7Click to refresh."
+  main:
+    title: "&8Judicator"
+    bans:
+      name: "&cBans in force"
+      lore:
+        - "&7{count} in force."
+        - ""
+        - "&eClick to see them."
+    mutes:
+      name: "&6Mutes in force"
+      lore:
+        - "&7{count} in force."
+        - ""
+        - "&eClick to see them."
+    reports:
+      name: "&eReports"
+      lore:
+        - "&7{count} open."
+        - ""
+        - "&eClick to see them."
+    online:
+      name: "&aPlayers online"
+      lore:
+        - "&7{count} online."
+        - ""
+        - "&eClick to see them."
+    search:
+      name: "&bFind a player"
+      lore:
+        - "&7Online or not."
+        - ""
+        - "&eClick and type the name."
+    search-what: "the player's name"
+  player:
+    title: "&8{nickname}"
+    head:
+      name: "&e{nickname} &7({state}&7)"
+      lore:
+        - "&7UUID: &f{uuid}"
+        - "&7Last login: &f{lastSeen}"
+        - "&7History: &f{bans} &7ban(s), &f{mutes} &7mute(s), &f{kicks} &7kick(s)"
+        - "&7Warns: &f{activeWarns} &7active of &f{warns}"
+        - "&7Staff notes: &f{notes}"
+        - "&7Reported: &f{reports} &7time(s)"
+        - "&7Accounts that shared an IP: &f{alts}"
+      ip: "&7Last IP: &f{ip}"
+    ban:
+      name: "&cBanned: #{id} {type}"
+      lore:
+        - "&7Reason: &f{reason}"
+        - "&7Until: &f{finishAt}"
+        - "&7Author: &f{author}"
+        - "&7Where: &f{scope}"
+        - ""
+        - "&eClick to open."
+    no-ban:
+      name: "&aNot banned"
+      lore: []
+    mute:
+      name: "&6Muted: #{id} {type}"
+      lore:
+        - "&7Reason: &f{reason}"
+        - "&7Until: &f{finishAt}"
+        - "&7Author: &f{author}"
+        - "&7Where: &f{scope}"
+        - ""
+        - "&eClick to open."
+    no-mute:
+      name: "&aNot muted"
+      lore: []
+    history:
+      name: "&ePunishment history"
+      lore:
+        - "&7{punishments} punishment(s)."
+        - ""
+        - "&eClick to see them."
+    warns:
+      name: "&eWarns"
+      lore:
+        - "&7{activeWarns} active of {warns}."
+        - ""
+        - "&eClick to see them."
+    notes:
+      name: "&bStaff notes"
+      lore:
+        - "&7{notes} note(s)."
+        - ""
+        - "&eClick to see them."
+    alts:
+      name: "&dAccounts that shared an IP"
+      lore:
+        - "&7{alts} account(s)."
+        - ""
+        - "&eClick to see them."
+    punish:
+      name: "&cPunish"
+      lore:
+        - "&7Choose one of the reasons."
+    kick:
+      name: "&6Kick"
+      lore:
+        - "&7{nickname} is online."
+        - ""
+        - "&eClick to kick."
+    warn:
+      name: "&eWarn"
+      lore:
+        - "&7Type the reason in the chat."
+    warn-what: "the reason of the warn"
+    note:
+      name: "&bWrite a note"
+      lore:
+        - "&7Only the staff sees it."
+    note-what: "the note"
+    unban:
+      name: "&aUnban"
+      lore:
+        - "&7Revokes the bans in force."
+    unmute:
+      name: "&aUnmute"
+      lore:
+        - "&7Revokes the mutes in force."
+  punishments:
+    title-history: "&8History of {nickname}"
+    title-bans: "&8Bans in force ({count})"
+    title-mutes: "&8Mutes in force ({count})"
+    entry:
+      name: "&f#{id} &7- &c{type} &7- {status}"
+      lore:
+        - "&7Player: &f{nickname}"
+        - "&7Reason: &f{reason}"
+        - "&7Start: &f{startedAt}"
+        - "&7End: &f{finishAt}"
+        - "&7Author: &f{author}"
+        - "&7Where: &f{scope}"
+        - ""
+        - "&eClick to open."
+  punishment:
+    title: "&8Punishment #{id}"
+    info:
+      name: "&f#{id} &7- &c{type} &7- {status}"
+      lore:
+        - "&7Player: &f{nickname}"
+        - "&7Reason: &f{reason}"
+        - "&7Start: &f{startedAt}"
+        - "&7End: &f{finishAt}"
+        - "&7Author: &f{author}"
+        - "&7Where: &f{scope}"
+        - "&7Evidence: &f{evidence}"
+        - "&7IP: &f{addressIP}"
+        - "&7Revoked: &f{revoked} &7- &f{revokedReason}"
+    player:
+      name: "&e{nickname}"
+      lore:
+        - "&eClick to open the player."
+    revoke:
+      name: "&aRevoke"
+      lore:
+        - "&7Lifts this punishment."
+    extend:
+      name: "&eAdd time"
+      lore:
+        - "&7Type how long in the chat, e.g. &f7:d&7."
+    extend-what: "how much time to add (e.g. 7:d or 12:h)"
+    change-reason:
+      name: "&eChange the reason"
+      lore:
+        - "&7Type the new reason in the chat."
+    change-reason-what: "the new reason"
+  warns:
+    title: "&8Warns of {nickname}"
+    entry:
+      name: "&f#{id} &7- &e{status}"
+      lore:
+        - "&7Reason: &f{reason}"
+        - "&7Start: &f{startedAt}"
+        - "&7End: &f{finishAt}"
+        - "&7Author: &f{author}"
+        - ""
+        - "&eClick to open."
+  warn:
+    title: "&8Warn #{id}"
+    info:
+      name: "&f#{id} &7- &e{status}"
+      lore:
+        - "&7Player: &f{nickname}"
+        - "&7Reason: &f{reason}"
+        - "&7Start: &f{startedAt}"
+        - "&7End: &f{finishAt}"
+        - "&7Author: &f{author}"
+    player:
+      name: "&e{nickname}"
+      lore:
+        - "&eClick to open the player."
+    remove:
+      name: "&aRemove the warn"
+      lore:
+        - "&7It stops counting."
+  notes:
+    title: "&8Notes about {nickname}"
+    entry:
+      name: "&f#{id} &7by &f{author}"
+      lore:
+        - "&7{createdAt}"
+        - ""
+        - "&f{content}"
+        - ""
+        - "&cClick to delete."
+    entry-read-only:
+      name: "&f#{id} &7by &f{author}"
+      lore:
+        - "&7{createdAt}"
+        - ""
+        - "&f{content}"
+    add:
+      name: "&bWrite a note"
+      lore:
+        - "&7About {nickname}."
+        - ""
+        - "&eClick and type it in the chat."
+  alts:
+    title: "&8Accounts of {nickname}'s IP"
+    entry:
+      name: "&e{account}"
+      lore:
+        - "&7{status}"
+        - ""
+        - "&eClick to open."
+  reports:
+    title: "&8Reports: {filter} ({count})"
+    entry:
+      name: "&f#{id} &7- &e{target} &7[{state}&7]"
+      lore:
+        - "&7Reason: &f{reason}"
+        - "&7By: &f{reporter}"
+        - "&7Server: &f{server}"
+        - "&7Created: &f{createdAt}"
+        - "&7Handled by: &f{assignee}"
+        - ""
+        - "&eClick to open."
+    filter:
+      name: "&eShowing: &f{filter}"
+      lore:
+        - "&7Click to show: &f{next}"
+  report:
+    title: "&8Report #{id}"
+    info:
+      name: "&f#{id} &7- &e{target} &7[{state}&7]"
+      lore:
+        - "&7Reason: &f{reason}"
+        - "&7By: &f{reporter}"
+        - "&7Server: &f{server}"
+        - "&7Created: &f{createdAt}"
+        - "&7Handled by: &f{assignee}"
+        - "&7Closed: &f{closedAt} &7- &f{comment}"
+    target:
+      name: "&eReported: &f{target}"
+      lore:
+        - "&eClick to open the player."
+    reporter:
+      name: "&eBy: &f{reporter}"
+      lore:
+        - "&eClick to open the player."
+    assign:
+      name: "&bAssign to me"
+      lore:
+        - "&7You handle this report."
+    unassign:
+      name: "&eOpen it again"
+      lore:
+        - "&7Nobody handles it any more."
+    close:
+      name: "&aClose"
+      lore:
+        - "&7With or without a comment."
+    tp:
+      name: "&aGo to {target}"
+      lore:
+        - "&7Teleports you to the reported player."
+  online:
+    title: "&8Players online ({count})"
+    entry:
+      name: "&a{nickname}"
+      lore:
+        - "&eClick to open."
+  reasons:
+    title: "&8Punish {nickname}"
+    entry:
+      name: "&c{reason}"
+      lore:
+        - "&7Gives: &f{type}"
+        - "&7Duration: &f{duration}"
+        - "&7By IP: &f{ip}"
+        - ""
+        - "&eClick to choose."
+  confirm:
+    title: "&8Confirm"
+    "yes":
+      name: "&aConfirm"
+      lore: []
+    yes-with-text:
+      name: "&eConfirm with a reason"
+      lore:
+        - "&7Type it in the chat first."
+    text-what: "the reason"
+    "no":
+      name: "&cCancel"
+      lore:
+        - "&7Back without changes."
+    kick:
+      name: "&6Kick {nickname}?"
+      lore: []
+    unban:
+      name: "&aUnban {nickname}?"
+      lore:
+        - "&7Revokes the bans in force."
+    unmute:
+      name: "&aUnmute {nickname}?"
+      lore:
+        - "&7Revokes the mutes in force."
+    revoke:
+      name: "&aRevoke punishment #{id}?"
+      lore:
+        - "&7Of {nickname}."
+    unwarn:
+      name: "&aRemove warn #{id}?"
+      lore:
+        - "&7Of {nickname}."
+    delnote:
+      name: "&cDelete note #{id}?"
+      lore:
+        - "&7By {author}, about {nickname}:"
+        - "&f{content}"
+    close-report:
+      name: "&aClose report #{id}?"
+      lore:
+        - "&7About {target}."
+    punish:
+      name: "&cPunish {nickname}?"
+      lore:
+        - "&7Reason: &f{reason}"
+        - "&7Gives: &f{type}"
+        - "&7Duration: &f{duration}"
+        - "&7By IP: &f{ip}"
+    punish-now:
+      name: "&aApply now"
+      lore:
+        - "&7Without evidence."
+    punish-evidence:
+      name: "&eAdd evidence first"
+      lore:
+        - "&7Closes the menu: send the links in the chat,"
+        - "&7then confirm there."
+    silent-off:
+      name: "&7Silent: &cno"
+      lore:
+        - "&7Click to apply it without announcing it."
+    silent-on:
+      name: "&7Silent: &ayes"
+      lore:
+        - "&7Click to announce it."

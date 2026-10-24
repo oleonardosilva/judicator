@@ -1,5 +1,6 @@
 package com.openmc.judicator.testing;
 
+import com.openmc.judicator.menus.MenuRenderer;
 import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.platform.Platform;
 import com.openmc.judicator.platform.PlatformTask;
@@ -46,6 +47,8 @@ public final class FakePlatform implements Platform {
     private final Set<String> refusing = new HashSet<>();
     private final List<String> teleports = new ArrayList<>();
     private TeleportOutcome teleportOutcome = TeleportOutcome.TELEPORTED;
+    /** the inventory menus of a Spigot/Paper server */
+    public final FakeMenus menus = new FakeMenus();
 
     public FakePlatform(Path dataDirectory, boolean onlineMode) {
         this(dataDirectory, onlineMode, PlatformType.VELOCITY);
@@ -216,6 +219,14 @@ public final class FakePlatform implements Platform {
      */
     public List<String> teleports() {
         return teleports;
+    }
+
+    /**
+     * Inventory menus on Spigot/Paper only, as the real platforms.
+     */
+    @Override
+    public Optional<MenuRenderer> menus() {
+        return type.isProxy() ? Optional.empty() : Optional.of(menus);
     }
 
     @Override

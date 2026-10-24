@@ -13,6 +13,8 @@ import com.openmc.judicator.commons.db.LegacyTables;
 import com.openmc.judicator.commons.db.RelationalDBManager;
 import com.openmc.judicator.discord.DiscordWebhookService;
 import com.openmc.judicator.importer.ImportService;
+import com.openmc.judicator.menus.MenuCommand;
+import com.openmc.judicator.menus.MenuService;
 import com.openmc.judicator.api.JudicatorProvider;
 import com.openmc.judicator.integration.JudicatorApiService;
 import com.openmc.judicator.integration.JudicatorEventBus;
@@ -111,6 +113,8 @@ public class Judicator {
     private ScopeService scopeService;
     /** player reports ({@code /report}, {@code /reports}) */
     private ReportService reportService;
+    /** the menus of {@code /jmenu}, on platforms that draw them */
+    private MenuService menuService;
     private AddressPolicy addressPolicy;
     private HierarchyService hierarchyService;
     private TimeLimitService timeLimitService;
@@ -233,6 +237,7 @@ public class Judicator {
     }
 
     public void disable() {
+        if (menuService != null) menuService.closeAll();
         if (api != null) JudicatorProvider.unregister(api);
         // Players still online when the server stops never send a disconnect to the plugin: stop their online-only mutes here.
         if (punishService != null && !proxyMode) {
@@ -291,6 +296,7 @@ public class Judicator {
         this.warnService = new WarnService(repositories.warns());
         this.noteService = new NoteService(repositories.notes());
         this.reportService = new ReportService(this, repositories.reports());
+        this.menuService = new MenuService(this);
         this.hierarchyService = new HierarchyService(this, repositories.levels());
         this.timeLimitService = new TimeLimitService(this);
         this.punishCooldown = new PunishCooldown(this);
@@ -372,6 +378,7 @@ public class Judicator {
         list.add(new ReportCommand(this));
         list.add(new ReportsCommand(this));
         list.add(new JudicatorCommand(this));
+        if (menuService.isAvailable()) list.add(new MenuCommand(this));
         return List.copyOf(list);
     }
 

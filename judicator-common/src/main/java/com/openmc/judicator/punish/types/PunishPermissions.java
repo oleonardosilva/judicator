@@ -47,7 +47,8 @@ public enum PunishPermissions {
     REPORTS("judicator.reports"),
     REPORTS_MANAGE("judicator.reports.manage"),
     REPORTS_TP("judicator.reports.tp"),
-    REPORTS_NOTIFY("judicator.reports.notify");
+    REPORTS_NOTIFY("judicator.reports.notify"),
+    MENU("judicator.menu");
 
     public static final String LEVEL_PREFIX = "judicator.level.";
 

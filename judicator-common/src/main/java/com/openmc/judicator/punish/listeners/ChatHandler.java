@@ -6,7 +6,6 @@ import com.openmc.judicator.platform.JudicatorPlayer;
 import com.openmc.judicator.punish.PunishService;
 import com.openmc.judicator.punish.PunishUtils;
 import com.openmc.judicator.punish.Punishment;
-import com.openmc.judicator.punish.PunishmentBuilder;
 import com.openmc.judicator.punish.data.cache.PunishCache;
 import com.openmc.judicator.punish.types.PunishStatus;
 import net.kyori.adventure.text.Component;
@@ -117,7 +116,7 @@ public final class ChatHandler {
 
     public boolean handlePromptChat(JudicatorPlayer player, String message) {
         final PunishCache cache = judicator.getPunishCache();
-        final Optional<ChatContext<PunishmentBuilder>> context = cache.getContext(player.getName());
+        final Optional<ChatContext<?>> context = cache.getContext(player.getName());
         if (context.isEmpty()) return false;
         context.get().acceptChat(player, message);
         return true;
@@ -125,7 +124,7 @@ public final class ChatHandler {
 
     public boolean handlePromptCommand(JudicatorPlayer player, String commandLine) {
         final PunishCache cache = judicator.getPunishCache();
-        final Optional<ChatContext<PunishmentBuilder>> context = cache.getContext(player.getName());
+        final Optional<ChatContext<?>> context = cache.getContext(player.getName());
         if (context.isEmpty()) return false;
         context.get().acceptCommand(player, commandLine);
         return true;

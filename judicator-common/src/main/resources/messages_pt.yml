@@ -266,6 +266,7 @@ usages:
   note: "&cComando incorreto. Use: /note (jogador) (texto)."
   notes: "&cComando incorreto. Use: /notes (jogador) [página]."
   delnote: "&cComando incorreto. Use: /delnote (id)."
+  jmenu: "&cComando incorreto. Use: /jmenu [jogador]."
   playerinfo: "&cComando incorreto. Use: /playerinfo (jogador)."
   softmute: "&cComando incorreto. Use: /softmute (jogador) [motivo]."
   tempsoftmute: "&cComando incorreto. Use: /tempsoftmute (jogador) \"(número:dias,número:horas...)\" [-o] [motivo]."
@@ -435,6 +436,9 @@ help:
     changereason:
       usage: "/changereason (id) (motivo)"
       description: "Troca o motivo de uma punição."
+    jmenu:
+      usage: "/jmenu [jogador]"
+      description: "Menus com as listas, os jogadores e as ações (Spigot/Paper)."
     playerinfo:
       usage: "/playerinfo (jogador)"
       description: "Tudo sobre um jogador de uma vez."
@@ -596,3 +600,404 @@ reports:
     assigned: "em andamento"
     closed: "fechadas"
     all: "todas"
+
+# Menus de inventário do /jmenu (Spigot/Paper). Títulos com mais de 32 caracteres (os códigos de cor contam) são
+# cortados nos servidores antes da 1.13.
+menu:
+  only-players: "&cOs menus são para jogadores dentro do jogo."
+  error: "&cNão foi possível abrir o menu; veja o console do servidor."
+  no-permission: "&cVocê não tem permissão para fazer isso."
+  prompt: "&eDigite {what} no chat, ou &f{cancel} &epara voltar."
+  denied:
+    name: "&cVocê não pode ver isto"
+    lore:
+      - "&7Suas permissões mudaram."
+  gone:
+    name: "&7Isto não existe mais"
+    lore:
+      - "&7Foi apagado enquanto isso."
+  empty:
+    name: "&7Nada aqui"
+    lore: []
+  navigation:
+    back:
+      name: "&e« Voltar"
+      lore:
+        - "&7Para o menu anterior."
+    close:
+      name: "&cFechar"
+      lore: []
+    previous:
+      name: "&e« Página anterior"
+      lore:
+        - "&7Página {page} de {pages}."
+    next:
+      name: "&ePróxima página »"
+      lore:
+        - "&7Página {page} de {pages}."
+    page:
+      name: "&fPágina {page}/{pages}"
+      lore:
+        - "&7{count} no total."
+        - "&7Clique para atualizar."
+  main:
+    title: "&8Judicator"
+    bans:
+      name: "&cBans em vigor"
+      lore:
+        - "&7{count} em vigor."
+        - ""
+        - "&eClique para ver."
+    mutes:
+      name: "&6Mutes em vigor"
+      lore:
+        - "&7{count} em vigor."
+        - ""
+        - "&eClique para ver."
+    reports:
+      name: "&eDenúncias"
+      lore:
+        - "&7{count} aberta(s)."
+        - ""
+        - "&eClique para ver."
+    online:
+      name: "&aJogadores online"
+      lore:
+        - "&7{count} online."
+        - ""
+        - "&eClique para ver."
+    search:
+      name: "&bProcurar um jogador"
+      lore:
+        - "&7Online ou não."
+        - ""
+        - "&eClique e digite o nome."
+    search-what: "o nome do jogador"
+  player:
+    title: "&8{nickname}"
+    head:
+      name: "&e{nickname} &7({state}&7)"
+      lore:
+        - "&7UUID: &f{uuid}"
+        - "&7Último login: &f{lastSeen}"
+        - "&7Histórico: &f{bans} &7ban(s), &f{mutes} &7mute(s), &f{kicks} &7kick(s)"
+        - "&7Avisos: &f{activeWarns} &7ativo(s) de &f{warns}"
+        - "&7Notas da staff: &f{notes}"
+        - "&7Denunciado: &f{reports} &7vez(es)"
+        - "&7Contas que dividiram um IP: &f{alts}"
+      ip: "&7Último IP: &f{ip}"
+    ban:
+      name: "&cBanido: #{id} {type}"
+      lore:
+        - "&7Motivo: &f{reason}"
+        - "&7Até: &f{finishAt}"
+        - "&7Autor: &f{author}"
+        - "&7Onde: &f{scope}"
+        - ""
+        - "&eClique para abrir."
+    no-ban:
+      name: "&aNão está banido"
+      lore: []
+    mute:
+      name: "&6Mutado: #{id} {type}"
+      lore:
+        - "&7Motivo: &f{reason}"
+        - "&7Até: &f{finishAt}"
+        - "&7Autor: &f{author}"
+        - "&7Onde: &f{scope}"
+        - ""
+        - "&eClique para abrir."
+    no-mute:
+      name: "&aNão está mutado"
+      lore: []
+    history:
+      name: "&eHistórico de punições"
+      lore:
+        - "&7{punishments} punição(ões)."
+        - ""
+        - "&eClique para ver."
+    warns:
+      name: "&eAvisos"
+      lore:
+        - "&7{activeWarns} ativo(s) de {warns}."
+        - ""
+        - "&eClique para ver."
+    notes:
+      name: "&bNotas da staff"
+      lore:
+        - "&7{notes} nota(s)."
+        - ""
+        - "&eClique para ver."
+    alts:
+      name: "&dContas que dividiram um IP"
+      lore:
+        - "&7{alts} conta(s)."
+        - ""
+        - "&eClique para ver."
+    punish:
+      name: "&cPunir"
+      lore:
+        - "&7Escolha um dos motivos."
+    kick:
+      name: "&6Expulsar"
+      lore:
+        - "&7{nickname} está online."
+        - ""
+        - "&eClique para expulsar."
+    warn:
+      name: "&eAvisar"
+      lore:
+        - "&7Digite o motivo no chat."
+    warn-what: "o motivo do aviso"
+    note:
+      name: "&bEscrever uma nota"
+      lore:
+        - "&7Só a staff vê."
+    note-what: "a nota"
+    unban:
+      name: "&aDesbanir"
+      lore:
+        - "&7Revoga os bans em vigor."
+    unmute:
+      name: "&aDesmutar"
+      lore:
+        - "&7Revoga os mutes em vigor."
+  punishments:
+    title-history: "&8Histórico de {nickname}"
+    title-bans: "&8Bans em vigor ({count})"
+    title-mutes: "&8Mutes em vigor ({count})"
+    entry:
+      name: "&f#{id} &7- &c{type} &7- {status}"
+      lore:
+        - "&7Jogador: &f{nickname}"
+        - "&7Motivo: &f{reason}"
+        - "&7Início: &f{startedAt}"
+        - "&7Fim: &f{finishAt}"
+        - "&7Autor: &f{author}"
+        - "&7Onde: &f{scope}"
+        - ""
+        - "&eClique para abrir."
+  punishment:
+    title: "&8Punição #{id}"
+    info:
+      name: "&f#{id} &7- &c{type} &7- {status}"
+      lore:
+        - "&7Jogador: &f{nickname}"
+        - "&7Motivo: &f{reason}"
+        - "&7Início: &f{startedAt}"
+        - "&7Fim: &f{finishAt}"
+        - "&7Autor: &f{author}"
+        - "&7Onde: &f{scope}"
+        - "&7Evidências: &f{evidence}"
+        - "&7IP: &f{addressIP}"
+        - "&7Revogada: &f{revoked} &7- &f{revokedReason}"
+    player:
+      name: "&e{nickname}"
+      lore:
+        - "&eClique para abrir o jogador."
+    revoke:
+      name: "&aRevogar"
+      lore:
+        - "&7Encerra esta punição."
+    extend:
+      name: "&eAumentar o tempo"
+      lore:
+        - "&7Digite quanto no chat, ex.: &f7:d&7."
+    extend-what: "quanto tempo somar (ex.: 7:d ou 12:h)"
+    change-reason:
+      name: "&eMudar o motivo"
+      lore:
+        - "&7Digite o novo motivo no chat."
+    change-reason-what: "o novo motivo"
+  warns:
+    title: "&8Avisos de {nickname}"
+    entry:
+      name: "&f#{id} &7- &e{status}"
+      lore:
+        - "&7Motivo: &f{reason}"
+        - "&7Início: &f{startedAt}"
+        - "&7Fim: &f{finishAt}"
+        - "&7Autor: &f{author}"
+        - ""
+        - "&eClique para abrir."
+  warn:
+    title: "&8Aviso #{id}"
+    info:
+      name: "&f#{id} &7- &e{status}"
+      lore:
+        - "&7Jogador: &f{nickname}"
+        - "&7Motivo: &f{reason}"
+        - "&7Início: &f{startedAt}"
+        - "&7Fim: &f{finishAt}"
+        - "&7Autor: &f{author}"
+    player:
+      name: "&e{nickname}"
+      lore:
+        - "&eClique para abrir o jogador."
+    remove:
+      name: "&aRemover o aviso"
+      lore:
+        - "&7Ele deixa de contar."
+  notes:
+    title: "&8Notas sobre {nickname}"
+    entry:
+      name: "&f#{id} &7por &f{author}"
+      lore:
+        - "&7{createdAt}"
+        - ""
+        - "&f{content}"
+        - ""
+        - "&cClique para apagar."
+    entry-read-only:
+      name: "&f#{id} &7por &f{author}"
+      lore:
+        - "&7{createdAt}"
+        - ""
+        - "&f{content}"
+    add:
+      name: "&bEscrever uma nota"
+      lore:
+        - "&7Sobre {nickname}."
+        - ""
+        - "&eClique e digite no chat."
+  alts:
+    title: "&8Contas do IP de {nickname}"
+    entry:
+      name: "&e{account}"
+      lore:
+        - "&7{status}"
+        - ""
+        - "&eClique para abrir."
+  reports:
+    title: "&8Denúncias: {filter} ({count})"
+    entry:
+      name: "&f#{id} &7- &e{target} &7[{state}&7]"
+      lore:
+        - "&7Motivo: &f{reason}"
+        - "&7Por: &f{reporter}"
+        - "&7Servidor: &f{server}"
+        - "&7Criada: &f{createdAt}"
+        - "&7Responsável: &f{assignee}"
+        - ""
+        - "&eClique para abrir."
+    filter:
+      name: "&eMostrando: &f{filter}"
+      lore:
+        - "&7Clique para mostrar: &f{next}"
+  report:
+    title: "&8Denúncia #{id}"
+    info:
+      name: "&f#{id} &7- &e{target} &7[{state}&7]"
+      lore:
+        - "&7Motivo: &f{reason}"
+        - "&7Por: &f{reporter}"
+        - "&7Servidor: &f{server}"
+        - "&7Criada: &f{createdAt}"
+        - "&7Responsável: &f{assignee}"
+        - "&7Fechada: &f{closedAt} &7- &f{comment}"
+    target:
+      name: "&eDenunciado: &f{target}"
+      lore:
+        - "&eClique para abrir o jogador."
+    reporter:
+      name: "&ePor: &f{reporter}"
+      lore:
+        - "&eClique para abrir o jogador."
+    assign:
+      name: "&bAssumir"
+      lore:
+        - "&7Você cuida desta denúncia."
+    unassign:
+      name: "&eReabrir"
+      lore:
+        - "&7Ninguém mais cuida dela."
+    close:
+      name: "&aFechar"
+      lore:
+        - "&7Com ou sem comentário."
+    tp:
+      name: "&aIr até {target}"
+      lore:
+        - "&7Teleporta você até o jogador denunciado."
+  online:
+    title: "&8Jogadores online ({count})"
+    entry:
+      name: "&a{nickname}"
+      lore:
+        - "&eClique para abrir."
+  reasons:
+    title: "&8Punir {nickname}"
+    entry:
+      name: "&c{reason}"
+      lore:
+        - "&7Aplica: &f{type}"
+        - "&7Duração: &f{duration}"
+        - "&7Por IP: &f{ip}"
+        - ""
+        - "&eClique para escolher."
+  confirm:
+    title: "&8Confirmar"
+    "yes":
+      name: "&aConfirmar"
+      lore: []
+    yes-with-text:
+      name: "&eConfirmar com um motivo"
+      lore:
+        - "&7Digite-o no chat antes."
+    text-what: "o motivo"
+    "no":
+      name: "&cCancelar"
+      lore:
+        - "&7Voltar sem mudar nada."
+    kick:
+      name: "&6Expulsar {nickname}?"
+      lore: []
+    unban:
+      name: "&aDesbanir {nickname}?"
+      lore:
+        - "&7Revoga os bans em vigor."
+    unmute:
+      name: "&aDesmutar {nickname}?"
+      lore:
+        - "&7Revoga os mutes em vigor."
+    revoke:
+      name: "&aRevogar a punição #{id}?"
+      lore:
+        - "&7De {nickname}."
+    unwarn:
+      name: "&aRemover o aviso #{id}?"
+      lore:
+        - "&7De {nickname}."
+    delnote:
+      name: "&cApagar a nota #{id}?"
+      lore:
+        - "&7De {author}, sobre {nickname}:"
+        - "&f{content}"
+    close-report:
+      name: "&aFechar a denúncia #{id}?"
+      lore:
+        - "&7Sobre {target}."
+    punish:
+      name: "&cPunir {nickname}?"
+      lore:
+        - "&7Motivo: &f{reason}"
+        - "&7Aplica: &f{type}"
+        - "&7Duração: &f{duration}"
+        - "&7Por IP: &f{ip}"
+    punish-now:
+      name: "&aAplicar agora"
+      lore:
+        - "&7Sem evidências."
+    punish-evidence:
+      name: "&eAnexar evidências antes"
+      lore:
+        - "&7Fecha o menu: envie os links no chat"
+        - "&7e confirme por lá."
+    silent-off:
+      name: "&7Silenciosa: &cnão"
+      lore:
+        - "&7Clique para aplicar sem anunciar."
+    silent-on:
+      name: "&7Silenciosa: &asim"
+      lore:
+        - "&7Clique para anunciar."

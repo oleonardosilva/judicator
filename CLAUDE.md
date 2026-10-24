@@ -127,6 +127,22 @@ that applies where the player is. `reports/`: `ReportService` (cooldown, states 
 `judicator:main` plugin channel (the proxy drops client messages on it; the backend in `proxy-mode` also checks
 `judicator.reports.tp`) and `PendingTeleports` waits for the backend's `TeleportResult`.
 
+### Menus
+
+`menus/`: the inventory menus of `/jmenu` (`MenuCommand`, only registered when `Platform.menus()` has a
+`MenuRenderer`, i.e. on Spigot/Paper). Screens (`menus/screens/*Screen`) build a platform-neutral `Menu` (title, rows,
+`MenuItem`s with a `MenuIcon`, § texts from the `menu` section of the messages and a click action) off the game thread;
+`MenuService` keeps a stack of screens per viewer, shows the built menu on the game thread and receives the clicks and
+closes from the renderer (a click on a menu that is no longer the current one is ignored). Actions never touch services
+directly: they run the command a staff member would type (`MenuService.run`, which checks `canUse` again), a
+confirmation screen first for what changes data, and `CommandArgs.confirmed` (only built there) applies a punishment
+without the evidence prompt. Free text (a reason, a note) goes through `MenuService.askCommand`: the menu closes and the
+next chat line is taken by a `ChatContext.textPrompt` in `PunishCache` (the cancel word brings the menu back).
+`menus.replace-commands` makes the plain lookup commands open the menu (`MenuService.redirect`, called by the adapters
+after `canUse`). Tests: `features/MenusTest` with `FakePlatform.menus` (only for `PlatformType.BUKKIT`): `menus.click(player,
+"Bans in force")`, `menus.title(player)`, `menus.lore(player, name)`. A new screen needs its texts in the three files and
+the permission of the command it shows (`MenuContext.canUse`).
+
 ### Database
 
 Configured in `data.yml`. Every table and index name carries `database.table-prefix` (`judicator_`): DAOs write

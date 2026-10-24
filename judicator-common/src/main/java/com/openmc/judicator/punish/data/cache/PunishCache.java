@@ -7,7 +7,6 @@ import com.openmc.judicator.commons.ChatContext;
 import com.openmc.judicator.platform.PlatformTask;
 import com.openmc.judicator.punish.PunishService;
 import com.openmc.judicator.punish.Punishment;
-import com.openmc.judicator.punish.PunishmentBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,7 +18,8 @@ import java.util.concurrent.TimeUnit;
 
 public class PunishCache {
 
-    private final Cache<String, ChatContext<PunishmentBuilder>> cache;
+    /** what the next chat line of a staff member answers: the evidence of a punishment, or a question of the menus */
+    private final Cache<String, ChatContext<?>> cache;
     private final Map<String, List<Punishment>> activeSilences = new ConcurrentHashMap<>();
     private final PlatformTask cleanupTask;
 
@@ -31,11 +31,11 @@ public class PunishCache {
         this.cleanupTask = judicator.getPlatform().runAsyncRepeating(cache::cleanUp, 6, TimeUnit.MINUTES);
     }
 
-    public Optional<ChatContext<PunishmentBuilder>> getContext(String key) {
+    public Optional<ChatContext<?>> getContext(String key) {
         return Optional.ofNullable(cache.getIfPresent(key.toLowerCase()));
     }
 
-    public void putContext(String key, ChatContext<PunishmentBuilder> context) {
+    public void putContext(String key, ChatContext<?> context) {
         cache.put(key.toLowerCase(), context);
     }
 

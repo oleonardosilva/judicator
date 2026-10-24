@@ -99,7 +99,12 @@ final class PunishmentCommandSupport {
         return true;
     }
 
-    static void submit(Judicator judicator, JudicatorSender source, PunishmentBuilder builder) {
+    /**
+     * Applies the punishment at once for the console and for an action already confirmed
+     * ({@link com.openmc.judicator.commons.command.CommandArgs#confirmed}); a staff member otherwise gets the evidence
+     * prompt.
+     */
+    static void submit(Judicator judicator, JudicatorSender source, PunishmentBuilder builder, boolean confirmed) {
         final Optional<JudicatorPlayer> optPlayer = source.asPlayer();
         if (optPlayer.isEmpty()) {
             new PunishFactory(judicator, builder).factory();
@@ -109,6 +114,10 @@ final class PunishmentCommandSupport {
         final JudicatorPlayer player = optPlayer.get();
         final String punisher = player.getName();
         builder.punisher(player);
+        if (confirmed) {
+            new PunishFactory(judicator, builder).factory();
+            return;
+        }
         player.sendMessage(PunishUtils.getConfirmationMessage(judicator.messagesFor(player)));
 
         final ChatContext<PunishmentBuilder> chatContext = ChatContext.buildPunishmentContext(punisher, builder, judicator);

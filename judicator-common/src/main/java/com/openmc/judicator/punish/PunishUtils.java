@@ -30,7 +30,15 @@ public class PunishUtils {
      * read as a placeholder itself.
      */
     public static TextComponent format(ConfigurationNode node, Map<String, String> placeholders, Object... path) {
-        final String content = node.node(path).getString("§cFind Message Error").replace("&", "§");
+        return Component.text(fill(node.node(path).getString("§cFind Message Error"), placeholders));
+    }
+
+    /**
+     * The text with {@code &} colour codes as {@code §} and its placeholders replaced in one pass, as in
+     * {@link #format}.
+     */
+    public static String fill(String template, Map<String, String> placeholders) {
+        final String content = template.replace("&", "§");
         final Matcher matcher = PLACEHOLDER.matcher(content);
         final StringBuilder text = new StringBuilder();
         while (matcher.find()) {
@@ -41,7 +49,7 @@ public class PunishUtils {
             matcher.appendReplacement(text, Matcher.quoteReplacement(value));
         }
         matcher.appendTail(text);
-        return Component.text(text.toString());
+        return text.toString();
     }
 
     public static Optional<Long> parseId(String raw) {

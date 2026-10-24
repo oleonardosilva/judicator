@@ -83,7 +83,7 @@ public class PunishCommand extends CoreCommand {
         if (!PunishmentCommandSupport.applyScope(judicator, source, builder, flags.scope)) return;
         if (!PunishmentCommandSupport.passesStaffRules(judicator, source, builder, targetName)) return;
         if (!PunishmentCommandSupport.resolveTarget(judicator, source, builder, target, configuredReason.isIp())) return;
-        PunishmentCommandSupport.submit(judicator, source, builder);
+        PunishmentCommandSupport.submit(judicator, source, builder, args.isConfirmed());
     }
 
     @Override
@@ -110,7 +110,10 @@ public class PunishCommand extends CoreCommand {
         return judicator.getReasonCache().canUse(sender, reason);
     }
 
-    private static int countPrevious(List<Punishment> history, ConfiguredReason reason) {
+    /**
+     * How many earlier punishments for this reason count for its progression (not revoked, kicks never).
+     */
+    public static int countPrevious(List<Punishment> history, ConfiguredReason reason) {
         return (int) history.stream()
                 .filter(punishment -> !punishment.isRevoked())
                 .filter(punishment -> punishment.getType() != PunishType.KICK)

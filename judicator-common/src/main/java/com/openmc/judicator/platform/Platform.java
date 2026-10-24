@@ -1,5 +1,6 @@
 package com.openmc.judicator.platform;
 
+import com.openmc.judicator.menus.MenuRenderer;
 import net.kyori.adventure.text.Component;
 import org.slf4j.Logger;
 
@@ -46,6 +47,13 @@ public interface Platform {
      * plugin class path (Spigot/Paper before 1.16.5 has no {@code libraries:}); empty otherwise.
      */
     default Optional<ClassLoader> databaseDrivers() {
+        return Optional.empty();
+    }
+
+    /**
+     * What draws the menus of {@code /jmenu}: Spigot/Paper inventories; empty on the proxies (no {@code /jmenu}).
+     */
+    default Optional<MenuRenderer> menus() {
         return Optional.empty();
     }
 

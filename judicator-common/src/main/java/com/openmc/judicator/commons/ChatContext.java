@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 @Getter
 @Setter
@@ -67,6 +68,34 @@ public class ChatContext<T> {
             cache.removeContext(currentBuilder.getPunisher());
         });
 
+        return chatContext;
+    }
+
+    /**
+     * The next chat line of a staff member answers a question of the menus (a reason, a note): {@code onText} gets it,
+     * unless it is the cancel word ({@code prompt.cancel}), which runs {@code onCancel}. A command typed meanwhile
+     * cancels the question.
+     */
+    public static ChatContext<String> textPrompt(Judicator judicator, JudicatorPlayer player, Consumer<String> onText,
+                                                 Runnable onCancel) {
+        final PunishCache cache = judicator.getPunishCache();
+        final ChatContext<String> chatContext = new ChatContext<>();
+        chatContext.setOperator(player.getName());
+        chatContext.setValue(player.getName());
+        chatContext.setCallbackChat((operator, input) -> {
+            cache.removeContext(operator);
+            final ConfigurationNode messages = judicator.messagesFor(input.player());
+            if (isPromptWord(judicator, messages, "cancel", input.message())) {
+                input.player().sendMessage(PunishUtils.getMessage(messages, "success", "cancel"));
+                onCancel.run();
+                return;
+            }
+            onText.accept(input.message());
+        });
+        chatContext.setCallbackCommand((operator, input) -> {
+            cache.removeContext(operator);
+            input.player().sendMessage(PunishUtils.getMessage(judicator.messagesFor(input.player()), "success", "cancel"));
+        });
         return chatContext;
     }
 

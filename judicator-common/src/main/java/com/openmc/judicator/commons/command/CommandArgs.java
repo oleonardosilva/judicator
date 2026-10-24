@@ -5,19 +5,33 @@ import java.util.Optional;
 public final class CommandArgs {
 
     private final String input;
+    private final boolean confirmed;
     private int cursor;
 
-    private CommandArgs(String input) {
+    private CommandArgs(String input, boolean confirmed) {
         this.input = input;
+        this.confirmed = confirmed;
         this.cursor = 0;
     }
 
     public static CommandArgs of(String[] rawArgs) {
-        return new CommandArgs(String.join(" ", rawArgs).trim());
+        return new CommandArgs(String.join(" ", rawArgs).trim(), false);
     }
 
     public static CommandArgs of(String rawInput) {
-        return new CommandArgs(rawInput == null ? "" : rawInput.trim());
+        return new CommandArgs(rawInput == null ? "" : rawInput.trim(), false);
+    }
+
+    /**
+     * Arguments of an action the sender already confirmed elsewhere (a confirmation screen of the menus): a punishment
+     * is applied without asking for evidence in the chat. Never built from what a player typed.
+     */
+    public static CommandArgs confirmed(String rawInput) {
+        return new CommandArgs(rawInput == null ? "" : rawInput.trim(), true);
+    }
+
+    public boolean isConfirmed() {
+        return confirmed;
     }
 
     public Optional<String> word() {

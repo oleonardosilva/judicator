@@ -2,6 +2,7 @@ package com.openmc.judicator.features;
 
 import com.openmc.judicator.commons.HelpMenu;
 import com.openmc.judicator.commons.command.CoreCommand;
+import com.openmc.judicator.platform.PlatformType;
 import com.openmc.judicator.testing.TestServer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -64,7 +65,7 @@ class MessagesTest {
     @Test
     void everyCommandHasAUsageMessageInEveryLanguage() throws Exception {
         final Set<String> names = new TreeSet<>();
-        try (TestServer server = TestServer.in(folder).start()) {
+        try (TestServer server = TestServer.in(folder).platform(PlatformType.BUKKIT).start()) {
             server.judicator.getCommands().stream().map(CoreCommand::getName)
                     .filter(name -> !name.equals("judicator"))
                     .forEach(names::add);
@@ -81,7 +82,7 @@ class MessagesTest {
     void everyCommandIsInTheHelpWithItsTextsInEveryLanguage() throws Exception {
         final Set<String> listed = new TreeSet<>();
         HelpMenu.CATEGORIES.values().forEach(listed::addAll);
-        try (TestServer server = TestServer.in(folder).start()) {
+        try (TestServer server = TestServer.in(folder).platform(PlatformType.BUKKIT).start()) {
             server.judicator.getCommands().stream().map(CoreCommand::getName)
                     .filter(name -> !name.equals("judicator"))
                     .forEach(name -> assertTrue(listed.contains(name), name + " is in no category of HelpMenu"));
