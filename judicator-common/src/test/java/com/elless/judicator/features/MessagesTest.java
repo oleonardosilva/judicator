@@ -19,11 +19,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The three language files must offer the same messages, and every command must have its usage text.
+ * Every bundled language file must offer the same messages, and every command must have its usage text.
  */
 class MessagesTest {
 
-    private static final List<String> LANGUAGES = List.of("en", "es", "pt");
+    private static final List<String> LANGUAGES = com.elless.judicator.Judicator.LANGUAGES;
 
     @TempDir
     Path folder;

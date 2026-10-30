@@ -568,7 +568,7 @@ Player names, IP addresses and histories are personal data. Judicator keeps them
 ### 🌍 Messages per Player
 
 Set **`per-player-language: true`** in `config.yml` and each player gets the messages in their game language when it
-is English, Spanish or Portuguese (the three `messages_*.yml` files are created); other languages, the console,
+is English, Spanish, Portuguese, French or German (the five `messages_*.yml` files are created); other languages, the console,
 Discord and the login screens (the game has not told its language yet) use `language`. Announcements and staff
 notifications are built for each recipient. The evidence prompt accepts the word in the staff member's language and in
 the server language.

@@ -30,7 +30,7 @@ class BundledConfigTest {
     void everyBundledFileParses() throws IOException {
         // immune.yml is left out: it only has comments and an empty 'players:' (see immune_exemptsNobodyByDefault).
         for (String name : List.of("config.yml", "data.yml", "discord.yml", "import.yml",
-                "messages_en.yml", "messages_es.yml", "messages_pt.yml")) {
+                "messages_en.yml", "messages_es.yml", "messages_pt.yml", "messages_fr.yml", "messages_de.yml")) {
             assertFalse(load(name).empty(), name);
         }
     }

@@ -11,8 +11,8 @@
 # ------------------------------------------------------------
 #  Language
 # ------------------------------------------------------------
-language: en # messages_<language>.yml: en, es or pt are bundled; for another one, create messages_<xx>.yml in this folder
-per-player-language: false # true: each player gets the messages in their game language when it is en, es or pt (the console, Discord and login screens use 'language')
+language: en # messages_<language>.yml: en, es, pt, fr or de are bundled; for another one, create messages_<xx>.yml in this folder
+per-player-language: false # true: each player gets the messages in their game language when it is en, es, pt, fr or de (the console, Discord and login screens use 'language')
 
 # ------------------------------------------------------------
 #  Punishments

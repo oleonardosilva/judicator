@@ -85,7 +85,7 @@ public class Judicator {
     /**
      * Languages with a bundled {@code messages_<language>.yml}, offered per player with {@code per-player-language}.
      */
-    public static final List<String> LANGUAGES = List.of("en", "es", "pt");
+    public static final List<String> LANGUAGES = List.of("en", "es", "pt", "fr", "de");
 
     private final Platform platform;
     private final Logger logger;

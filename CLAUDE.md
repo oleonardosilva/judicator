@@ -193,5 +193,5 @@ LibertyBans, BanManager, vanilla ban lists, another Judicator database — inclu
 
 ### Localization
 
-`messages_en.yml` / `messages_es.yml` / `messages_pt.yml` in `judicator-common/src/main/resources/`. Every new key
-must exist in the three files.
+`messages_<language>.yml` in `judicator-common/src/main/resources/` for each of `Judicator.LANGUAGES` (en, es, pt,
+fr, de). Every new key must exist in all of them (`MessagesTest`).

@@ -41,12 +41,16 @@ class PlayerLanguageTest {
         final FakePlayer ana = server.online(new FakePlayer("Ana", "10.0.0.2").locale("pt_br"));
         final FakePlayer juan = server.online(new FakePlayer("Juan", "10.0.0.3").locale("es_ES"));
         final FakePlayer bob = server.online(new FakePlayer("Bob", "10.0.0.4").locale("en_US"));
+        final FakePlayer hans = server.online(new FakePlayer("Hans", "10.0.0.7").locale("de_DE"));
+        final FakePlayer marie = server.online(new FakePlayer("Marie", "10.0.0.8").locale("fr_FR"));
 
         server.command(server.console, "ban Steve xray");
 
         assertTrue(ana.received("O usuário Steve foi banido por Console."), ana.messages().toString());
         assertTrue(juan.received("El usuario Steve fue baneado por Console."), juan.messages().toString());
         assertTrue(bob.received("User Steve was banned by Console."), bob.messages().toString());
+        assertTrue(hans.received("Der Spieler Steve wurde von Console gebannt."), hans.messages().toString());
+        assertTrue(marie.received("Le joueur Steve a été banni par Console."), marie.messages().toString());
         assertTrue(steve.kickMessage().contains("Você foi banido do servidor."), steve.kickMessage());
     }
 
@@ -80,7 +84,7 @@ class PlayerLanguageTest {
     @Test
     void unknownLanguageAndConsole_getTheServerLanguage() {
         server = perPlayer();
-        final FakePlayer hans = server.online(new FakePlayer("Hans", "10.0.0.5").locale("de_DE"));
+        final FakePlayer mario = server.online(new FakePlayer("Mario", "10.0.0.5").locale("it_IT"));
         final FakePlayer noLocale = server.online(new FakePlayer("Quiet", "10.0.0.6"));
         server.online(new FakePlayer("Steve", "10.0.0.1"));
 
@@ -88,7 +92,7 @@ class PlayerLanguageTest {
         server.command(server.console, "ban Steve xray");
 
         assertTrue(server.console.received("Incorrect command. Use: /ban (player) [reason]."));
-        assertTrue(hans.received("User Steve was banned by Console."));
+        assertTrue(mario.received("User Steve was banned by Console."), "no messages_it.yml bundled");
         assertTrue(noLocale.received("User Steve was banned by Console."));
     }
 
