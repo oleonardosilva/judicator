@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "com.elless.judicator.fabric.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "CommandsMixin",
+    "ServerLoginPacketListenerImplAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

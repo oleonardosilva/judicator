@@ -1,0 +1,85 @@
+plugins {
+    id 'com.gradleup.shadow'
+    id 'net.fabricmc.fabric-loom'
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release.set(25)
+}
+
+configurations {
+    shade
+    implementation.extendsFrom shade
+
+    jarInJar
+    implementation.extendsFrom jarInJar
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraftVersion}"
+    implementation "net.fabricmc:fabric-loader:${fabricLoaderVersion}"
+    ['fabric-api-base', 'fabric-command-api-v2', 'fabric-lifecycle-events-v1', 'fabric-networking-api-v1',
+     'fabric-message-api-v1'].each {
+        implementation(fabricApi.module(it, fabricApiVersion))
+    }
+    // judicator.* permissions from LuckPerms or any permissions mod; op levels without one
+    jarInJar 'me.lucko:fabric-permissions-api:0.7.0'
+
+    shade project(':judicator-common')
+    shade project(':judicator-minecraft')
+    shade 'net.kyori:adventure-api:4.21.0'
+    shade 'net.kyori:adventure-text-serializer-gson:4.21.0'
+    shade 'net.kyori:adventure-text-serializer-legacy:4.21.0'
+    shade 'org.spongepowered:configurate-yaml:4.1.2'
+    shade 'com.zaxxer:HikariCP:6.3.0'
+    shade 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+}
+
+loom.nestJars(tasks.named('shadowJar'), configurations.jarInJar)
+
+processResources {
+    def props = ['version': project.version, 'minecraft': minecraftVersion]
+    inputs.properties props
+    filesMatching('fabric.mod.json') {
+        expand props
+    }
+}
+
+tasks {
+    jar {
+        archiveClassifier.set('plain')
+    }
+
+    shadowJar {
+        archiveBaseName.set('Judicator-Fabric')
+        archiveClassifier.set('')
+        configurations = [project.configurations.shade]
+        mergeServiceFiles()
+
+        dependencies {
+            // Minecraft has them
+            exclude(dependency('com.google.code.gson:.*'))
+            exclude(dependency('com.google.guava:.*'))
+            exclude(dependency('org.slf4j:.*'))
+            exclude(dependency('org.jetbrains:annotations'))
+            exclude(dependency('org.checkerframework:checker-qual'))
+            exclude(dependency('com.google.errorprone:error_prone_annotations'))
+        }
+
+        def libs = 'com.elless.judicator.libs'
+        relocate 'net.kyori', "${libs}.kyori"
+        relocate 'org.spongepowered.configurate', "${libs}.configurate"
+        relocate 'io.leangen.geantyref', "${libs}.geantyref"
+        relocate 'org.yaml.snakeyaml', "${libs}.snakeyaml"
+        relocate 'com.zaxxer.hikari', "${libs}.hikari"
+        relocate 'com.github.benmanes.caffeine', "${libs}.caffeine"
+    }
+
+    build {
+        dependsOn shadowJar
+    }
+}

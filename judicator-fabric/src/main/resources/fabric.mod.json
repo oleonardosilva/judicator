@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "judicator",
+  "version": "${version}",
+  "name": "Judicator",
+  "description": "A moderation mod: bans, mutes, kicks, warns and reports, with a database shared with the plugin builds.",
+  "authors": ["oleonardosilva"],
+  "contact": {
+    "homepage": "https://modrinth.com/plugin/judicator",
+    "sources": "https://github.com/oleonardosilva"
+  },
+  "license": "GPL-3.0",
+  "environment": "server",
+  "entrypoints": {
+    "server": ["com.elless.judicator.fabric.JudicatorFabric"]
+  },
+  "mixins": ["judicator.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.18.4",
+    "minecraft": ">=26.1",
+    "fabric-api-base": "*",
+    "fabric-command-api-v2": "*",
+    "fabric-lifecycle-events-v1": "*",
+    "fabric-networking-api-v1": "*",
+    "fabric-message-api-v1": "*",
+    "fabric-permissions-api-v0": ">=0.7.0"
+  }
+}

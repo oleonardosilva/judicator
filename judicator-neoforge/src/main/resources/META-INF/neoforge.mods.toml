@@ -1,0 +1,36 @@
+modLoader="javafml"
+loaderVersion="[1,)"
+license="GPL-3.0"
+showAsResourcePack=false
+
+[[mods]]
+    modId="judicator"
+    version="${version}"
+    displayName="Judicator"
+    displayURL="https://modrinth.com/plugin/judicator"
+    authors="oleonardosilva"
+    description='''A moderation mod: bans, mutes, kicks, warns and reports, with a database shared with the plugin builds.'''
+    # server-only: clients join without it
+    displayTest="IGNORE_ALL_VERSION"
+
+[[dependencies.judicator]]
+    modId="neoforge"
+    type="required"
+    versionRange="[26.1,)"
+    ordering="NONE"
+    side="SERVER"
+
+[[dependencies.judicator]]
+    modId="minecraft"
+    type="required"
+    versionRange="[26.1,)"
+    ordering="NONE"
+    side="SERVER"
+
+# its permissions, when installed
+[[dependencies.judicator]]
+    modId="luckperms"
+    type="optional"
+    versionRange="*"
+    ordering="AFTER"
+    side="SERVER"

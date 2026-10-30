@@ -1,0 +1,78 @@
+# ============================================================
+#  Judicator — importing from other plugins
+# ============================================================
+# Used only by /judicator import <source> [confirm], from the server console. Read when the command runs.
+#
+# - Back up your database first. Without "confirm" the command only reports what it would import.
+# - Running it again is safe: punishments already in Judicator (same target, type and start) are skipped.
+# - Judicator only reads the source; nothing is changed there.
+#
+# Each source takes:
+#   jdbc-url, user, password  the source plugin's database (MySQL/MariaDB: jdbc:mysql://host:3306/<db>,
+#                             PostgreSQL: jdbc:postgresql://host:5432/<db>)
+#   table-prefix              where the plugin has one
+#   driver-jar, driver-class  only for a database whose driver Judicator does not ship (H2, HSQLDB): put the driver
+#                             jar in plugins/<Judicator folder>/drivers, set driver-jar to its file name and
+#                             driver-class to its class (H2: org.h2.Driver, HSQLDB: org.hsqldb.jdbc.JDBCDriver)
+#
+# Embedded databases (H2, HSQLDB): stop the source plugin or, better, copy its files and point the URL at the COPY —
+# an embedded file cannot be opened by two programs at once. Use the user/password the source plugin created it with
+# (shown below for each default) and add ;IFEXISTS=TRUE (H2) or ;ifexists=true (HSQLDB), so a mistyped path fails
+# instead of creating an empty database.
+
+litebans:
+  # Default storage: H2 (LibertyBans' import guide uses h2-1.4.199.jar for it). URL: jdbc:h2:<path to the copy of
+  # LiteBans' database file>;ACCESS_MODE_DATA=r (read-only).
+  jdbc-url: ''
+  user: ''
+  password: ''
+  table-prefix: 'litebans_'
+  driver-jar: ''
+  driver-class: ''
+
+advancedban:
+  # Default storage: HSQLDB, files plugins/AdvancedBan/data/storage.*, user 'SA', empty password.
+  # URL: jdbc:hsqldb:file:<path to the copy>/storage
+  jdbc-url: ''
+  user: ''
+  password: ''
+  driver-jar: ''
+  driver-class: ''
+
+libertybans:
+  # Default storage: HSQLDB 2.7, files plugins/LibertyBans/internal/hypersql/punishments-database.*.
+  # URL: jdbc:hsqldb:file:<path to the copy>/punishments-database
+  jdbc-url: ''
+  user: ''
+  password: ''
+  table-prefix: 'libertybans_'
+  driver-jar: ''
+  driver-class: ''
+
+banmanager:
+  # MySQL/MariaDB: the database of databases.local in BanManager's config.yml.
+  # Default storage: H2 1.4.200, file plugins/BanManager/local_bans (use the H2 1.4.200 driver jar).
+  # Only the table prefix is supported: tables renamed one by one in BanManager's config are not found.
+  jdbc-url: ''
+  user: ''
+  password: ''
+  table-prefix: 'bm_'
+  driver-jar: ''
+  driver-class: ''
+
+vanilla:
+  # Folder with banned-players.json and banned-ips.json (also used by Essentials). Empty: the server folder.
+  directory: ''
+
+judicator:
+  # Another Judicator database, e.g. to move from SQLite to MySQL/PostgreSQL: set data.yml to the new database,
+  # restart, then import the old one here. Copies punishments, warns, staff notes and the IP history used by /alts.
+  # SQLite: jdbc:sqlite:plugins/Judicator/judicator-old.db (a COPY of the old file). On Velocity the SQLite driver is
+  # only downloaded while data.yml uses SQLite: otherwise put sqlite-jdbc-3.46.1.2.jar in the drivers folder, with
+  # driver-class 'org.sqlite.JDBC'.
+  jdbc-url: ''
+  user: ''
+  password: ''
+  driver-jar: ''
+  driver-class: ''
+  table-prefix: 'judicator_' # table-prefix of the old database's data.yml; a database of Judicator 1.x is read without it

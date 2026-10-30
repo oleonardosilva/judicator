@@ -1,0 +1,46 @@
+plugins {
+    id 'java-library'
+    id 'eclipse'
+    id 'org.jetbrains.gradle.plugin.idea-ext'
+}
+
+configurations {
+    // The tests run the core outside a server, so they need the libraries the platforms provide at runtime.
+    testImplementation.extendsFrom compileOnly
+}
+
+dependencies {
+    // Shipped in both platform JARs, unrelocated: other plugins compile against it.
+    api project(':judicator-api')
+
+    compileOnly 'net.kyori:adventure-api:4.17.0'
+    compileOnly 'net.kyori:adventure-text-serializer-legacy:4.17.0'
+    compileOnly 'org.spongepowered:configurate-yaml:4.1.2'
+    compileOnly 'org.slf4j:slf4j-api:2.0.16'
+    compileOnly 'com.google.code.gson:gson:2.10.1'
+    compileOnly 'com.zaxxer:HikariCP:6.3.0'
+    compileOnly 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.xerial:sqlite-jdbc:3.46.1.2'
+    testRuntimeOnly 'org.slf4j:slf4j-nop:2.0.16'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+def templateSource = file('src/main/templates')
+def templateDest = layout.buildDirectory.dir('generated/sources/templates')
+def generateTemplates = tasks.register('generateTemplates', Copy) { task ->
+    def props = ['version': project.version]
+    task.inputs.properties props
+    task.from templateSource
+    task.into templateDest
+    task.expand props
+}
+sourceSets.main.java.srcDir(generateTemplates.map { it.outputs })
+rootProject.idea.project.settings.taskTriggers.afterSync generateTemplates
+project.eclipse.synchronizationTasks(generateTemplates)

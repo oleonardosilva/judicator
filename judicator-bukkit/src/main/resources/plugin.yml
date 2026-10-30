@@ -1,0 +1,451 @@
+name: Judicator
+version: '${version}'
+main: com.elless.judicator.bukkit.JudicatorBukkit
+api-version: '1.13'
+# Folia: its region schedulers (FoliaScheduling) in place of the Bukkit scheduler
+folia-supported: true
+author: oleonardosilva
+website: https://github.com/oleonardosilva
+description: A moderation plugin
+softdepend: [PlaceholderAPI]
+# 1.16.5+; older servers download the driver of data.yml on the first start (LegacyDrivers)
+libraries:
+  - com.mysql:mysql-connector-j:9.3.0
+  - org.postgresql:postgresql:42.7.7
+commands:
+  judicator:
+    permission: judicator.admin
+    description: Judicator administration (reload, help, version).
+    aliases: [jud]
+  ban:
+    permission: judicator.command.ban
+    description: Permanently bans a player.
+  banip:
+    permission: judicator.command.banip
+    description: Permanently bans the IP of a player.
+  tempban:
+    permission: judicator.command.tempban
+    description: Temporarily bans a player.
+  tempbanip:
+    permission: judicator.command.tempbanip
+    description: Temporarily bans the IP of a player.
+  mute:
+    permission: judicator.command.mute
+    description: Permanently mutes a player.
+  muteip:
+    permission: judicator.command.muteip
+    description: Permanently mutes the IP of a player.
+  tempmute:
+    permission: judicator.command.tempmute
+    description: Temporarily mutes a player.
+  tempmuteip:
+    permission: judicator.command.tempmuteip
+    description: Temporarily mutes the IP of a player.
+  kick:
+    permission: judicator.command.kick
+    description: Kicks a player.
+  punish:
+    permission: judicator.command.punish
+    description: Punishes a player with a preset reason.
+    aliases: [punir, castigar]
+  punishview:
+    permission: judicator.command.punishview
+    description: Shows a punishment by its ID.
+    aliases: [pview]
+  punishhistory:
+    permission: judicator.command.punishhistory
+    description: Shows the punishment history of a player.
+    aliases: [phistory]
+  revoke:
+    permission: judicator.admin
+    description: Revokes a punishment by its ID.
+    aliases: [revogar, revocar]
+  warn:
+    permission: judicator.command.warn
+    description: Warns a player.
+  tempwarn:
+    permission: judicator.command.tempwarn
+    description: Temporarily warns a player.
+  jprompt:
+    # no permission: the buttons of the evidence prompt run it, so every client must know it (the command checks)
+    description: Answers the evidence prompt (what its buttons in the chat run).
+  unwarn:
+    permission: judicator.command.unwarn
+    description: Removes a warn by its ID.
+  warnview:
+    permission: judicator.command.warnview
+    description: Shows a warn by its ID.
+    aliases: [wview]
+  warnhistory:
+    permission: judicator.command.warnhistory
+    description: Shows the warn history of a player.
+    aliases: [whistory]
+  unban:
+    description: Revokes the active bans of a player.
+    permission: judicator.command.unban
+  unmute:
+    description: Revokes the active mutes of a player.
+    permission: judicator.command.unmute
+  alts:
+    description: Lists accounts that shared an IP with a player.
+    permission: judicator.command.alts
+  blame:
+    description: Lists the punishments applied by a staff member.
+    permission: judicator.command.blame
+    aliases: [staffhistory]
+  banlist:
+    description: Lists the bans in force.
+    permission: judicator.command.banlist
+  mutelist:
+    description: Lists the mutes in force.
+    permission: judicator.command.mutelist
+  activity:
+    description: Shows how many punishments each staff member applied in a period.
+    permission: judicator.command.activity
+    aliases: [staffactivity]
+  staffrollback:
+    description: Revokes the punishments and deletes the warns a staff member applied in a period.
+    permission: judicator.command.staffrollback
+  extend:
+    description: Adds time to a temporary punishment in force.
+    permission: judicator.command.extend
+  changereason:
+    description: Changes the reason of a punishment in force.
+    permission: judicator.command.changereason
+  note:
+    description: Writes a staff note about a player.
+    permission: judicator.command.note
+  notes:
+    description: Lists the staff notes about a player.
+    permission: judicator.command.notes
+  delnote:
+    description: Deletes a staff note.
+    permission: judicator.command.delnote
+  playerinfo:
+    description: Shows a summary of a player (punishments, warns, notes, alts, last login).
+    permission: judicator.command.playerinfo
+    aliases: [pinfo]
+  softmute:
+    description: Mutes a player without them noticing (they still see their own messages).
+    permission: judicator.command.softmute
+  tempsoftmute:
+    description: Temporarily mutes a player without them noticing.
+    permission: judicator.command.tempsoftmute
+  report:
+    description: Reports a player to the staff.
+    permission: judicator.command.report
+  reports:
+    description: Lists, assigns and closes player reports.
+    permission: judicator.command.reports
+  jmenu:
+    description: Opens the menus (lists, players, actions).
+    permission: judicator.command.jmenu
+    aliases: [judicatormenu]
+permissions:
+  judicator.admin:
+    description: Full access to every Judicator command.
+    default: op
+    children:
+      judicator.command.ban: true
+      judicator.command.banip: true
+      judicator.command.tempban: true
+      judicator.command.tempbanip: true
+      judicator.command.mute: true
+      judicator.command.muteip: true
+      judicator.command.tempmute: true
+      judicator.command.tempmuteip: true
+      judicator.command.kick: true
+      judicator.command.punish: true
+      judicator.command.punishview: true
+      judicator.command.punishhistory: true
+      judicator.command.warnview: true
+      judicator.command.warnhistory: true
+      judicator.command.warn: true
+      judicator.command.tempwarn: true
+      judicator.command.unwarn: true
+      judicator.command.unban: true
+      judicator.command.unmute: true
+      judicator.command.alts: true
+      judicator.command.blame: true
+      judicator.command.banlist: true
+      judicator.command.mutelist: true
+      judicator.command.activity: true
+      judicator.command.staffrollback: true
+      judicator.command.extend: true
+      judicator.command.changereason: true
+      judicator.command.note: true
+      judicator.command.notes: true
+      judicator.command.delnote: true
+      judicator.command.playerinfo: true
+      judicator.notes.notify: true
+      judicator.command.softmute: true
+      judicator.command.tempsoftmute: true
+      judicator.command.report: true
+      judicator.command.reports: true
+      judicator.command.jmenu: true
+      judicator.report.offline: true
+      judicator.reports.manage: true
+      judicator.reports.tp: true
+      judicator.reports.notify: true
+      judicator.alts.notify: true
+      judicator.notify: true
+      judicator.notify.silent: true
+      judicator.silent: true
+  judicator.punish:
+    default: op
+    children:
+      judicator.command.punish: true
+  judicator.ban:
+    default: op
+    children:
+      judicator.command.ban: true
+  judicator.ban.ip:
+    default: op
+    children:
+      judicator.command.banip: true
+  judicator.tempban:
+    default: op
+    children:
+      judicator.command.tempban: true
+  judicator.tempban.ip:
+    default: op
+    children:
+      judicator.command.tempbanip: true
+  judicator.mute:
+    default: op
+    children:
+      judicator.command.mute: true
+  judicator.mute.ip:
+    default: op
+    children:
+      judicator.command.muteip: true
+  judicator.tempmute:
+    default: op
+    children:
+      judicator.command.tempmute: true
+  judicator.tempmute.ip:
+    default: op
+    children:
+      judicator.command.tempmuteip: true
+  judicator.kick:
+    default: op
+    children:
+      judicator.command.kick: true
+  judicator.view:
+    default: op
+    children:
+      judicator.command.punishview: true
+      judicator.command.warnview: true
+  judicator.history:
+    default: op
+    children:
+      judicator.command.punishhistory: true
+      judicator.command.warnhistory: true
+  judicator.warn:
+    default: op
+    children:
+      judicator.command.warn: true
+  judicator.tempwarn:
+    default: op
+    children:
+      judicator.command.tempwarn: true
+  judicator.unwarn:
+    default: op
+    children:
+      judicator.command.unwarn: true
+  judicator.command.unwarn:
+    description: Shows and allows /unwarn (granted by judicator.unwarn or judicator.admin).
+    default: false
+  judicator.command.ban:
+    description: Shows and allows /ban (granted by judicator.ban or judicator.admin).
+    default: false
+  judicator.command.banip:
+    description: Shows and allows /banip (granted by judicator.ban.ip or judicator.admin).
+    default: false
+  judicator.command.tempban:
+    description: Shows and allows /tempban (granted by judicator.tempban or judicator.admin).
+    default: false
+  judicator.command.tempbanip:
+    description: Shows and allows /tempbanip (granted by judicator.tempban.ip or judicator.admin).
+    default: false
+  judicator.command.mute:
+    description: Shows and allows /mute (granted by judicator.mute or judicator.admin).
+    default: false
+  judicator.command.muteip:
+    description: Shows and allows /muteip (granted by judicator.mute.ip or judicator.admin).
+    default: false
+  judicator.command.tempmute:
+    description: Shows and allows /tempmute (granted by judicator.tempmute or judicator.admin).
+    default: false
+  judicator.command.tempmuteip:
+    description: Shows and allows /tempmuteip (granted by judicator.tempmute.ip or judicator.admin).
+    default: false
+  judicator.command.kick:
+    description: Shows and allows /kick (granted by judicator.kick or judicator.admin).
+    default: false
+  judicator.command.punish:
+    description: Shows and allows /punish (granted by judicator.punish or judicator.admin).
+    default: false
+  judicator.command.punishview:
+    description: Shows and allows /punishview (granted by judicator.view or judicator.admin).
+    default: false
+  judicator.command.punishhistory:
+    description: Shows and allows /punishhistory (granted by judicator.history or judicator.admin).
+    default: false
+  judicator.command.warnview:
+    description: Shows and allows /warnview (granted by judicator.view or judicator.admin).
+    default: false
+  judicator.command.warnhistory:
+    description: Shows and allows /warnhistory (granted by judicator.history or judicator.admin).
+    default: false
+  judicator.command.warn:
+    description: Shows and allows /warn (granted by judicator.warn or judicator.admin).
+    default: false
+  judicator.command.tempwarn:
+    description: Shows and allows /tempwarn (granted by judicator.tempwarn or judicator.admin).
+    default: false
+  judicator.unban:
+    default: op
+    children:
+      judicator.command.unban: true
+  judicator.unmute:
+    default: op
+    children:
+      judicator.command.unmute: true
+  judicator.alts:
+    default: op
+    children:
+      judicator.command.alts: true
+  judicator.blame:
+    default: op
+    children:
+      judicator.command.blame: true
+  judicator.banlist:
+    default: op
+    children:
+      judicator.command.banlist: true
+  judicator.mutelist:
+    default: op
+    children:
+      judicator.command.mutelist: true
+  judicator.activity:
+    default: op
+    children:
+      judicator.command.activity: true
+  judicator.staffrollback:
+    default: op
+    children:
+      judicator.command.staffrollback: true
+  judicator.extend:
+    default: op
+    children:
+      judicator.command.extend: true
+  judicator.changereason:
+    default: op
+    children:
+      judicator.command.changereason: true
+  judicator.alts.notify:
+    description: Warned when someone shares an IP with a banned or muted account.
+    default: op
+  judicator.silent:
+    description: Allows the -s flag (no public announcement).
+    default: op
+  judicator.notify:
+    description: Receives staff notifications of punishments.
+    default: op
+  judicator.notify.silent:
+    description: Receives staff notifications of silent punishments.
+    default: op
+  judicator.command.unban:
+    default: false
+  judicator.command.unmute:
+    default: false
+  judicator.command.alts:
+    default: false
+  judicator.command.blame:
+    description: Shows and allows /blame (granted by judicator.blame or judicator.admin).
+    default: false
+  judicator.command.banlist:
+    default: false
+  judicator.command.mutelist:
+    default: false
+  judicator.command.activity:
+    default: false
+  judicator.command.staffrollback:
+    default: false
+  judicator.command.extend:
+    default: false
+  judicator.command.changereason:
+    default: false
+  judicator.note:
+    default: op
+    children:
+      judicator.command.note: true
+  judicator.command.note:
+    default: false
+  judicator.notes:
+    default: op
+    children:
+      judicator.command.notes: true
+  judicator.command.notes:
+    default: false
+  judicator.delnote:
+    default: op
+    children:
+      judicator.command.delnote: true
+  judicator.command.delnote:
+    default: false
+  judicator.info:
+    default: op
+    children:
+      judicator.command.playerinfo: true
+  judicator.command.playerinfo:
+    default: false
+  judicator.notes.notify:
+    description: Told when a player with staff notes joins.
+    default: op
+  judicator.softmute:
+    default: op
+    children:
+      judicator.command.softmute: true
+  judicator.command.softmute:
+    default: false
+  judicator.tempsoftmute:
+    default: op
+    children:
+      judicator.command.tempsoftmute: true
+  judicator.command.tempsoftmute:
+    default: false
+  judicator.report:
+    description: /report (only checked with reports.require-permission in config.yml).
+    default: true
+    children:
+      judicator.command.report: true
+  judicator.command.report:
+    default: false
+  judicator.report.offline:
+    description: /report a player who is not online.
+    default: op
+  judicator.reports:
+    description: /reports list and info.
+    default: op
+    children:
+      judicator.command.reports: true
+  judicator.command.reports:
+    default: false
+  judicator.reports.manage:
+    description: /reports assign, unassign and close.
+    default: op
+  judicator.reports.tp:
+    description: /reports tp (go to the reported player).
+    default: op
+  judicator.reports.notify:
+    description: Told about new reports and, when joining, how many are open.
+    default: op
+  judicator.menu:
+    description: /jmenu (each button still needs the permission of its command).
+    default: op
+    children:
+      judicator.command.jmenu: true
+  judicator.command.jmenu:
+    default: false

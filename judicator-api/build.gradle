@@ -1,0 +1,16 @@
+plugins {
+    id 'java-library'
+}
+
+// The public API other plugins compile against: plain Java, no dependency on the platforms, Adventure, Configurate
+// or the core. Both platform JARs ship it unrelocated (com.elless.judicator.api).
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
+tasks.named('javadoc') {
+    options.encoding = 'UTF-8'
+    // the canonical constructors of the records are documented by the record's @param tags
+    options.addBooleanOption('Xdoclint:all,-missing', true)
+}

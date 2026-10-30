@@ -1,0 +1,31 @@
+plugins {
+    id 'net.fabricmc.fabric-loom'
+}
+
+// What Fabric, NeoForge and Forge share: Minecraft 26.1+ is no longer obfuscated, so code compiled against the vanilla
+// server runs on the three loaders (each loader module shades it).
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release.set(25)
+}
+
+repositories {
+    maven { name = 'luckperms'; url = 'https://repo.lucko.me/' }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraftVersion}"
+
+    implementation project(':judicator-common')
+
+    // provided at runtime by the loader module (shaded, relocated); Minecraft brings slf4j, Gson and Guava
+    compileOnly 'net.kyori:adventure-api:4.21.0'
+    compileOnly 'net.kyori:adventure-text-serializer-gson:4.21.0'
+    compileOnly 'net.kyori:adventure-text-serializer-legacy:4.21.0'
+    compileOnly 'org.spongepowered:configurate-yaml:4.1.2'
+    // LuckPermsCheck: only loaded when LuckPerms is installed
+    compileOnly 'net.luckperms:api:5.5'
+}

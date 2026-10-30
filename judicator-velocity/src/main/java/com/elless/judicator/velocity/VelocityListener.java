@@ -1,0 +1,206 @@
+package com.elless.judicator.velocity;
+
+import com.elless.judicator.reports.TeleportResult;
+import com.velocitypowered.api.event.connection.PluginMessageEvent;
+import com.elless.judicator.Judicator;
+import com.elless.judicator.punish.listeners.ChatHandler;
+import com.elless.judicator.punish.listeners.ConnectionHandler;
+import com.velocitypowered.api.event.EventTask;
+import com.velocitypowered.api.event.ResultedEvent;
+import com.velocitypowered.api.event.Subscribe;
+import com.velocitypowered.api.event.command.CommandExecuteEvent;
+import com.velocitypowered.api.event.connection.DisconnectEvent;
+import com.velocitypowered.api.event.connection.LoginEvent;
+import com.velocitypowered.api.event.connection.PreLoginEvent;
+import com.velocitypowered.api.event.player.PlayerChatEvent;
+import com.velocitypowered.api.event.player.PlayerChooseInitialServerEvent;
+import com.velocitypowered.api.event.player.ServerPostConnectEvent;
+import com.velocitypowered.api.event.player.ServerPreConnectEvent;
+import com.velocitypowered.api.proxy.Player;
+import com.velocitypowered.api.proxy.ProxyServer;
+import com.velocitypowered.api.proxy.ServerConnection;
+import com.velocitypowered.api.proxy.server.RegisteredServer;
+import java.util.Optional;
+import java.util.UUID;
+
+
+public class VelocityListener {
+
+    private final Judicator judicator;
+    private final ProxyServer server;
+    private final ConnectionHandler connectionHandler;
+    private final ChatHandler chatHandler;
+    private final VelocityPlatform platform;
+
+    public VelocityListener(Judicator judicator, ProxyServer server, VelocityPlatform platform) {
+        this.platform = platform;
+        this.judicator = judicator;
+        this.server = server;
+        this.connectionHandler = judicator.getConnectionHandler();
+        this.chatHandler = judicator.getChatHandler();
+    }
+
+    @Subscribe(priority = -10)
+    public EventTask onPreLogin(PreLoginEvent event) {
+        return EventTask.async(() -> {
+            if (!event.getResult().isAllowed()) return;
+            final String username = event.getUsername();
+            final String address = event.getConnection().getRemoteAddress().getAddress().getHostAddress();
+            connectionHandler.checkPreLogin(username, address)
+                    .ifPresent(kick -> event.setResult(PreLoginEvent.PreLoginComponentResult.denied(kick)));
+        });
+    }
+
+    @Subscribe(priority = -10)
+    public EventTask onLogin(LoginEvent event) {
+        return EventTask.async(() -> {
+            if (!event.getResult().isAllowed()) return;
+            final Player player = event.getPlayer();
+            final String username = player.getUsername();
+            final String address = player.getRemoteAddress().getAddress().getHostAddress();
+            connectionHandler.checkLogin(player.getUniqueId(), username, address)
+                    .ifPresent(kick -> event.setResult(ResultedEvent.ComponentResult.denied(kick)));
+            if (event.getResult().isAllowed()) {
+                connectionHandler.onLoginAllowed(player.getUniqueId(), username, address);
+                connectionHandler.onJoin(new VelocityPlayer(player));
+            }
+        });
+    }
+
+    /**
+     * A ban for the server chosen at login sends the player to the first server of the try list it does not cover;
+     * with none left, they are disconnected with the ban screen.
+     */
+    @Subscribe
+    public EventTask onChooseInitialServer(PlayerChooseInitialServerEvent event) {
+        final Optional<RegisteredServer> chosen = event.getInitialServer();
+        if (chosen.isEmpty()) return null;
+        return EventTask.async(() -> {
+            final VelocityPlayer player = new VelocityPlayer(event.getPlayer());
+            final ConnectionHandler.InitialServer decision = connectionHandler.chooseInitialServer(player, chosen.get().getServerInfo().getName());
+            if (decision.kick() != null) {
+                event.getPlayer().disconnect(decision.kick());
+            } else if (!decision.server().equals(chosen.get().getServerInfo().getName())) {
+                server.getServer(decision.server()).ifPresent(event::setInitialServer);
+            }
+        });
+    }
+
+    /**
+     * A ban for the server a player is connecting to keeps them where they are. A connection the proxy makes on its own
+     * before the player is on a server (the chosen server is down and it tries the next one) goes to the first server
+     * of the try list no ban covers instead, or the player is disconnected.
+     */
+    @Subscribe
+    public EventTask onServerPreConnect(ServerPreConnectEvent event) {
+        if (!event.getResult().isAllowed()) return null;
+        final Optional<RegisteredServer> target = event.getResult().getServer();
+        if (target.isEmpty()) return null;
+        final String name = target.get().getServerInfo().getName();
+        return EventTask.async(() -> {
+            final VelocityPlayer player = new VelocityPlayer(event.getPlayer());
+            if (event.getPreviousServer() == null) {
+                final ConnectionHandler.InitialServer decision = connectionHandler.chooseInitialServer(player, name);
+                if (decision.kick() != null) {
+                    event.setResult(ServerPreConnectEvent.ServerResult.denied());
+                    event.getPlayer().disconnect(decision.kick());
+                } else if (!decision.server().equals(name)) {
+                    server.getServer(decision.server()).ifPresent(other -> event.setResult(ServerPreConnectEvent.ServerResult.allowed(other)));
+                }
+                return;
+            }
+            connectionHandler.checkServerSwitch(player, name).ifPresent(message -> {
+                event.setResult(ServerPreConnectEvent.ServerResult.denied());
+                event.getPlayer().sendMessage(message);
+            });
+        });
+    }
+
+    /**
+     * The player got to a server: a ban for it applied on the way moves them on. After login, the first server is also
+     * when a staff member hears of the open reports (at login the client cannot get chat yet).
+     */
+    @Subscribe
+    public EventTask onServerPostConnect(ServerPostConnectEvent event) {
+        final boolean firstServer = event.getPreviousServer() == null;
+        return EventTask.async(() -> {
+            final VelocityPlayer player = new VelocityPlayer(event.getPlayer());
+            connectionHandler.checkArrival(player);
+            if (firstServer) judicator.getReportService().notifyOnJoin(player);
+        });
+    }
+
+    /**
+     * Only the proxy talks on Judicator's plugin channel ({@code /reports tp}): what a client sends on it is never
+     * passed on, so no player can make a backend teleport them; what a backend sends is its answer to a teleport.
+     */
+    @Subscribe
+    public void onPluginMessage(PluginMessageEvent event) {
+        if (!event.getIdentifier().equals(VelocityPlatform.TELEPORT_CHANNEL)) return;
+        event.setResult(PluginMessageEvent.ForwardResult.handled());
+        if (event.getSource() instanceof ServerConnection backend) {
+            TeleportResult.decode(event.getData()).ifPresent(result -> platform.onTeleportResult(backend.getPlayer(), result));
+        }
+    }
+
+    @Subscribe
+    public EventTask onDisconnect(DisconnectEvent event) {
+        // a second connection refused because the name is already online: the player who stays is not leaving
+        if (event.getLoginStatus() == DisconnectEvent.LoginStatus.CONFLICTING_LOGIN) return null;
+        final Player player = event.getPlayer();
+        final UUID uuid = player.getUniqueId();
+        final String username = player.getUsername();
+        final String address = player.getRemoteAddress().getAddress().getHostAddress();
+        // pausing an online-only mute writes to the database
+        return EventTask.async(() -> connectionHandler.onDisconnect(uuid, username, address));
+    }
+
+    /**
+     * {@code chat-on-backends: true}: the backends (Judicator in {@code proxy-mode}) block muted chat and the commands
+     * they run, so the proxy does not deny signed chat messages (a 1.19.1+ client is disconnected when the proxy does).
+     * Commands of the proxy itself never reach a backend: the proxy still blocks those.
+     */
+    private boolean chatOnBackends() {
+        return judicator.getConfig().node("chat-on-backends").getBoolean(false);
+    }
+
+    @Subscribe(priority = 10)
+    public void onMutedChat(PlayerChatEvent event) {
+        if (!event.getResult().isAllowed() || chatOnBackends()) return;
+        final VelocityPlayer player = new VelocityPlayer(event.getPlayer());
+        switch (chatHandler.chatDecision(player)) {
+            case BLOCK -> event.setResult(PlayerChatEvent.ChatResult.denied());
+            case SOFT -> {
+                event.setResult(PlayerChatEvent.ChatResult.denied());
+                player.sendMessage(chatHandler.softMuteEcho(player, event.getMessage()));
+            }
+            default -> {
+            }
+        }
+    }
+
+    @Subscribe(priority = 10)
+    public void onMutedCommand(CommandExecuteEvent event) {
+        if (!(event.getCommandSource() instanceof Player player) || !event.getResult().isAllowed()) return;
+        if (chatOnBackends() && !server.getCommandManager().hasCommand(event.getCommand().trim().split(" ", 2)[0])) return;
+        if (chatHandler.shouldBlockCommand(new VelocityPlayer(player), event.getCommand())) {
+            event.setResult(CommandExecuteEvent.CommandResult.denied());
+        }
+    }
+
+    @Subscribe
+    public void onPromptChat(PlayerChatEvent event) {
+        if (chatHandler.handlePromptChat(new VelocityPlayer(event.getPlayer()), event.getMessage())) {
+            event.setResult(PlayerChatEvent.ChatResult.denied());
+        }
+    }
+
+    @Subscribe
+    public void onPromptCommand(CommandExecuteEvent event) {
+        if (!(event.getCommandSource() instanceof Player player)) return;
+        if (chatHandler.handlePromptCommand(new VelocityPlayer(player), event.getCommand())) {
+            event.setResult(CommandExecuteEvent.CommandResult.denied());
+        }
+    }
+
+}

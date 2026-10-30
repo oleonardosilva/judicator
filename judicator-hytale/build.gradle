@@ -1,0 +1,85 @@
+plugins {
+    id 'com.gradleup.shadow'
+}
+
+// Experimental: compiled against the Hytale server API, not tried on a server yet.
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release.set(21)
+}
+
+configurations {
+    // the text conversion is tested against the server's own Message
+    testImplementation.extendsFrom compileOnly
+}
+
+repositories {
+    // the Hytale server API, as LuckPerms builds against it
+    maven { name = 'hytale'; url = 'https://nexus.lucko.me/repository/maven-hytale/' }
+}
+
+dependencies {
+    implementation project(':judicator-common')
+    compileOnly "com.hypixel.hytale:Server:${hytaleVersion}"
+
+    implementation 'net.kyori:adventure-api:4.21.0'
+    implementation 'net.kyori:adventure-text-serializer-legacy:4.21.0'
+    implementation 'org.spongepowered:configurate-yaml:4.1.2'
+    implementation 'com.zaxxer:HikariCP:6.3.0'
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+    // the server has no slf4j: shipped, relocated; HikariCP's logs go to java.util.logging
+    implementation 'org.slf4j:slf4j-api:2.0.16'
+    implementation 'org.slf4j:slf4j-jdk14:2.0.16'
+
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+processResources {
+    def props = ['version': project.version, 'hytaleVersion': hytaleVersion]
+    inputs.properties props
+    filesMatching('manifest.json') {
+        expand props
+    }
+}
+
+tasks {
+    test {
+        useJUnitPlatform()
+    }
+
+    jar {
+        archiveClassifier.set('plain')
+    }
+
+    shadowJar {
+        archiveBaseName.set('Judicator-Hytale')
+        archiveClassifier.set('')
+        mergeServiceFiles()
+
+        dependencies {
+            // the server has Gson
+            exclude(dependency('com.google.code.gson:.*'))
+            exclude(dependency('org.jetbrains:annotations'))
+            exclude(dependency('org.checkerframework:checker-qual'))
+            exclude(dependency('com.google.errorprone:error_prone_annotations'))
+        }
+
+        def libs = 'com.elless.judicator.libs'
+        relocate 'net.kyori', "${libs}.kyori"
+        relocate 'org.spongepowered.configurate', "${libs}.configurate"
+        relocate 'io.leangen.geantyref', "${libs}.geantyref"
+        relocate 'org.yaml.snakeyaml', "${libs}.snakeyaml"
+        relocate 'com.zaxxer.hikari', "${libs}.hikari"
+        relocate 'com.github.benmanes.caffeine', "${libs}.caffeine"
+        relocate 'org.slf4j', "${libs}.slf4j"
+    }
+
+    build {
+        dependsOn shadowJar
+    }
+}

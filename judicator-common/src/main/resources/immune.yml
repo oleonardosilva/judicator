@@ -1,0 +1,15 @@
+# ============================================================
+#  Judicator — exemptions
+# ============================================================
+# Players who cannot get the punishments listed for them, not even from the console. Applied with /judicator reload.
+#
+#   key:   the player's UUID (recommended: it survives a name change, and in offline mode anyone can join with any
+#          name) or their name (any case)
+#   value: a list of all, ban, mute, kick, warn, alts, report
+#          alts = may join even when alts.deny-if-banned (config.yml) would refuse the account
+#          report = cannot be reported with /report
+#
+# An IP punishment is refused when any account that used that IP is exempt from it.
+players:
+  # "069a79f4-44e9-4726-a5be-fca90e38aaf5": [all]
+  # "Builder": [mute, warn]

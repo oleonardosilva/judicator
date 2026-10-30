@@ -1,0 +1,13 @@
+name: Judicator
+version: '${version}'
+main: com.elless.judicator.bungee.JudicatorBungee
+author: oleonardosilva
+website: https://github.com/oleonardosilva
+description: A moderation plugin
+# downloaded from Maven Central by BungeeCord into its libraries folder on the first start
+libraries:
+  - com.zaxxer:HikariCP:6.3.0
+  - com.mysql:mysql-connector-j:9.3.0
+  - org.postgresql:postgresql:42.7.7
+  - com.github.ben-manes.caffeine:caffeine:3.1.8
+  - org.xerial:sqlite-jdbc:3.46.1.2

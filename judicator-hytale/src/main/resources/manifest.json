@@ -1,0 +1,14 @@
+{
+  "Group": "Elless",
+  "Name": "Judicator",
+  "Version": "${version}",
+  "Description": "A moderation plugin: bans, mutes, kicks, warns and reports (experimental on Hytale).",
+  "Authors": [{"Name": "oleonardosilva"}],
+  "Website": "https://modrinth.com/plugin/judicator",
+  "ServerVersion": "^${hytaleVersion}",
+  "Dependencies": {},
+  "OptionalDependencies": {},
+  "DisabledByDefault": false,
+  "Main": "com.elless.judicator.hytale.JudicatorHytale",
+  "IncludesAssetPack": false
+}

@@ -1,0 +1,235 @@
+package com.elless.judicator.punish;
+
+import java.util.regex.Matcher;
+import com.elless.judicator.commons.DateTimeOffsetParser;
+import com.elless.judicator.punish.commands.PromptCommand;
+import com.elless.judicator.punish.scopes.ScopeService;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.spongepowered.configurate.ConfigurationNode;
+import org.spongepowered.configurate.serialize.SerializationException;
+
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+public class PunishUtils {
+
+    private static final Pattern PLACEHOLDER = Pattern.compile("\\{([A-Za-z]+)}");
+
+    /**
+     * The message at the path with its placeholders replaced in one pass: a value (a reason typed by a player) is never
+     * read as a placeholder itself.
+     */
+    public static TextComponent format(ConfigurationNode node, Map<String, String> placeholders, Object... path) {
+        return Component.text(fill(node.node(path).getString("§cFind Message Error"), placeholders));
+    }
+
+    /**
+     * The text with {@code &} colour codes as {@code §} and its placeholders replaced in one pass, as in
+     * {@link #format}.
+     */
+    public static String fill(String template, Map<String, String> placeholders) {
+        final String content = template.replace("&", "§");
+        final Matcher matcher = PLACEHOLDER.matcher(content);
+        final StringBuilder text = new StringBuilder();
+        while (matcher.find()) {
+            final String key = matcher.group(1);
+            final String value = placeholders.containsKey(key)
+                    ? (placeholders.get(key) == null ? "None" : placeholders.get(key))
+                    : matcher.group();
+            matcher.appendReplacement(text, Matcher.quoteReplacement(value));
+        }
+        matcher.appendTail(text);
+        return text.toString();
+    }
+
+    public static Optional<Long> parseId(String raw) {
+        try {
+            return Optional.of(Long.parseLong(raw.replace("#", "")));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
+    }
+
+    public static List<String> applyPlaceHolders(ConfigurationNode messagesNode, List<String> messages, Punishment punishment) {
+        final String dateFormat = messagesNode.node("date-format").getString("dd/MM/yyyy-HH:mm:ss");
+        final String permanent = messagesNode.node("permanent").getString("§cPermanente.").replace("&", "§");
+        final String yes = messagesNode.node("yes").getString("§aYes.").replace("&", "§");
+        final String no = messagesNode.node("no").getString("§cNo.").replace("&", "§");
+        final String status = messagesNode.node("status", punishment.getStatus().name().toLowerCase(Locale.ROOT)).getString(punishment.getStatus().name()).replace("&", "§");
+
+        final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern(dateFormat);
+        final String end = punishment.isPaused()
+                ? messagesNode.node("paused").getString("&e{remaining} of online time left").replace("&", "§")
+                .replace("{remaining}", DateTimeOffsetParser.format(messagesNode, punishment.getPausedRemaining()))
+                : punishment.getFinishAt().map(timeFormatter::format).orElse(permanent);
+        final String scope = punishment.getScope().map(ScopeService::displayName)
+                .orElseGet(() -> messagesNode.node("scope", "global").getString("every server").replace("&", "§"));
+        return messages.stream().map(s -> s
+                        .replace("&", "§")
+                        .replace("{finishAt}", end)
+                        .replace("{author}", punishment.getPunisher())
+                        .replace("{status}", status)
+                        .replace("{id}", punishment.getId().toString())
+                        .replace("{evidence}", punishment.getEvidences().isEmpty() ? "None" : String.join(", ", punishment.getEvidences()))
+                        .replace("{nickname}", punishment.getNickname())
+                        .replace("{type}", punishment.getDisplayType())
+                        .replace("{startedAt}", timeFormatter.format(punishment.getStartedAt()))
+                        .replace("{revoked}", punishment.isRevoked() ? yes : no)
+                        .replace("{revokedReason}", punishment.getRevokedReason().orElse("None"))
+                        .replace("{reason}", punishment.getReason().orElse("None"))
+                        .replace("{addressIP}", punishment.getIpAddress().orElse("None"))
+                        .replace("{scope}", scope)
+                )
+                .collect(Collectors.toList());
+    }
+
+    public static TextComponent getMessage(ConfigurationNode node, Object... path) {
+        return LegacyComponentSerializer.legacyAmpersand().deserialize(node.node(path).getString("§cFind Message Error"));
+    }
+
+    public static TextComponent getMessageList(ConfigurationNode node, Object... path) {
+        final TextComponent.Builder text = Component.text();
+        try {
+            final List<String> list = node.node(path).getList(String.class);
+            if (list != null) {
+                text.content(String.join("", list).replace("&", "§"));
+            }
+        } catch (SerializationException e) {
+            throw new RuntimeException(e);
+        }
+        return text.build();
+    }
+
+    public static TextComponent getMessageList(ConfigurationNode node, Punishment punishment, Object... path) {
+        final TextComponent.Builder text = Component.text();
+        try {
+            final List<String> list = node.node(path).getList(String.class);
+            if (list != null) {
+                text.content(String.join("", PunishUtils.applyPlaceHolders(node, list, punishment)));
+            }
+        } catch (SerializationException e) {
+            throw new RuntimeException(e);
+        }
+        return text.build();
+    }
+
+    public static TextComponent getPunishmentsMessage(ConfigurationNode node, String target, List<ConfiguredReason> reasons,
+                                                      Function<ConfiguredReason, ConfiguredReason.Step> nextStep) {
+        final String yes = node.node("yes").getString("&aSim").replace("&", "§");
+        final String no = node.node("no").getString("&cNão").replace("&", "§");
+        final String permanent = node.node("permanent").getString("&cPermanente").replace("&", "§");
+        final TextComponent title = Component.text(getMessageList(node, "punish", "title").content());
+
+        final TextComponent.Builder reasonsText = Component.text();
+
+        for (ConfiguredReason reason : reasons) {
+            final ConfiguredReason.Step step = nextStep.apply(reason);
+            final String message = node.node("punish", "line", "message").getString("").replace("&", "§").replace("{reason}", reason.getReason());
+            String hoverMessage;
+            try {
+                hoverMessage = String.join("", Objects.requireNonNull(node.node("punish", "line", "hoverMessage").getList(String.class)))
+                        .replace("&", "§")
+                        .replace("{type}", step.type().name())
+                        .replace("{toggle}", reason.isIp() ? yes : no)
+                        .replace("{permission}", reason.getPermission() == null ? "-" : reason.getPermission());
+
+            } catch (SerializationException e) {
+                throw new RuntimeException(e);
+            }
+
+            if (step.isPermanent()) {
+                hoverMessage = hoverMessage.replace("{duration}", permanent);
+            } else {
+                final long timestamp = DateTimeOffsetParser.getMillisFromDuration(step.duration());
+                hoverMessage = hoverMessage.replace("{duration}", DateTimeOffsetParser.format(node, timestamp));
+            }
+            final String suggests = "/punish " + target + " " + reason.getReason();
+
+            reasonsText.append(
+                    Component.text()
+                            .content(message)
+                            .hoverEvent(HoverEvent.showText(Component.text(hoverMessage)))
+                            .clickEvent(ClickEvent.suggestCommand(suggests))
+                            .build());
+        }
+
+        final TextComponent footer = getMessageList(node, "punish", "footer");
+        return Component.text().append(title).append(reasonsText).append(footer).build();
+    }
+
+    public static TextComponent getPunishmentHistoryMessage(ConfigurationNode node, String target, List<Punishment> punishments) {
+        final TextComponent title = Component.text(getMessageList(node, "punish-history", "title").content().replace("{nickname}", target));
+        final TextComponent.Builder reasonsText = Component.text();
+
+        for (Punishment punishment : punishments) {
+            final String command = "/pview " + punishment.getId();
+
+            reasonsText.append(
+                    getMessageList(node, punishment, "punish-history", "line", "message")
+                            .hoverEvent(HoverEvent.showText(getMessageList(node, punishment, "punish-history", "line", "hoverMessage")))
+                            .clickEvent(ClickEvent.runCommand(command))
+            );
+        }
+
+        final TextComponent footer = getMessageList(node, "punish-history", "footer");
+        return Component.text().append(title).append(reasonsText).append(footer).build();
+    }
+
+    public static Component getConfirmationMessage(ConfigurationNode node, Object... path) {
+        final String readyPrompt = node.node("prompt", "ready").getString("confirmar").replace("&", "§");
+        final String cancelPrompt = node.node("prompt", "cancel").getString("cancelar").replace("&", "§");
+
+        // a registered command: clients since 1.19.1 send a click as a command, and question one they do not know
+        final Component ready = Component.text(readyPrompt)
+                .clickEvent(ClickEvent.runCommand("/" + PromptCommand.NAME + " " + withoutColors(readyPrompt)))
+                .hoverEvent(HoverEvent.showText(Component.text(readyPrompt)));
+
+        final Component cancel = Component.text(cancelPrompt)
+                .clickEvent(ClickEvent.runCommand("/" + PromptCommand.NAME + " " + withoutColors(cancelPrompt)))
+                .hoverEvent(HoverEvent.showText(Component.text(cancelPrompt)));
+
+        final TextComponent message;
+        if (path == null || path.length == 0) {
+            message = getMessage(node, "prompt", "write-evidences");
+        } else {
+            message = getMessage(node, path);
+        }
+
+        return message
+                .replaceText(builder -> builder
+                        .matchLiteral("{ready-prompt}")
+                        .replacement(ready))
+                .replaceText(builder -> builder
+                        .matchLiteral("{cancel-prompt}")
+                        .replacement(cancel));
+
+    }
+
+    /**
+     * The text without its color codes ({@code &a}, {@code §a}): a prompt word as a click sends it and as it is typed.
+     */
+    public static String withoutColors(String text) {
+        return text.replaceAll("[&§][0-9a-fk-orA-FK-OR]", "");
+    }
+
+    /**
+     * {@code announce} in {@code config.yml}: {@code true}/{@code false} for every kind, or one value per kind
+     * ({@code ban}, {@code mute}, {@code kick}, {@code warn}; a kind left out is announced).
+     */
+    public static boolean announces(ConfigurationNode config, String kind) {
+        final ConfigurationNode announce = config.node("announce");
+        return announce.isMap() ? announce.node(kind).getBoolean(true) : announce.getBoolean(true);
+    }
+
+}

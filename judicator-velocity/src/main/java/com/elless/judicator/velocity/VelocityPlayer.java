@@ -1,0 +1,48 @@
+package com.elless.judicator.velocity;
+
+import com.elless.judicator.platform.JudicatorPlayer;
+import com.velocitypowered.api.proxy.Player;
+import net.kyori.adventure.text.Component;
+
+import java.util.Locale;
+import java.util.Optional;
+import java.util.UUID;
+
+public record VelocityPlayer(Player handle) implements JudicatorPlayer {
+
+    @Override
+    public String getName() {
+        return handle.getUsername();
+    }
+
+    @Override
+    public boolean hasPermission(String permission) {
+        return handle.hasPermission(permission);
+    }
+
+    @Override
+    public void sendMessage(Component message) {
+        handle.sendMessage(message);
+    }
+
+    @Override
+    public Optional<Locale> getLocale() {
+        return Optional.ofNullable(handle.getEffectiveLocale());
+    }
+
+    @Override
+    public UUID getUniqueId() {
+        return handle.getUniqueId();
+    }
+
+    @Override
+    public String getHostAddress() {
+        return handle.getRemoteAddress().getAddress().getHostAddress();
+    }
+
+    @Override
+    public void disconnect(Component reason) {
+        handle.disconnect(reason);
+    }
+
+}

@@ -1,0 +1,117 @@
+plugins {
+    id 'com.gradleup.shadow'
+    id 'xyz.jpenilla.run-paper'
+}
+
+repositories {
+    maven { name = "placeholderapi"; url = "https://repo.extendedclip.com/releases/" }
+}
+
+// Dialogs (Paper with 1.21.6+ clients): compiled against the Paper API with Java 21 and kept out of the shadow jar, so
+// these classes use the server's own Adventure (the rest of the plugin uses a relocated copy). Loaded only when the
+// server has the API (JudicatorBukkit).
+sourceSets {
+    paper {
+        java.srcDir 'src/paper/java'
+        compileClasspath += sourceSets.main.output
+    }
+    // Folia: its region schedulers (FoliaScheduling), from the Paper API of the first Folia in use (1.20.1, Java 17); loaded
+    // only on Folia, kept out of the shadow jar like the dialogs.
+    folia {
+        java.srcDir 'src/folia/java'
+        compileClasspath += sourceSets.main.output
+    }
+}
+
+dependencies {
+    implementation project(':judicator-common')
+
+    // The oldest API the plugin supports: what newer versions added goes through BukkitCompat.
+    compileOnly 'org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT'
+    compileOnly 'me.clip:placeholderapi:2.11.6'
+
+    implementation 'net.kyori:adventure-api:4.21.0'
+    implementation 'net.kyori:adventure-text-serializer-legacy:4.21.0'
+    implementation 'net.kyori:adventure-platform-bukkit:4.4.1'
+    implementation 'org.spongepowered:configurate-yaml:4.1.2'
+    implementation 'org.bstats:bstats-bukkit:3.2.1'
+    // Servers before 1.16.5 have no libraries: in plugin.yml and 1.8 has no slf4j: shipped, relocated.
+    // The JDBC drivers still come from libraries: (or from LegacyDrivers on those servers).
+    implementation 'com.zaxxer:HikariCP:6.3.0'
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+    implementation 'org.slf4j:slf4j-api:2.0.16'
+    // HikariCP logs through slf4j: this sends it to the server log
+    implementation 'org.slf4j:slf4j-jdk14:2.0.16'
+
+    paperCompileOnly 'io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT'
+    paperCompileOnly project(':judicator-common')
+
+    foliaCompileOnly 'io.papermc.paper:paper-api:1.20.1-R0.1-SNAPSHOT'
+    foliaCompileOnly project(':judicator-common')
+}
+
+processResources {
+    def props = ['version': project.version]
+    inputs.properties props
+    filteringCharset 'UTF-8'
+    filesMatching('plugin.yml') {
+        expand props
+    }
+}
+
+// the plugin: the shadow jar plus the dialog and Folia classes, unrelocated
+def pluginJar = tasks.register('pluginJar', Jar) {
+    archiveBaseName.set('Judicator-Bukkit')
+    archiveClassifier.set('')
+    dependsOn tasks.named('shadowJar')
+    from(zipTree(tasks.named('shadowJar').flatMap { it.archiveFile }))
+    from(sourceSets.paper.output)
+    from(sourceSets.folia.output)
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks {
+    // the plugin is the shadow jar: on a case-insensitive disk the plain one had the same file name
+    jar {
+        archiveClassifier.set('plain')
+    }
+
+    compilePaperJava {
+        javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(21) }
+        options.release.set(21)
+    }
+
+    shadowJar {
+        archiveBaseName.set('Judicator-Bukkit')
+        // the plugin is pluginJar: this one plus the dialog and Folia classes
+        archiveClassifier.set('shaded')
+        mergeServiceFiles()
+
+        dependencies {
+            // Gson stays the server's: adventure-platform-bukkit hands it to the server
+            exclude(dependency('com.google.code.gson:gson'))
+            exclude(dependency('org.jetbrains:annotations'))
+            exclude(dependency('org.checkerframework:checker-qual'))
+            exclude(dependency('com.google.errorprone:error_prone_annotations'))
+        }
+
+        def libs = 'com.elless.judicator.libs'
+        relocate 'net.kyori', "${libs}.kyori"
+        relocate 'org.spongepowered.configurate', "${libs}.configurate"
+        relocate 'io.leangen.geantyref', "${libs}.geantyref"
+        relocate 'org.yaml.snakeyaml', "${libs}.snakeyaml"
+        relocate 'org.bstats', "${libs}.bstats"
+        relocate 'com.zaxxer.hikari', "${libs}.hikari"
+        relocate 'com.github.benmanes.caffeine', "${libs}.caffeine"
+        relocate 'org.slf4j', "${libs}.slf4j"
+    }
+
+    runServer {
+        minecraftVersion("1.20.4")
+        pluginJars.setFrom(pluginJar.flatMap { it.archiveFile })
+    }
+
+    build {
+        dependsOn pluginJar
+    }
+}

@@ -1,1 +1,27 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven { name = 'Fabric'; url = 'https://maven.fabricmc.net/' }
+        maven { name = 'Forge'; url = 'https://maven.minecraftforge.net/' }
+    }
+}
+
+plugins {
+    // downloads the JDKs of the toolchains (17, 21) when the machine lacks them
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
 rootProject.name = 'Judicator'
+
+include 'judicator-api'
+include 'judicator-common'
+include 'judicator-velocity'
+include 'judicator-bukkit'
+include 'judicator-bungee'
+// Minecraft 26.1+ (no longer obfuscated): what the mod loaders share, then one module per loader
+include 'judicator-minecraft'
+include 'judicator-fabric'
+include 'judicator-neoforge'
+include 'judicator-forge'
+// Hytale (experimental: compiled against its server API, not tried on a server yet)
+include 'judicator-hytale'
