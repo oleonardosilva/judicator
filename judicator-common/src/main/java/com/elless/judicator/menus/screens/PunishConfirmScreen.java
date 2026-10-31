@@ -29,6 +29,8 @@ public record PunishConfirmScreen(String player, String reason, Map<String, Stri
                 .onClick(() -> context.menus().run(context.viewer(), "punish", arguments, true, () -> context.menus().back(context.viewer(), 2))));
         menu.set(13, context.item(MenuIcon.EDIT, placeholders, "confirm", "punish-evidence")
                 .onClick(() -> {
+                    // a dialog asks and keeps the menu (cancel comes back here); without one, the chat prompt
+                    if (context.menus().askEvidence(context.viewer(), "punish", arguments, 2)) return;
                     context.menus().close(context.viewer());
                     context.menus().run(context.viewer(), "punish", arguments, false, () -> { });
                 }));

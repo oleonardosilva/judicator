@@ -17,6 +17,7 @@ import com.elless.judicator.menus.screens.WarnsScreen;
 import com.elless.judicator.platform.JudicatorPlayer;
 import com.elless.judicator.platform.JudicatorSender;
 import com.elless.judicator.platform.Platform;
+import com.elless.judicator.punish.Evidence;
 import com.elless.judicator.punish.PunishUtils;
 import com.elless.judicator.reports.commands.ReportsCommand;
 import org.spongepowered.configurate.ConfigurationNode;
@@ -194,13 +195,17 @@ public class MenuService {
      * @param confirmed the viewer confirmed it on a confirmation screen (a punishment then skips the evidence prompt)
      */
     public void run(JudicatorPlayer viewer, String command, String arguments, boolean confirmed, Runnable after) {
+        run(viewer, command, confirmed ? CommandArgs.confirmed(arguments) : CommandArgs.of(arguments), after);
+    }
+
+    private void run(JudicatorPlayer viewer, String command, CommandArgs args, Runnable after) {
         platform().runAsync(() -> {
             final Optional<CoreCommand> found = command(command);
             if (found.isEmpty() || !found.get().canUse(viewer)) {
                 viewer.sendMessage(PunishUtils.getMessage(judicator.messagesFor(viewer), "menu", "no-permission"));
             } else {
                 try {
-                    found.get().execute(viewer, confirmed ? CommandArgs.confirmed(arguments) : CommandArgs.of(arguments));
+                    found.get().execute(viewer, args);
                 } catch (RuntimeException e) {
                     judicator.getLogger().error("Error while running /{} from a menu", command, e);
                 }
@@ -268,6 +273,29 @@ public class MenuService {
             stack.push(next.apply(answers));
             start(viewer, stack);
         }, () -> resume(viewer, saved, 0));
+        if (!shown) {
+            session.building = false;
+            return false;
+        }
+        sessions.remove(viewer.getUniqueId());
+        return true;
+    }
+
+    /**
+     * Asks for the evidence of a punishment on the renderer's own dialog, keeping the menu: the answer runs the command
+     * as confirmed with those links and goes {@code leave} screens back; cancelling shows the screen it was asked from
+     * again, with nothing applied.
+     *
+     * @return false when the renderer cannot ask this player (no dialogs): nothing was shown
+     */
+    public boolean askEvidence(JudicatorPlayer viewer, String command, String arguments, int leave) {
+        final Optional<MenuRenderer> renderer = platform().menus();
+        final Session session = sessions.get(viewer.getUniqueId());
+        if (renderer.isEmpty() || session == null) return false;
+        final Deque<Screen> saved = new ArrayDeque<>(session.stack);
+        final boolean shown = renderer.get().ask(viewer, Evidence.question(judicator.messagesFor(viewer)),
+                answer -> run(viewer, command, CommandArgs.confirmed(arguments, Evidence.links(answer)), () -> resume(viewer, saved, leave)),
+                () -> resume(viewer, saved, 0));
         if (!shown) {
             session.building = false;
             return false;

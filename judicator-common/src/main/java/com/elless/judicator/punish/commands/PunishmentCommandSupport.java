@@ -3,10 +3,12 @@ package com.elless.judicator.punish.commands;
 import com.elless.judicator.players.PlayerRef;
 import com.elless.judicator.Judicator;
 import com.elless.judicator.commons.ChatContext;
+import com.elless.judicator.commons.command.CommandArgs;
 import com.elless.judicator.menus.MenuRenderer;
 import com.elless.judicator.platform.JudicatorPlayer;
 import com.elless.judicator.platform.JudicatorSender;
 import com.elless.judicator.punish.PlayerAddress;
+import com.elless.judicator.punish.Evidence;
 import com.elless.judicator.punish.PunishUtils;
 import com.elless.judicator.punish.PunishmentBuilder;
 import com.elless.judicator.punish.handlers.PunishFactory;
@@ -14,7 +16,6 @@ import com.elless.judicator.punish.rules.PunishCooldown;
 import com.elless.judicator.punish.scopes.ScopeService;
 import org.spongepowered.configurate.ConfigurationNode;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -104,10 +105,10 @@ final class PunishmentCommandSupport {
 
     /**
      * Applies the punishment at once for the console and for an action already confirmed
-     * ({@link com.elless.judicator.commons.command.CommandArgs#confirmed}); a staff member otherwise gets the evidence
-     * prompt: a dialog when the platform has one for them (Paper, 1.21.6+ clients), the chat otherwise.
+     * ({@link CommandArgs#confirmed}, with the evidence given there); a staff member otherwise gets the evidence prompt:
+     * a dialog when the platform has one for them (Paper, 1.21.6+ clients), the chat otherwise.
      */
-    static void submit(Judicator judicator, JudicatorSender source, PunishmentBuilder builder, boolean confirmed) {
+    static void submit(Judicator judicator, JudicatorSender source, PunishmentBuilder builder, CommandArgs args) {
         final Optional<JudicatorPlayer> optPlayer = source.asPlayer();
         if (optPlayer.isEmpty()) {
             new PunishFactory(judicator, builder).factory();
@@ -116,7 +117,8 @@ final class PunishmentCommandSupport {
 
         final JudicatorPlayer player = optPlayer.get();
         builder.punisher(player);
-        if (confirmed) {
+        if (args.isConfirmed()) {
+            if (!args.evidences().isEmpty()) builder.evidences(args.evidences());
             new PunishFactory(judicator, builder).factory();
             return;
         }
@@ -144,33 +146,10 @@ final class PunishmentCommandSupport {
      */
     private static boolean askEvidence(Judicator judicator, MenuRenderer renderer, JudicatorPlayer player, PunishmentBuilder builder) {
         final ConfigurationNode messages = judicator.messagesFor(player);
-        final MenuRenderer.Question question = new MenuRenderer.Question(
-                PunishUtils.fill(messages.node("prompt", "dialog", "title").getString("&8Evidence"), Map.of()),
-                PunishUtils.fill(messages.node("prompt", "dialog", "label").getString("Links of the evidence:"), Map.of()),
-                PunishUtils.fill(messages.node("prompt", "dialog", "confirm").getString("&aApply"), Map.of()),
-                PunishUtils.fill(messages.node("prompt", "dialog", "cancel").getString("&cCancel"), Map.of()),
-                true);
-        return renderer.ask(player, question, answer -> {
-            builder.evidences(fitting(answer));
+        return renderer.ask(player, Evidence.question(messages), answer -> {
+            builder.evidences(Evidence.links(answer));
             judicator.getPlatform().runAsync(() -> new PunishFactory(judicator, builder).factory());
         }, () -> player.sendMessage(PunishUtils.getMessage(messages, "success", "cancel")));
-    }
-
-    /**
-     * The links of the answer that fit in the stored evidence, in order (the field takes 255 characters; a client could
-     * send more).
-     */
-    private static List<String> fitting(String answer) {
-        final List<String> links = new ArrayList<>();
-        for (String link : answer.trim().split("\\s+")) {
-            if (link.isEmpty()) continue;
-            links.add(link);
-            if (String.join(",", links).length() > ChatContext.EVIDENCE_MAX_LENGTH) {
-                links.remove(links.size() - 1);
-                break;
-            }
-        }
-        return links;
     }
 
 }

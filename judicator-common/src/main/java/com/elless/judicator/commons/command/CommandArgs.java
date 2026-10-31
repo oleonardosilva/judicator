@@ -1,25 +1,28 @@
 package com.elless.judicator.commons.command;
 
+import java.util.List;
 import java.util.Optional;
 
 public final class CommandArgs {
 
     private final String input;
     private final boolean confirmed;
+    private final List<String> evidences;
     private int cursor;
 
-    private CommandArgs(String input, boolean confirmed) {
+    private CommandArgs(String input, boolean confirmed, List<String> evidences) {
         this.input = input;
         this.confirmed = confirmed;
+        this.evidences = List.copyOf(evidences);
         this.cursor = 0;
     }
 
     public static CommandArgs of(String[] rawArgs) {
-        return new CommandArgs(String.join(" ", rawArgs).trim(), false);
+        return new CommandArgs(String.join(" ", rawArgs).trim(), false, List.of());
     }
 
     public static CommandArgs of(String rawInput) {
-        return new CommandArgs(rawInput == null ? "" : rawInput.trim(), false);
+        return new CommandArgs(rawInput == null ? "" : rawInput.trim(), false, List.of());
     }
 
     /**
@@ -27,11 +30,22 @@ public final class CommandArgs {
      * is applied without asking for evidence in the chat. Never built from what a player typed.
      */
     public static CommandArgs confirmed(String rawInput) {
-        return new CommandArgs(rawInput == null ? "" : rawInput.trim(), true);
+        return confirmed(rawInput, List.of());
+    }
+
+    /**
+     * @param evidences the links the sender gave on that screen (a menu's evidence dialog), stored with the punishment
+     */
+    public static CommandArgs confirmed(String rawInput, List<String> evidences) {
+        return new CommandArgs(rawInput == null ? "" : rawInput.trim(), true, evidences);
     }
 
     public boolean isConfirmed() {
         return confirmed;
+    }
+
+    public List<String> evidences() {
+        return evidences;
     }
 
     public Optional<String> word() {

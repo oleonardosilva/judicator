@@ -324,6 +324,32 @@ class MenusTest {
     }
 
     @Test
+    void punishWithEvidence_onADialog_cancelComesBackAndApplyKeepsTheMenu() {
+        start();
+        menus.dialogs();
+        final FakePlayer mod = server.online(new FakePlayer("Mod", "10.0.0.2", "judicator.menu", "judicator.punish"));
+        final FakePlayer steve = server.online(new FakePlayer("Steve", "10.0.0.1"));
+        server.command(mod, "jmenu Steve");
+        menus.click(mod, "Punish");
+        menus.click(mod, "Cheating");
+
+        menus.click(mod, "Add evidence first");
+        assertEquals("Links of the evidence, separated by spaces (optional):", menus.question(mod));
+        menus.cancelQuestion(mod);
+        assertEquals("Confirm", menus.title(mod), "cancel comes back to the confirmation");
+        assertFalse(steve.wasKicked(), "nothing applied");
+        assertTrue(server.judicator.getPunishService().findAllOf(server.judicator.getPlayerDirectory().refOf(steve)).isEmpty());
+        assertFalse(mod.received("Operation successfully canceled."), "no chat message for a menu's cancel");
+
+        menus.click(mod, "Add evidence first");
+        menus.answer(mod, "https://example.org/clip https://example.org/clip2");
+        assertTrue(steve.wasKicked());
+        final Punishment applied = server.judicator.getPunishService().findAllOf(server.judicator.getPlayerDirectory().refOf(steve)).get(0);
+        assertEquals(List.of("https://example.org/clip", "https://example.org/clip2"), applied.getEvidences());
+        assertEquals("Steve", menus.title(mod), "back on the player's page, as applying at once does");
+    }
+
+    @Test
     void punishWithEvidence_goesThroughTheChatPrompt() {
         start();
         final FakePlayer mod = server.online(new FakePlayer("Mod", "10.0.0.2", "judicator.menu", "judicator.punish"));

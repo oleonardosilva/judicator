@@ -83,7 +83,7 @@ public class PunishCommand extends CoreCommand {
         if (!PunishmentCommandSupport.applyScope(judicator, source, builder, flags.scope)) return;
         if (!PunishmentCommandSupport.passesStaffRules(judicator, source, builder, targetName)) return;
         if (!PunishmentCommandSupport.resolveTarget(judicator, source, builder, target, configuredReason.isIp())) return;
-        PunishmentCommandSupport.submit(judicator, source, builder, args.isConfirmed());
+        PunishmentCommandSupport.submit(judicator, source, builder, args);
     }
 
     @Override

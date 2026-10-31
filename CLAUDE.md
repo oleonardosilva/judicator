@@ -152,6 +152,10 @@ directly: they run the command a staff member would type (`MenuService.run`, whi
 confirmation screen first for what changes data, and `CommandArgs.confirmed` (only built there) applies a punishment
 without the evidence prompt. Free text (a reason, a note) goes through `MenuService.askCommand`: the menu closes and the
 next chat line is taken by a `ChatContext.textPrompt` in `PunishCache` (the cancel word brings the menu back).
+The evidence asked from the punishment confirmation goes through `MenuService.askEvidence` where the player has dialogs:
+the answer runs `/punish` with `CommandArgs.confirmed(arguments, evidences)` and goes back like applying at once; cancel
+shows the confirmation again. Question and form dialogs close after their click (`DialogAfterAction.CLOSE`) and take
+only the first of their callbacks, so Escape after an answer is no second answer.
 On Spigot/Paper the renderer is `BukkitMenuChooser`: inventories (`BukkitMenus`, `MenuItems`), or dialogs
 (`PaperDialogs`, in the `paper` source set of `judicator-bukkit`, compiled with Java 21 against `paper-api` and added to
 the final jar by `pluginJar` *after* the shadow jar, so it uses the server's own Adventure — never reference relocated

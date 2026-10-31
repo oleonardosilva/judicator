@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -86,7 +87,8 @@ final class PaperDialogs implements MenuRenderer {
         } else {
             type = DialogType.multiAction(buttons).columns(DialogLayout.COLUMNS).exitAction(exit).build();
         }
-        player.showDialog(Dialog.create(factory -> factory.empty().base(base(menu.title()).body(body).build()).type(type)));
+        player.showDialog(Dialog.create(factory -> factory.empty().base(base(menu.title(), DialogBase.DialogAfterAction.NONE)
+                .body(body).build()).type(type)));
     }
 
     @Override
@@ -102,17 +104,19 @@ final class PaperDialogs implements MenuRenderer {
     public boolean ask(JudicatorPlayer viewer, Question question, Consumer<String> onAnswer, Runnable onCancel) {
         final Player player = Bukkit.getPlayer(viewer.getUniqueId());
         if (player == null) return false;
-        final DialogBase base = base(question.title())
+        final DialogBase base = base(question.title(), DialogBase.DialogAfterAction.CLOSE)
                 .inputs(List.of(DialogInput.text(ANSWER, text(question.label())).width(WIDTH).maxLength(255).build()))
                 .build();
+        final AtomicBoolean done = new AtomicBoolean();
         final ActionButton confirm = ActionButton.builder(text(question.confirm())).width(BUTTON_WIDTH)
                 .action(DialogAction.customClick((response, audience) -> {
                     final String answer = response.getText(ANSWER);
                     final boolean empty = answer == null || answer.isBlank();
-                    onGameThread(empty && !question.optional() ? onCancel : () -> onAnswer.accept(empty ? "" : answer)).accept(response, audience);
+                    onGameThread(once(done, empty && !question.optional() ? onCancel : () -> onAnswer.accept(empty ? "" : answer)))
+                            .accept(response, audience);
                 }, CLICKS)).build();
         final ActionButton cancel = ActionButton.builder(text(question.cancel())).width(BUTTON_WIDTH)
-                .action(DialogAction.customClick(onGameThread(onCancel), CLICKS)).build();
+                .action(DialogAction.customClick(onGameThread(once(done, onCancel)), CLICKS)).build();
         player.showDialog(Dialog.create(factory -> factory.empty().base(base).type(DialogType.confirmation(confirm, cancel))));
         return true;
     }
@@ -135,7 +139,8 @@ final class PaperDialogs implements MenuRenderer {
                 inputs.add(DialogInput.text(input.key(), text(input.label())).initial(input.initial()).width(WIDTH).maxLength(64).build());
             }
         }
-        final DialogBase base = base(form.title()).inputs(inputs).build();
+        final DialogBase base = base(form.title(), DialogBase.DialogAfterAction.CLOSE).inputs(inputs).build();
+        final AtomicBoolean done = new AtomicBoolean();
         final ActionButton apply = ActionButton.builder(text(form.confirm())).width(BUTTON_WIDTH)
                 .action(DialogAction.customClick((response, audience) -> {
                     final Map<String, String> answers = new HashMap<>();
@@ -143,23 +148,34 @@ final class PaperDialogs implements MenuRenderer {
                         final String value = response.getText(field.key());
                         if (value != null) answers.put(field.key(), value);
                     }
-                    onGameThread(() -> onSubmit.accept(answers)).accept(response, audience);
+                    onGameThread(once(done, () -> onSubmit.accept(answers))).accept(response, audience);
                 }, CLICKS)).build();
         final ActionButton cancel = ActionButton.builder(text(form.cancel())).width(BUTTON_WIDTH)
-                .action(DialogAction.customClick(onGameThread(onCancel), CLICKS)).build();
+                .action(DialogAction.customClick(onGameThread(once(done, onCancel)), CLICKS)).build();
         player.showDialog(Dialog.create(factory -> factory.empty().base(base).type(DialogType.confirmation(apply, cancel))));
         return true;
     }
 
     /**
-     * A dialog that Escape closes (running its way out), the game going on behind, and that stays until the next one
-     * replaces it.
+     * A dialog that Escape closes (running its way out), the game going on behind.
+     *
+     * @param after NONE for a menu (every click shows the next screen), CLOSE for a question or a form: after the answer
+     *              or the cancel nothing may replace it, and a dialog left open would take Escape as a second answer
      */
-    private static DialogBase.Builder base(String title) {
+    private static DialogBase.Builder base(String title, DialogBase.DialogAfterAction after) {
         return DialogBase.builder(text(title(title)))
                 .canCloseWithEscape(true)
                 .pause(false)
-                .afterAction(DialogBase.DialogAfterAction.NONE);
+                .afterAction(after);
+    }
+
+    /**
+     * The first of the callbacks of one question or form wins: an answer and a cancel never both run.
+     */
+    private static Runnable once(AtomicBoolean done, Runnable task) {
+        return () -> {
+            if (done.compareAndSet(false, true)) task.run();
+        };
     }
 
     private ActionButton button(UUID player, Menu menu, DialogLayout.Button button) {

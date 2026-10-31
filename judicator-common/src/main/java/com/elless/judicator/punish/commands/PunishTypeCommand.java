@@ -101,7 +101,7 @@ public class PunishTypeCommand extends CoreCommand {
 
         if (!PunishmentCommandSupport.passesStaffRules(judicator, source, builder, targetName)) return;
         if (!PunishmentCommandSupport.resolveTarget(judicator, source, builder, target, byAddress)) return;
-        PunishmentCommandSupport.submit(judicator, source, builder, args.isConfirmed());
+        PunishmentCommandSupport.submit(judicator, source, builder, args);
     }
 
     @Override
