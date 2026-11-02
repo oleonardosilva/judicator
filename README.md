@@ -100,7 +100,7 @@ where the command was typed; the Discord webhook is sent once, by the server tha
 |---|---|---|
 | A proxy only (Velocity or BungeeCord) | the proxy's build | nothing to change |
 | Several Spigot/Paper servers, no proxy (or a proxy without Judicator) | Spigot/Paper build on each | `sync.enabled: true` on each |
-| A proxy **and** the backends (signed chat of 1.19.1+ clients, menus on the backends) | the proxy's build and the Spigot/Paper build | proxy: `sync.enabled: true`, `chat-on-backends: true`; each backend: `sync.enabled: true`, `proxy-mode: true`, `trust-uuids: true` |
+| A proxy **and** the backends (signed chat of 1.19.1+ clients, menus on the backends, jails) | the proxy's build and the Spigot/Paper build (or the mod) | proxy: `sync.enabled: true`, `chat-on-backends: true`; each backend: `sync.enabled: true`, `proxy-mode: true`, `trust-uuids: true` (jails: also `scopes.server-name`) |
 
 **`proxy-mode`** (Spigot/Paper behind a Velocity or BungeeCord running Judicator): the proxy does everything players see — refuses
 banned players, kicks, mute alerts, announcements, staff notifications — for every punishment, wherever it was
@@ -224,6 +224,56 @@ The following commands are used to apply, remove, or check punishments for playe
   (see [Networks and Multiple Servers](#networks-and-multiple-servers)), if your players use signed chat.
 * **BungeeCord and 1.19.1+ clients:** BungeeCord does not disconnect the player itself, but a backend may when a
   signed message it expected never arrives. The same `proxy-mode` + `chat-on-backends: true` setup avoids it.
+
+---
+
+### ⛓️ Jail
+
+Keeps a player in a jail of the server instead of keeping them out of it. On Spigot/Paper/Folia and on the Fabric,
+NeoForge and Forge mods (not on Hytale).
+
+* **`/jail (player) {-jail=(jail)} {-s} {reason}`** and **`/tempjail (player) (duration) {-jail=(jail)} {-o} {-s} {reason}`**
+  Takes the player to the jail and keeps them there. Without `-jail=`, the first jail with room is used. The time of
+  `/tempjail` only runs while the prisoner is online (`jail.online-only`, on by default). A player who is offline is
+  taken there at their next login. `/extend` and `/changereason` work on jails too.
+  **Permission:** `judicator.jail`, `judicator.tempjail`
+* **`/unjail (player) {-s} {reason}`**: lets the player out (to the jail's release point, or the world spawn).
+  **Permission:** `judicator.unjail`
+* **`/jaillist {page}`**: who is in jail. **Permission:** `judicator.jaillist`
+
+**Making the jails** (`/jails`, **permission:** `judicator.jails`), standing on the server and at the place:
+
+| Command | What it does |
+|---|---|
+| `/jails create (jail) {radius}` | A jail here: prisoners are put where you stand and kept in a box of `radius` blocks around it (3 by default) |
+| `/jails pos1 (jail)`, `/jails pos2 (jail)` | Corners of the area prisoners are kept in (the spawn must stay inside it) |
+| `/jails spawn (jail)` | Where prisoners are put |
+| `/jails release (jail) {clear}` | Where freed prisoners go (`clear`: the world spawn) |
+| `/jails shared (jail) (true\|false)` | `false`: one prisoner at a time (a solitary cell) |
+| `/jails capacity (jail) (number)` | Most prisoners of a shared jail; `0` = no limit |
+| `/jails escape (jail) add {chance} {radius}` | A **secret** way out where you stand: a prisoner who reaches it escapes with `chance`% (100 by default), or is caught |
+| `/jails escape (jail) list\|remove (n)\|clear` | The escape routes |
+| `/jails server (jail) (server\|none)` | The server it is on, as the proxy calls it (set from `scopes.server-name` when made) |
+| `/jails info (jail)`, `/jails list`, `/jails tp (jail)`, `/jails delete (jail)` | |
+
+**Inside**, prisoners can only run `jail.allowed-commands` (`/msg`, `/tell`, `/r`, `/helpop` by default), cannot break
+or place blocks, hit anyone or be hit (`jail.rules`). Their position is checked every `jail.check-interval`
+milliseconds (250): a prisoner who walks or digs out of the area is **caught** and gets `jail.escape.caught-penalty`
+more (`/tempjail`); one who got out in another way (an ender pearl, a teleport, a respawn) is just brought back.
+
+**Escapes.** A prisoner who finds a secret escape route escapes (or is caught, by its chance). For
+`jail.escape.fugitive-time` (10 minutes) they are a **fugitive**: free to go, but a guard (**permission:**
+`judicator.jail.guard`) who hits them takes them back to jail with the time they had left and the penalty. When the
+time is over they are free and the jail ends. `fugitive-time: "0"` frees an escaped prisoner at once. Staff with
+`judicator.jail.notify` hear of escapes and catches.
+
+> **Networks.** A jail is on one game server, but only the proxy can send a prisoner to that server and keep them
+> there. **Jails need Judicator on the proxy too**: `sync.enabled` everywhere; on the game servers `proxy-mode: true`
+> and `scopes.server-name` set to the name the proxy gives the server (it is stored in the jail when it is made). The
+> proxy then sends prisoners to the jail's server (when jailed, at login, and when a guard catches them elsewhere) and
+> refuses their `/server` to any other; the game server holds them and sees escapes. Without Judicator on the proxy a
+> prisoner is only held while on the jail's server. `/jails` is a game-server command: on the proxy it goes through to
+> the server you are on.
 
 ---
 
@@ -363,6 +413,10 @@ The following commands are used to apply, remove, or check punishments for playe
 * **`/unmute (player) {-s} {reason}`**
   Revokes every active mute of the player.
   **Permission:** `judicator.unmute`
+
+* **`/unjail (player) {-s} {reason}`**
+  Lets the player out of jail.
+  **Permission:** `judicator.unjail`
 
 * **`/blame (staff) {period} {page}`**
   Lists the punishments applied by a staff member, newest first (10 per page). With a period (`7:d`, `24:h`), only
@@ -757,7 +811,8 @@ Rules worth knowing (details in the Javadoc of `JudicatorApi` and `JudicatorEven
 * An API call is treated like the console: no staff hierarchy, time limits, cooldown wait or evidence prompt. The
   `punisher` is any name you choose (up to 20 characters, no spaces). Exemptions still apply: players in `immune.yml`
   and addresses in `exempt-addresses` are refused with a status, not an exception.
-* `PunishmentRequest` covers IP, silent, soft, online-only and evidence options; `WarnRequest` covers temporary warns.
+* `PunishmentRequest` covers IP, silent, soft, online-only, jail (`JAIL`/`TEMPJAIL`, with an optional jail name) and
+  evidence options; `WarnRequest` covers temporary warns. `unjail` lets a player out.
 * Events are posted after the change is stored, on the thread that made it (usually not the server thread), and only
   on the server where it was made, not on the servers that learn about it through `sync`. A listener that throws is
   logged and never stops a punishment. There is no cancellable "before" event.

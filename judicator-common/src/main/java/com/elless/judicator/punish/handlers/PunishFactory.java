@@ -36,6 +36,7 @@ public class PunishFactory {
         try {
             final Punishment punishment;
             if (punishmentBuilder.isBan()) punishment = new BanHandler(judicator, punishmentBuilder).handle();
+            else if (punishmentBuilder.isJail()) punishment = new JailHandler(judicator, punishmentBuilder).handle();
             else punishment = new MuteHandler(judicator, punishmentBuilder).handle();
             judicator.getEventBus().post(() -> new PunishmentAppliedEvent(ApiViews.punishment(punishment), punishment.isSilent()));
 
@@ -45,6 +46,13 @@ public class PunishFactory {
             );
 
             return Optional.of(punishment);
+        } catch (JailHandler.Refused refused) {
+            judicator.getPunishCooldown().release(category, punishmentBuilder.getNickname());
+            final java.util.Map<String, String> values = java.util.Map.of("nickname", punishmentBuilder.getNickname(),
+                    "jail", String.valueOf(punishmentBuilder.getJail()));
+            judicator.getPlatform().getPlayer(punishmentBuilder.getPunisher()).ifPresent(player ->
+                    player.sendMessage(PunishUtils.format(judicator.messagesFor(player), values, "error", refused.key())));
+            return Optional.empty();
         } catch (Exception e) {
             judicator.getPunishCooldown().release(category, punishmentBuilder.getNickname());
             judicator.getLogger().error("Failed to handle ban punishment", e);

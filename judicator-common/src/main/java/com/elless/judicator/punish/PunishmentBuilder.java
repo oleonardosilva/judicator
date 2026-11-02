@@ -32,6 +32,8 @@ public class PunishmentBuilder {
     private boolean onlineOnly;
     /** null: everywhere */
     private String scope;
+    /** the jail of a JAIL/TEMPJAIL */
+    private String jail;
     private JudicatorPlayer staff;
 
     /**
@@ -78,6 +80,11 @@ public class PunishmentBuilder {
      */
     public PunishmentBuilder scope(String scope) {
         this.scope = scope;
+        return this;
+    }
+
+    public PunishmentBuilder jail(String jail) {
+        this.jail = jail;
         return this;
     }
 
@@ -145,6 +152,10 @@ public class PunishmentBuilder {
         return this.type == PunishType.MUTE || this.type == PunishType.TEMPMUTE;
     }
 
+    public boolean isJail() {
+        return this.type == PunishType.JAIL || this.type == PunishType.TEMPJAIL;
+    }
+
     public Punishment build() {
         final Punishment punishment = Punishment.create(
                 playerUUID,
@@ -161,8 +172,9 @@ public class PunishmentBuilder {
         punishment.setSilent(silent);
         punishment.setSoft(soft);
         punishment.setOnlineOnly(onlineOnly);
-        // a kick is over at once: it has no servers to apply on
+        // a kick is over at once, and a prisoner is kept wherever the jail is: neither has servers to apply on
         punishment.setScope(isBan() || isMute() ? scope : null);
+        punishment.setJail(isJail() ? jail : null);
         return punishment;
     }
 

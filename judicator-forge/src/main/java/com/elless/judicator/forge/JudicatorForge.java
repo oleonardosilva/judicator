@@ -9,10 +9,13 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.Connection;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerConfigurationPacketListenerImpl;
+import net.minecraftforge.common.util.Result;
 import net.minecraftforge.event.CommandEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.ServerChatEvent;
+import net.minecraftforge.event.entity.player.AttackEntityEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.event.network.GatherLoginConfigurationTasksEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
@@ -55,6 +58,12 @@ public final class JudicatorForge {
         });
         // a cancellable bus: true cancels
         ServerChatEvent.BUS.addListener(event -> !mod.allowChat(event.getPlayer(), event.getRawText()));
+        // what a prisoner may do (true cancels; a break is only refused through its result)
+        BlockEvent.BreakEvent.BUS.addListener((BlockEvent.BreakEvent event) -> {
+            if (event.getPlayer() instanceof ServerPlayer player && !mod.mayBreak(player)) event.setResult(Result.DENY);
+        });
+        BlockEvent.EntityPlaceEvent.BUS.addListener(event -> event.getEntity() instanceof ServerPlayer player && !mod.mayPlace(player));
+        AttackEntityEvent.BUS.addListener(event -> event.getEntity() instanceof ServerPlayer player && !mod.allowAttack(player, event.getTarget()));
         CommandEvent.BUS.addListener(event -> {
             final ParseResults<CommandSourceStack> parse = event.getParseResults();
             final ServerPlayer player = parse.getContext().getSource().getPlayer();

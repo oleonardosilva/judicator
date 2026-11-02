@@ -2,6 +2,7 @@ package com.elless.judicator.testing;
 
 import com.elless.judicator.menus.MenuRenderer;
 import com.elless.judicator.platform.JudicatorPlayer;
+import com.elless.judicator.platform.Location;
 import com.elless.judicator.platform.Platform;
 import com.elless.judicator.platform.PlatformTask;
 import com.elless.judicator.platform.PlatformType;
@@ -46,6 +47,10 @@ public final class FakePlatform implements Platform {
     /** servers that refuse connections (down, full) */
     private final Set<String> refusing = new HashSet<>();
     private final List<String> teleports = new ArrayList<>();
+    /** where each player of a game server is */
+    private final Map<UUID, Location> locations = new HashMap<>();
+    private final List<String> placeTeleports = new ArrayList<>();
+    public static final Location WORLD_SPAWN = new Location("world", 0.5, 64, 0.5, 0, 0);
     private TeleportOutcome teleportOutcome = TeleportOutcome.TELEPORTED;
     /** tasks waiting while {@link #holdAsync()} is on, like work on a slow database */
     private List<Runnable> heldAsync;
@@ -251,6 +256,55 @@ public final class FakePlatform implements Platform {
      */
     public List<String> teleports() {
         return teleports;
+    }
+
+    /**
+     * Worlds on a game server (Spigot/Paper and the mod loaders), as the real platforms.
+     */
+    @Override
+    public boolean hasWorlds() {
+        return !type.isProxy() && type != PlatformType.HYTALE;
+    }
+
+    /**
+     * Puts a player somewhere, as if they walked (or teleported) there.
+     */
+    public void place(FakePlayer player, Location location) {
+        locations.put(player.getUniqueId(), location);
+    }
+
+    public void place(FakePlayer player, double x, double y, double z) {
+        place(player, new Location("world", x, y, z, 0, 0));
+    }
+
+    @Override
+    public Optional<Location> locationOf(JudicatorPlayer player) {
+        if (!hasWorlds() || getPlayer(player.getUniqueId()).isEmpty()) return Optional.empty();
+        return Optional.of(locations.getOrDefault(player.getUniqueId(), WORLD_SPAWN));
+    }
+
+    @Override
+    public CompletableFuture<Boolean> teleport(JudicatorPlayer player, Location to) {
+        if (!hasWorlds() || getPlayer(player.getUniqueId()).isEmpty()) return CompletableFuture.completedFuture(false);
+        locations.put(player.getUniqueId(), to);
+        placeTeleports.add(player.getName() + " -> " + to.blockX() + " " + to.blockY() + " " + to.blockZ());
+        return CompletableFuture.completedFuture(true);
+    }
+
+    /**
+     * The teleports to places made (jails), as "player -> x y z".
+     */
+    public List<String> placeTeleports() {
+        return placeTeleports;
+    }
+
+    public Location where(FakePlayer player) {
+        return locations.getOrDefault(player.getUniqueId(), WORLD_SPAWN);
+    }
+
+    @Override
+    public Optional<Location> worldSpawn() {
+        return hasWorlds() ? Optional.of(WORLD_SPAWN) : Optional.empty();
     }
 
     /**

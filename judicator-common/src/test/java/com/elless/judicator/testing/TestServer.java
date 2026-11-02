@@ -41,6 +41,7 @@ public final class TestServer implements AutoCloseable {
     public final InMemorySyncRepository sync;
     public final InMemoryPlayerRepository players;
     public final InMemoryReportRepository reports;
+    public final InMemoryJailRepository jails;
 
     private TestServer(Path folder, boolean onlineMode, PlatformType type, TestServer sharedDatabase) {
         this.platform = new FakePlatform(folder, onlineMode, type);
@@ -52,12 +53,13 @@ public final class TestServer implements AutoCloseable {
         this.sync = sharedDatabase == null ? new InMemorySyncRepository() : sharedDatabase.sync;
         this.players = sharedDatabase == null ? new InMemoryPlayerRepository() : sharedDatabase.players;
         this.reports = sharedDatabase == null ? new InMemoryReportRepository() : sharedDatabase.reports;
+        this.jails = sharedDatabase == null ? new InMemoryJailRepository() : sharedDatabase.jails;
         this.judicator = boot();
         platform.menus.bind(() -> judicator.getMenuService());
     }
 
     private Judicator boot() {
-        final Judicator core = new Judicator(platform, new Judicator.Repositories(punishments, warns, addresses, levels, notes, sync, players, reports));
+        final Judicator core = new Judicator(platform, new Judicator.Repositories(punishments, warns, addresses, levels, notes, sync, players, reports, jails));
         core.enable();
         // A test never talks to the Mojang API: unknown names simply have no UUID.
         core.getUuidManager().setRemoteLookups(false);
@@ -173,6 +175,22 @@ public final class TestServer implements AutoCloseable {
      */
     public void pollSync() {
         judicator.getSyncService().poll();
+    }
+
+    /**
+     * The prisoners are checked once (as every {@code jail.check-interval}).
+     */
+    public void checkPrisoners() {
+        judicator.getJailService().checkAll();
+    }
+
+    /**
+     * A player hits another ({@code EntityDamageByEntityEvent} and the mod loaders' attack events).
+     *
+     * @return whether the hit goes on
+     */
+    public boolean hit(FakePlayer attacker, FakePlayer victim) {
+        return judicator.getJailService().allowAttack(attacker, victim);
     }
 
     public void quit(FakePlayer player) {

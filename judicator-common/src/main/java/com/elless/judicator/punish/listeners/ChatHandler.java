@@ -70,6 +70,7 @@ public final class ChatHandler {
 
     public boolean shouldBlockCommand(JudicatorPlayer player, String commandLine) {
         final String label = label(commandLine);
+        if (!label.isEmpty() && judicator.getJailService().blocksCommand(player, label)) return true;
         if (label.isEmpty() || blockedCommands.stream().map(ChatHandler::label).noneMatch(label::equals)) return false;
 
         final Optional<Punishment> punishment = activeMute(player);

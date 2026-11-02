@@ -38,7 +38,7 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                             player_uuid = ?, reason = ?, punisher = ?, nickname = ?, ip_address = ?,
                             lower_nickname = ?, started_at = ?, finish_at = ?, revoked = ?, evidences = ?,
                             type = ?, permanent = ?, revoked_reason = ?, soft = ?, online_only = ?, paused_remaining = ?,
-                            punisher_uuid = ?, scope = ?
+                            punisher_uuid = ?, scope = ?, jail = ?, escaped_at = ?, jail_left = ?
                         WHERE id = ?
                     """;
         } else {
@@ -46,8 +46,8 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                         INSERT INTO {punishments} (
                             player_uuid, reason, punisher, nickname, ip_address, lower_nickname,
                             started_at, finish_at, revoked, evidences, type, permanent, revoked_reason,
-                            soft, online_only, paused_remaining, punisher_uuid, scope
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            soft, online_only, paused_remaining, punisher_uuid, scope, jail, escaped_at, jail_left
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """;
         }
         return sql;
@@ -80,7 +80,10 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                                     online_only BOOLEAN NOT NULL DEFAULT FALSE,
                                     paused_remaining BIGINT,
                                     punisher_uuid VARCHAR(36),
-                                    scope VARCHAR(64)
+                                    scope VARCHAR(64),
+                                    jail VARCHAR(32),
+                                    escaped_at TIMESTAMP,
+                                    jail_left BIGINT
                                 );
                                 """)
                 );
@@ -105,7 +108,10 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                             online_only BOOLEAN NOT NULL DEFAULT FALSE,
                             paused_remaining BIGINT,
                             punisher_uuid VARCHAR(36),
-                            scope VARCHAR(64)
+                            scope VARCHAR(64),
+                            jail VARCHAR(32),
+                            escaped_at TIMESTAMP,
+                            jail_left BIGINT
                         );
                         """));
             } else {
@@ -129,7 +135,10 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                             online_only BOOLEAN NOT NULL DEFAULT FALSE,
                             paused_remaining BIGINT,
                             punisher_uuid VARCHAR(36),
-                            scope VARCHAR(64)
+                            scope VARCHAR(64),
+                            jail VARCHAR(32),
+                            escaped_at DATETIME,
+                            jail_left BIGINT
                         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                         """));
             }
@@ -140,6 +149,10 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
             manager.ensureColumn(connection, "punishments", "paused_remaining", "BIGINT");
             manager.ensureColumn(connection, "punishments", "punisher_uuid", "VARCHAR(36)");
             manager.ensureColumn(connection, "punishments", "scope", "VARCHAR(64)");
+            // Tables created before jails existed.
+            manager.ensureColumn(connection, "punishments", "jail", "VARCHAR(32)");
+            manager.ensureColumn(connection, "punishments", "escaped_at", dialect == Dialect.MYSQL ? "DATETIME" : "TIMESTAMP");
+            manager.ensureColumn(connection, "punishments", "jail_left", "BIGINT");
 
             manager.ensureIndex(connection, "punishments", "player_uuid");
             manager.ensureIndex(connection, "punishments", "ip_address");
@@ -331,7 +344,7 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
 
             try (PreparedStatement stmt = connection.prepareStatement(manager.sql(sql), Statement.RETURN_GENERATED_KEYS)) {
                 bind(stmt, punishment);
-                if (isUpdate) stmt.setLong(19, punishment.getId());
+                if (isUpdate) stmt.setLong(22, punishment.getId());
                 stmt.executeUpdate();
 
                 if (!isUpdate) {
@@ -379,6 +392,44 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
         } catch (SQLException e) {
             logger.error(e.getMessage(), e);
             return false;
+        }
+    }
+
+    @Override
+    public boolean changeJail(Long id, LocalDateTime finishAt, Long pausedRemaining, LocalDateTime escapedAt, Long jailLeft) {
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(manager.sql(
+                     "UPDATE {punishments} SET finish_at = ?, paused_remaining = ?, escaped_at = ?, jail_left = ? WHERE id = ? AND revoked = false"))) {
+            statement.setTimestamp(1, SqlTime.of(finishAt));
+            if (pausedRemaining == null) statement.setNull(2, Types.BIGINT);
+            else statement.setLong(2, pausedRemaining);
+            statement.setTimestamp(3, SqlTime.of(escapedAt));
+            if (jailLeft == null) statement.setNull(4, Types.BIGINT);
+            else statement.setLong(4, jailLeft);
+            statement.setLong(5, id);
+            return statement.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return false;
+        }
+    }
+
+    @Override
+    public int countInJail(String jail, boolean withFugitives) {
+        try (Connection connection = manager.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement(manager.sql("""
+                     SELECT COUNT(*) FROM {punishments}
+                     WHERE jail = ? %s AND revoked = false AND (finish_at IS NULL OR finish_at > ?)
+                       AND type IN ('JAIL', 'TEMPJAIL')
+                     """.formatted(withFugitives ? "" : "AND escaped_at IS NULL")))) {
+            statement.setString(1, jail);
+            statement.setTimestamp(2, SqlTime.of(LocalDateTime.now()));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next() ? resultSet.getInt(1) : 0;
+            }
+        } catch (SQLException e) {
+            logger.error(e.getMessage(), e);
+            return 0;
         }
     }
 
@@ -468,6 +519,10 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
         else stmt.setLong(16, punishment.getPausedRemaining());
         stmt.setString(17, punishment.getPunisherUuid().map(UUID::toString).orElse(null));
         stmt.setString(18, punishment.getScope().orElse(null));
+        stmt.setString(19, punishment.getJail().orElse(null));
+        stmt.setTimestamp(20, SqlTime.of(punishment.getEscapedAt().orElse(null)));
+        if (punishment.getJailLeft() == null) stmt.setNull(21, Types.BIGINT);
+        else stmt.setLong(21, punishment.getJailLeft());
     }
 
     @Override
@@ -675,6 +730,10 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
         punishment.setPausedRemaining(rs.wasNull() ? null : paused);
         punishment.setPunisherUuid(uuid(rs.getString("punisher_uuid")));
         punishment.setScope(rs.getString("scope"));
+        punishment.setJail(rs.getString("jail"));
+        punishment.setEscapedAt(SqlTime.read(rs, "escaped_at"));
+        final long jailLeft = rs.getLong("jail_left");
+        punishment.setJailLeft(rs.wasNull() ? null : jailLeft);
         return punishment;
     }
 

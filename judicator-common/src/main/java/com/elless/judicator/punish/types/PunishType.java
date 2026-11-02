@@ -15,7 +15,11 @@ public enum PunishType {
     @SerializedName("TEMPMUTE")
     TEMPMUTE(true),
     @SerializedName("KICK")
-    KICK(false);
+    KICK(false),
+    @SerializedName("JAIL")
+    JAIL(false),
+    @SerializedName("TEMPJAIL")
+    TEMPJAIL(true);
 
     private final boolean temp;
 

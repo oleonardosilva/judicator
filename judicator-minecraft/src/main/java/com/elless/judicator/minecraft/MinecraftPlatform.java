@@ -1,12 +1,19 @@
 package com.elless.judicator.minecraft;
 
 import com.elless.judicator.platform.JudicatorPlayer;
+import com.elless.judicator.platform.Location;
 import com.elless.judicator.platform.Platform;
 import com.elless.judicator.platform.PlatformTask;
 import com.elless.judicator.platform.PlatformType;
 import com.elless.judicator.platform.TeleportOutcome;
 import net.kyori.adventure.text.Component;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.storage.LevelData;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -224,6 +231,43 @@ public class MinecraftPlatform implements Platform {
             done.complete(teleported ? TeleportOutcome.TELEPORTED : TeleportOutcome.FAILED);
         });
         return done;
+    }
+
+    @Override
+    public boolean hasWorlds() {
+        return true;
+    }
+
+    /**
+     * The world is the dimension's id ({@code minecraft:overworld}).
+     */
+    @Override
+    public Optional<Location> locationOf(JudicatorPlayer player) {
+        final ServerPlayer online = server().getPlayerList().getPlayer(player.getUniqueId());
+        if (online == null) return Optional.empty();
+        return Optional.of(new Location(online.level().dimension().identifier().toString(), online.getX(), online.getY(),
+                online.getZ(), online.getYRot(), online.getXRot()));
+    }
+
+    @Override
+    public CompletableFuture<Boolean> teleport(JudicatorPlayer player, Location to) {
+        final CompletableFuture<Boolean> done = new CompletableFuture<>();
+        runSync(() -> {
+            final ServerPlayer online = server().getPlayerList().getPlayer(player.getUniqueId());
+            final Identifier id = Identifier.tryParse(to.world());
+            final ServerLevel level = id == null ? null : server().getLevel(ResourceKey.create(Registries.DIMENSION, id));
+            if (level == null) logger.warn("The world '{}' is not loaded: {} could not be moved there.", to.world(), player.getName());
+            done.complete(online != null && level != null
+                    && online.teleportTo(level, to.x(), to.y(), to.z(), Set.of(), to.yaw(), to.pitch(), true));
+        });
+        return done;
+    }
+
+    @Override
+    public Optional<Location> worldSpawn() {
+        final LevelData.RespawnData spawn = server().overworld().getRespawnData();
+        final BlockPos pos = spawn.pos();
+        return Optional.of(new Location(spawn.dimension().identifier().toString(), pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0, 0));
     }
 
     @Override

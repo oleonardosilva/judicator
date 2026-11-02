@@ -98,6 +98,40 @@ public interface Platform {
      */
     CompletableFuture<TeleportOutcome> teleport(JudicatorPlayer staff, JudicatorPlayer target);
 
+    /**
+     * Whether the players are in worlds Judicator can see and move them in (the game servers: Spigot/Paper, the mod
+     * loaders), which jails need. False on the proxies and Hytale.
+     */
+    default boolean hasWorlds() {
+        return false;
+    }
+
+    /**
+     * Where the player is. Called on the player's thread ({@link #runFor}).
+     *
+     * @return empty where there are no worlds ({@link #hasWorlds}) or the player left
+     */
+    default Optional<Location> locationOf(JudicatorPlayer player) {
+        return Optional.empty();
+    }
+
+    /**
+     * Moves the player to a place of this server (a jail).
+     *
+     * @return completes with whether they got there (false at once where there are no worlds, or the world is not
+     * loaded)
+     */
+    default CompletableFuture<Boolean> teleport(JudicatorPlayer player, Location to) {
+        return CompletableFuture.completedFuture(false);
+    }
+
+    /**
+     * Where players spawn in the server's first world: where a freed prisoner goes when their jail has no release point.
+     */
+    default Optional<Location> worldSpawn() {
+        return Optional.empty();
+    }
+
     default void announceToServerOf(JudicatorPlayer player, Component message) {
         announceToServerOf(player, recipient -> message);
     }

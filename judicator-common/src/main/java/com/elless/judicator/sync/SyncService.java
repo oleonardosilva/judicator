@@ -137,6 +137,10 @@ public class SyncService {
             judicator.getReportService().received(kind, id);
             return;
         }
+        if (kind == SyncKind.JAILS_CHANGED) {
+            judicator.getJailService().loadJails();
+            return;
+        }
         final PunishCache cache = judicator.getPunishCache();
         final Optional<Punishment> stored = kind == SyncKind.DELETED ? Optional.empty() : judicator.getPunishService().findById(id);
         switch (kind) {
@@ -151,8 +155,13 @@ public class SyncService {
             case CHANGED -> {
                 if (stored.isPresent() && stored.get().getStatus() == PunishStatus.ACTIVE) cache.refreshMute(stored.get());
                 else cache.forgetMute(id);
+                stored.ifPresent(judicator.getJailService()::refreshed);
             }
-            case DELETED -> cache.forgetMute(id);
+            case JAIL_ESCAPED, JAIL_CAUGHT -> stored.ifPresent(punishment -> judicator.getJailService().received(kind, punishment));
+            case DELETED -> {
+                cache.forgetMute(id);
+                judicator.getJailService().deleted(id);
+            }
             default -> {
             }
         }
@@ -171,7 +180,7 @@ public class SyncService {
         judicator.getPlatform().getOnlinePlayers().stream()
                 .filter(player -> judicator.getPunishService().isOnlinePlayerAffected(player, punishment))
                 .findFirst()
-                .ifPresent(player -> judicator.getPunishService().resumeOnlineOnlyMutes(judicator.getPlayerDirectory().refOf(player)));
+                .ifPresent(player -> judicator.getPunishService().resumeOnlineOnlyTime(judicator.getPlayerDirectory().refOf(player)));
     }
 
     private void cleanupSafely() {

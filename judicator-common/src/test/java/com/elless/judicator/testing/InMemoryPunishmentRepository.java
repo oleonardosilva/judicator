@@ -143,6 +143,25 @@ public final class InMemoryPunishmentRepository implements PunishmentRepository 
     }
 
     @Override
+    public synchronized boolean changeJail(Long id, LocalDateTime finishAt, Long pausedRemaining, LocalDateTime escapedAt, Long jailLeft) {
+        final Punishment row = rows.get(id);
+        if (row == null || row.isRevoked()) return false;
+        row.setFinishAt(trim(finishAt));
+        row.setPausedRemaining(pausedRemaining);
+        row.setEscapedAt(trim(escapedAt));
+        row.setJailLeft(jailLeft);
+        return true;
+    }
+
+    @Override
+    public synchronized int countInJail(String jail, boolean withFugitives) {
+        return (int) rows.values().stream()
+                .filter(p -> jail.equals(p.getJail().orElse(null)) && (withFugitives || !p.isEscaped()) && p.isJailType())
+                .filter(p -> !p.isRevoked() && p.getFinishAt().map(end -> end.isAfter(LocalDateTime.now())).orElse(true))
+                .count();
+    }
+
+    @Override
     public synchronized boolean changeReason(Long id, String reason) {
         final Punishment row = rows.get(id);
         if (row == null || row.isRevoked()) return false;
@@ -271,6 +290,7 @@ public final class InMemoryPunishmentRepository implements PunishmentRepository 
         Columns.maxLength(String.join(",", p.getEvidences()), 255, "evidences");
         Columns.maxLength(p.getRevokedReason().orElse(null), 100, "revoked_reason");
         Columns.maxLength(p.getScope().orElse(null), 64, "scope");
+        Columns.maxLength(p.getJail().orElse(null), 32, "jail");
         Columns.notNull(p.getStartedAt(), "started_at");
         Columns.notNull(p.getType(), "type");
     }
@@ -289,6 +309,9 @@ public final class InMemoryPunishmentRepository implements PunishmentRepository 
         row.setPausedRemaining(p.getPausedRemaining());
         row.setPunisherUuid(p.getPunisherUuid().orElse(null));
         row.setScope(p.getScope().orElse(null));
+        row.setJail(p.getJail().orElse(null));
+        row.setEscapedAt(trim(p.getEscapedAt().orElse(null)));
+        row.setJailLeft(p.getJailLeft());
         return row;
     }
 

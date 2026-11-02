@@ -4,6 +4,7 @@ import com.elless.judicator.players.PlayerRef;
 import com.elless.judicator.Judicator;
 import com.elless.judicator.commons.ChatContext;
 import com.elless.judicator.commons.command.CommandArgs;
+import com.elless.judicator.jails.JailService;
 import com.elless.judicator.menus.MenuRenderer;
 import com.elless.judicator.platform.JudicatorPlayer;
 import com.elless.judicator.platform.JudicatorSender;
@@ -14,6 +15,7 @@ import com.elless.judicator.punish.PunishmentBuilder;
 import com.elless.judicator.punish.handlers.PunishFactory;
 import com.elless.judicator.punish.rules.PunishCooldown;
 import com.elless.judicator.punish.scopes.ScopeService;
+import com.elless.judicator.punish.types.PunishType;
 import org.spongepowered.configurate.ConfigurationNode;
 
 import java.util.List;
@@ -60,6 +62,34 @@ final class PunishmentCommandSupport {
         }
         builder.scope(scope.get());
         return true;
+    }
+
+    /**
+     * The jail of a {@code JAIL}/{@code TEMPJAIL}: the one of {@code -jail=}, or the first with room. A player already in
+     * jail cannot be jailed again (a fugitive can).
+     *
+     * @param requested what followed {@code -jail=}; null to pick one
+     * @return false when the player cannot be jailed (the reason was already sent to the source)
+     */
+    static boolean applyJail(Judicator judicator, JudicatorSender source, PunishmentBuilder builder, PlayerRef target, String requested) {
+        final boolean jailed = judicator.getPunishService().findAllActiveOf(target, PunishType.JAIL, PunishType.TEMPJAIL).stream()
+                .anyMatch(punishment -> !punishment.isEscaped());
+        if (jailed) {
+            source.sendMessage(PunishUtils.format(judicator.messagesFor(source), Map.of("nickname", target.name()), "error", "already-jailed"));
+            return false;
+        }
+        final JailService.Choice choice = judicator.getJailService().choose(requested);
+        if (choice.jail() != null) {
+            builder.jail(choice.jail().name());
+            return true;
+        }
+        final String key = switch (choice.refusal()) {
+            case NO_JAILS -> "no-jails";
+            case UNKNOWN -> "jail-unknown";
+            case FULL -> requested == null ? "jails-full" : "jail-full";
+        };
+        source.sendMessage(PunishUtils.format(judicator.messagesFor(source), Map.of("jail", requested == null ? "" : requested), "error", key));
+        return false;
     }
 
     /**

@@ -48,7 +48,17 @@ public enum PunishPermissions {
     REPORTS_MANAGE("judicator.reports.manage"),
     REPORTS_TP("judicator.reports.tp"),
     REPORTS_NOTIFY("judicator.reports.notify"),
-    MENU("judicator.menu");
+    MENU("judicator.menu"),
+    JAIL("judicator.jail"),
+    TEMPJAIL("judicator.tempjail"),
+    UNJAIL("judicator.unjail"),
+    JAILLIST("judicator.jaillist"),
+    /** makes and changes the jails ({@code /jails}) */
+    JAILS("judicator.jails"),
+    /** hits a fugitive to take them back to jail */
+    JAIL_GUARD("judicator.jail.guard"),
+    /** hears of escapes and catches */
+    JAIL_NOTIFY("judicator.jail.notify");
 
     public static final String LEVEL_PREFIX = "judicator.level.";
 

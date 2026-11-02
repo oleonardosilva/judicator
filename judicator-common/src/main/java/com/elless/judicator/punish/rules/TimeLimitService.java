@@ -36,7 +36,7 @@ public class TimeLimitService {
         final Map<String, Map<String, String>> loaded = new HashMap<>();
         judicator.getConfig().node("time-limits").childrenMap().forEach((group, node) -> {
             final Map<String, String> byCategory = new HashMap<>();
-            for (String category : new String[]{"ban", "mute"}) {
+            for (String category : new String[]{"ban", "mute", "jail"}) {
                 final String duration = node.node(category).getString();
                 if (duration == null || duration.isBlank()) continue;
                 try {
@@ -89,6 +89,7 @@ public class TimeLimitService {
         return switch (type) {
             case BAN, TEMPBAN -> "ban";
             case MUTE, TEMPMUTE -> "mute";
+            case JAIL, TEMPJAIL -> "jail";
             default -> null;
         };
     }

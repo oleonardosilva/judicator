@@ -118,8 +118,9 @@ public class PunishService {
 
     public String statusOf(PlayerRef player) {
         final List<Punishment> active = repository.findAllActiveOf(player,
-                PunishType.BAN, PunishType.TEMPBAN, PunishType.MUTE, PunishType.TEMPMUTE);
+                PunishType.BAN, PunishType.TEMPBAN, PunishType.MUTE, PunishType.TEMPMUTE, PunishType.JAIL, PunishType.TEMPJAIL);
         if (active.stream().anyMatch(Punishment::isBanType)) return "banned";
+        if (active.stream().anyMatch(Punishment::isJailType)) return "jailed";
         if (active.stream().anyMatch(Punishment::isMuteType)) return "muted";
         return "clean";
     }
@@ -227,8 +228,36 @@ public class PunishService {
         punishment.setFinishAt(finishAt);
         punishment.setPausedRemaining(pausedRemaining);
         cache.refreshMute(punishment);
+        judicator.getJailService().refreshed(punishment);
         judicator.getSyncService().publish(SyncKind.CHANGED, punishment.getId());
         return true;
+    }
+
+    /**
+     * Stores an escape or a catch ({@link com.elless.judicator.jails.JailService}) and tells the other instances.
+     *
+     * @param kind {@link SyncKind#JAIL_ESCAPED} or {@link SyncKind#JAIL_CAUGHT}
+     * @return false when the jail was revoked meanwhile
+     */
+    public boolean changeJail(Punishment punishment, LocalDateTime finishAt, Long pausedRemaining, LocalDateTime escapedAt,
+                              Long jailLeft, SyncKind kind) {
+        if (!repository.changeJail(punishment.getId(), finishAt, pausedRemaining, escapedAt, jailLeft)) return false;
+        punishment.setFinishAt(finishAt);
+        punishment.setPausedRemaining(pausedRemaining);
+        punishment.setEscapedAt(escapedAt);
+        punishment.setJailLeft(jailLeft);
+        judicator.getJailService().refreshed(punishment);
+        judicator.getSyncService().publish(kind, punishment.getId());
+        return true;
+    }
+
+    /**
+     * How many prisoners a jail holds now.
+     *
+     * @param withFugitives also those who escaped from it and are not caught yet
+     */
+    public int countInJail(String jail, boolean withFugitives) {
+        return repository.countInJail(jail, withFugitives);
     }
 
     /**
@@ -243,31 +272,33 @@ public class PunishService {
     }
 
     /**
-     * The player left (or the server is stopping with them online): their online-only mutes stop running and keep
-     * what is left until they join again.
+     * The player left (or the server is stopping with them online): their online-only mutes and jails stop running and
+     * keep what is left until they join again. A fugitive's time keeps running.
      */
-    public void pauseOnlineOnlyMutes(PlayerRef player) {
+    public void pauseOnlineOnlyTime(PlayerRef player) {
         final LocalDateTime now = LocalDateTime.now();
-        for (Punishment mute : repository.findAllActiveOf(player, PunishType.TEMPMUTE)) {
-            if (!mute.isOnlineOnly() || mute.isPaused() || mute.getFinishAt().isEmpty()) continue;
-            final long left = Duration.between(now, mute.getFinishAt().get()).toMillis();
-            if (left > 0) changeEnd(mute, null, left);
+        for (Punishment punishment : repository.findAllActiveOf(player, PunishType.TEMPMUTE, PunishType.TEMPJAIL)) {
+            if (!punishment.isOnlineOnly() || punishment.isPaused() || punishment.isEscaped() || punishment.getFinishAt().isEmpty()) continue;
+            final long left = Duration.between(now, punishment.getFinishAt().get()).toMillis();
+            if (left > 0) changeEnd(punishment, null, left);
         }
     }
 
     /**
      * The player joined (in the game, after authentication: a name typed at the login screen, or a login refused by a
-     * whitelist or a full server, must not make the mute run): their paused online-only mutes run again from now.
+     * whitelist or a full server, must not make the time run): their paused online-only mutes and jails run again from
+     * now.
      */
-    public void resumeOnlineOnlyMutes(PlayerRef player) {
+    public void resumeOnlineOnlyTime(PlayerRef player) {
         final LocalDateTime now = LocalDateTime.now();
-        for (Punishment mute : repository.findAllActiveOf(player, PunishType.TEMPMUTE)) {
-            if (mute.isPaused()) changeEnd(mute, now.plus(Duration.ofMillis(mute.getPausedRemaining())), null);
+        for (Punishment punishment : repository.findAllActiveOf(player, PunishType.TEMPMUTE, PunishType.TEMPJAIL)) {
+            if (punishment.isPaused()) changeEnd(punishment, now.plus(Duration.ofMillis(punishment.getPausedRemaining())), null);
         }
     }
 
     public void deleteById(Long id) {
         repository.deleteById(id);
+        judicator.getJailService().deleted(id);
         judicator.getSyncService().publish(SyncKind.DELETED, id);
     }
 

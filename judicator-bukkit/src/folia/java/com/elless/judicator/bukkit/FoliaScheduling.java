@@ -67,6 +67,20 @@ final class FoliaScheduling implements Scheduling {
         if (online != null) online.getScheduler().run(plugin, scheduled -> task.run(), null);
     }
 
+    @Override
+    public CompletableFuture<Boolean> teleport(UUID moving, Location to) {
+        final CompletableFuture<Boolean> done = new CompletableFuture<>();
+        final Player player = Bukkit.getPlayer(moving);
+        if (player == null) {
+            done.complete(false);
+            return done;
+        }
+        final ScheduledTask move = player.getScheduler().run(plugin, task -> player.teleportAsync(to)
+                .whenComplete((teleported, error) -> done.complete(error == null && Boolean.TRUE.equals(teleported))), () -> done.complete(false));
+        if (move == null) done.complete(false);
+        return done;
+    }
+
     /**
      * The destination's location is read on its region and the teleport starts on the moving player's.
      */

@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.OptionalInt;
 
 /**
- * {@code /banlist [page]} and {@code /mutelist [page]}: punishments in force, newest first.
+ * {@code /banlist [page]}, {@code /mutelist [page]} and {@code /jaillist [page]}: punishments in force, newest first.
  */
 public class ActiveListCommand extends CoreCommand {
 
@@ -34,7 +34,8 @@ public class ActiveListCommand extends CoreCommand {
     public static List<CoreCommand> all(Judicator judicator) {
         return List.of(
                 new ActiveListCommand(judicator, "banlist", PunishPermissions.BANLIST, PunishType.BAN, PunishType.TEMPBAN),
-                new ActiveListCommand(judicator, "mutelist", PunishPermissions.MUTELIST, PunishType.MUTE, PunishType.TEMPMUTE));
+                new ActiveListCommand(judicator, "mutelist", PunishPermissions.MUTELIST, PunishType.MUTE, PunishType.TEMPMUTE),
+                new ActiveListCommand(judicator, "jaillist", PunishPermissions.JAILLIST, PunishType.JAIL, PunishType.TEMPJAIL));
     }
 
     @Override

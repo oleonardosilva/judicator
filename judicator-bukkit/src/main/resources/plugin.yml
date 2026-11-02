@@ -141,6 +141,21 @@ commands:
     description: Opens the menus (lists, players, actions).
     permission: judicator.command.jmenu
     aliases: [judicatormenu]
+  jail:
+    description: Sends a player to jail.
+    permission: judicator.command.jail
+  tempjail:
+    description: Sends a player to jail for a while.
+    permission: judicator.command.tempjail
+  unjail:
+    description: Lets a player out of jail.
+    permission: judicator.command.unjail
+  jaillist:
+    description: Lists the players in jail.
+    permission: judicator.command.jaillist
+  jails:
+    description: Makes and changes the jails.
+    permission: judicator.command.jails
 permissions:
   judicator.admin:
     description: Full access to every Judicator command.
@@ -183,6 +198,13 @@ permissions:
       judicator.command.report: true
       judicator.command.reports: true
       judicator.command.jmenu: true
+      judicator.command.jail: true
+      judicator.command.tempjail: true
+      judicator.command.unjail: true
+      judicator.command.jaillist: true
+      judicator.command.jails: true
+      judicator.jail.guard: true
+      judicator.jail.notify: true
       judicator.report.offline: true
       judicator.reports.manage: true
       judicator.reports.tp: true
@@ -449,3 +471,40 @@ permissions:
       judicator.command.jmenu: true
   judicator.command.jmenu:
     default: false
+  judicator.jail:
+    default: op
+    children:
+      judicator.command.jail: true
+  judicator.command.jail:
+    default: false
+  judicator.tempjail:
+    default: op
+    children:
+      judicator.command.tempjail: true
+  judicator.command.tempjail:
+    default: false
+  judicator.unjail:
+    default: op
+    children:
+      judicator.command.unjail: true
+  judicator.command.unjail:
+    default: false
+  judicator.jaillist:
+    default: op
+    children:
+      judicator.command.jaillist: true
+  judicator.command.jaillist:
+    default: false
+  judicator.jails:
+    description: /jails (make and change the jails).
+    default: op
+    children:
+      judicator.command.jails: true
+  judicator.command.jails:
+    default: false
+  judicator.jail.guard:
+    description: Hitting a fugitive takes them back to jail.
+    default: op
+  judicator.jail.notify:
+    description: Told about escapes and catches.
+    default: op

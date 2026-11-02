@@ -3,6 +3,8 @@ package com.elless.judicator.importer;
 import com.elless.judicator.commons.db.LegacyTables;
 import com.elless.judicator.commons.db.RelationalDBManager;
 import com.elless.judicator.commons.db.SqlTime;
+import com.elless.judicator.jails.Jail;
+import com.elless.judicator.jails.repository.dao.JailRelationalDAO;
 import com.elless.judicator.notes.Note;
 import com.elless.judicator.punish.PlayerAddress;
 import com.elless.judicator.punish.Punishment;
@@ -28,8 +30,8 @@ import java.util.function.Function;
 /**
  * Another Judicator database (e.g. the SQLite file of a server moving to MySQL), of version 1.x (tables without a
  * prefix) or 2.x ({@code table-prefix}): {@code punishments} with their
- * revocation, evidence and kicks, {@code warns}, staff {@code notes} and the {@code access_addresses} used by {@code /alts} and offline IP
- * punishments. Staff levels are not copied: they are recorded again when each staff member joins.
+ * revocation, evidence, kicks and jails, {@code warns}, staff {@code notes}, the {@code jails} (those of a name not here
+ * yet) and the {@code access_addresses} used by {@code /alts} and offline IP punishments. Staff levels are not copied: they are recorded again when each staff member joins.
  */
 final class JudicatorImporter implements ImportSource {
 
@@ -66,6 +68,17 @@ final class JudicatorImporter implements ImportSource {
                      ResultSet rs = statement.executeQuery()) {
                     final Set<String> columns = columns(rs);
                     while (rs.next()) note(rs, columns, result);
+                }
+            }
+            final Optional<String> jails = source.findTable(prefix + "jails");
+            if (jails.isPresent()) {
+                try (PreparedStatement statement = source.connection().prepareStatement("SELECT * FROM " + jails.get());
+                     ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) {
+                        final Optional<Jail> jail = JailRelationalDAO.read(rs);
+                        if (jail.isPresent()) result.add(jail.get());
+                        else result.skip("jail whose places cannot be read");
+                    }
                 }
             }
             final Optional<String> addresses = source.findTable(prefix + "player_addresses");
@@ -138,6 +151,16 @@ final class JudicatorImporter implements ImportSource {
         if (columns.contains("paused_remaining")) {
             final long paused = rs.getLong("paused_remaining");
             punishment.setPausedRemaining(rs.wasNull() ? null : paused);
+        }
+        if (columns.contains("jail")) {
+            punishment.setJail(rs.getString("jail"));
+            punishment.setEscapedAt(SqlTime.read(rs, "escaped_at"));
+            final long left = rs.getLong("jail_left");
+            punishment.setJailLeft(rs.wasNull() ? null : left);
+        }
+        if (punishment.isJailType() && punishment.getJail().isEmpty()) {
+            result.skip("jail without its jail");
+            return;
         }
         result.add(punishment);
     }

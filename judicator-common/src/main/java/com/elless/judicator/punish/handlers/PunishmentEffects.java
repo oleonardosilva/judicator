@@ -33,6 +33,23 @@ public class PunishmentEffects {
     public void punished(Punishment punishment) {
         if (punishment.isBanType()) banned(punishment);
         else if (punishment.isMuteType()) muted(punishment);
+        else if (punishment.isJailType()) jailed(punishment);
+    }
+
+    /**
+     * A game server takes the prisoner to the jail (behind a proxy too: only the game server can); a proxy sends them to
+     * the jail's server. The prisoner is told, the staff and the server hear of it.
+     */
+    private void jailed(Punishment punishment) {
+        judicator.getJailService().punished(punishment);
+        if (judicator.isProxyMode()) return;
+        judicator.getStaffNotifier().notifyPunishment(punishment);
+        if (!punishment.isSilent()) announce(punishment, "jail");
+        final Platform platform = judicator.getPlatform();
+        platform.runSync(() -> onlineTarget(punishment).ifPresent(player -> {
+            player.sendMessage(PunishUtils.getMessageList(judicator.messagesFor(player), punishment, "runners", "jail-alert"));
+            if (platform.getType().isProxy()) judicator.getJailService().sendToPrison(player);
+        }));
     }
 
     private void banned(Punishment punishment) {
@@ -103,6 +120,8 @@ public class PunishmentEffects {
      * mutes (they never knew about them).
      */
     public void pardoned(Collection<Punishment> revoked) {
+        // the game server lets its prisoners out, behind a proxy too
+        revoked.stream().filter(Punishment::isJailType).forEach(judicator.getJailService()::released);
         if (judicator.isProxyMode()) return;
         final Map<UUID, Boolean> noticed = new LinkedHashMap<>();
         final Map<UUID, JudicatorPlayer> players = new LinkedHashMap<>();
@@ -122,6 +141,13 @@ public class PunishmentEffects {
                 .<Stream<? extends JudicatorPlayer>>map(ip -> platform.getOnlinePlayers().stream()
                         .filter(player -> player.getHostAddress().equals(ip)))
                 .orElseGet(() -> target(platform, punishment).stream());
+    }
+
+    /**
+     * The player online here the punishment was applied to (not an IP punishment's other accounts).
+     */
+    public Optional<JudicatorPlayer> onlineTarget(Punishment punishment) {
+        return target(judicator.getPlatform(), punishment);
     }
 
     /**

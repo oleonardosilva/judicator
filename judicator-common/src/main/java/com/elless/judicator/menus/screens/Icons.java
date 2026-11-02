@@ -15,6 +15,8 @@ final class Icons {
             case MUTE -> MenuIcon.MUTE;
             case TEMPMUTE -> MenuIcon.TEMPMUTE;
             case KICK -> MenuIcon.KICK;
+            case JAIL -> MenuIcon.JAIL;
+            case TEMPJAIL -> MenuIcon.TEMPJAIL;
         };
     }
 }

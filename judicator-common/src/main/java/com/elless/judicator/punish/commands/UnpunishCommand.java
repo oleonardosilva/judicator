@@ -17,17 +17,18 @@ import java.util.Optional;
 
 public class UnpunishCommand extends CoreCommand {
 
-    private final boolean mute;
+    private final RevokeHandler.Kind kind;
 
-    private UnpunishCommand(Judicator judicator, String name, PunishPermissions permission, boolean mute) {
+    private UnpunishCommand(Judicator judicator, String name, PunishPermissions permission, RevokeHandler.Kind kind) {
         super(judicator, name, List.of(), permission.getPermission(), PunishPermissions.ADMIN.getPermission());
-        this.mute = mute;
+        this.kind = kind;
     }
 
     public static List<CoreCommand> all(Judicator judicator) {
         return List.of(
-                new UnpunishCommand(judicator, "unban", PunishPermissions.UNBAN, false),
-                new UnpunishCommand(judicator, "unmute", PunishPermissions.UNMUTE, true)
+                new UnpunishCommand(judicator, "unban", PunishPermissions.UNBAN, RevokeHandler.Kind.BAN),
+                new UnpunishCommand(judicator, "unmute", PunishPermissions.UNMUTE, RevokeHandler.Kind.MUTE),
+                new UnpunishCommand(judicator, "unjail", PunishPermissions.UNJAIL, RevokeHandler.Kind.JAIL)
         );
     }
 
@@ -45,9 +46,13 @@ public class UnpunishCommand extends CoreCommand {
 
         final ConfigurationNode messages = messages(source);
         final String author = source.asPlayer().map(JudicatorPlayer::getName).orElse("Console");
-        final RevokeHandler.ActiveRevocation revocation = new RevokeHandler(judicator).revokeActive(targetName, mute, reason, author, silent);
+        final RevokeHandler.ActiveRevocation revocation = new RevokeHandler(judicator).revokeActive(targetName, kind, reason, author, silent);
         if (!revocation.found()) {
-            source.sendMessage(PunishUtils.getMessage(messages, "error", mute ? "not-muted" : "not-banned"));
+            source.sendMessage(PunishUtils.getMessage(messages, "error", switch (kind) {
+                case BAN -> "not-banned";
+                case MUTE -> "not-muted";
+                case JAIL -> "not-jailed";
+            }));
             return;
         }
         final List<Punishment> revoked = revocation.revoked();

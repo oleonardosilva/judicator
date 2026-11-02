@@ -22,6 +22,23 @@ error:
   cooldown: "&c{nickname} received a {type} {elapsed}s ago. Wait {remaining}s before punishing again."
   address-exempt: "&cThis IP address is in exempt-addresses and cannot be punished by IP. Punish the account instead (/ban, /mute)."
   online-only-ip: "&c-o (time only counts online) works on account mutes only, not on IP mutes."
+  not-jailed: "&cThis player is not in jail."
+  already-jailed: "&c{nickname} is already in jail. Use /extend to change the time."
+  no-jails: "&cThere are no jails yet: make one with /jails create (name)."
+  jail-unknown: "&cThere is no jail called '{jail}'."
+  jail-full: "&cThe jail '{jail}' is full."
+  jails-full: "&cEvery jail is full."
+  jail-name: "&c'{jail}' cannot be a jail name: up to 32 of a-z, 0-9, _ and -."
+  jail-exists: "&cThere is already a jail called '{jail}'."
+  jail-occupied: "&cThe jail '{jail}' has prisoners: let them out (/unjail) before deleting it."
+  jail-server-name: "&cThis server has no scopes.server-name in config.yml: the proxy could not send prisoners to a jail here."
+  jail-other-world: "&cStand in the world of the jail '{jail}'."
+  jail-spawn-outside: "&cThe spawn of the jail '{jail}' must be inside its area and away from its escape routes."
+  jail-escape-spawn: "&cAn escape route of the jail '{jail}' cannot reach its spawn: prisoners are put back there."
+  jail-escapes-full: "&cThe jail '{jail}' already has {max} escape routes."
+  jail-elsewhere: "&cThe jail '{jail}' is on the server '{server}': set its places there."
+  jail-needs-position: "&cOnly a player on a game server can do this (it uses where you stand)."
+  jail-world-name: "&cThe world '{world}' has a name a jail cannot use (it contains ;)."
 success:
   cancel: "&aOperation successfully canceled."
   pardon: "&aThe punishment with the provided ID has been successfully revoked."
@@ -33,6 +50,7 @@ success:
   reloaded: "&aThe plugin has been successfully reloaded."
   unban: "&aRevoked {count} active ban(s) of {nickname}."
   unmute: "&aRevoked {count} active mute(s) of {nickname}."
+  unjail: "&aReleased {nickname} from {count} jail sentence(s)."
 prompt:
   write-evidences: "&7Send the evidence one by one in chat. To finish, click or type \"{ready-prompt}\" or \"{cancel-prompt}\"."
   next-link: "&aLink successfully attached. To finish, click or type \"{ready-prompt}\" or \"{cancel-prompt}\"."
@@ -119,6 +137,10 @@ announcements:
     - "&c * Reason: {reason}."
     - ""
 
+  jail:
+    - ""
+    - "&c * User {nickname} was jailed by {author}."
+    - ""
 runners:
   alt-ban-kick:
     - "&6&lOpenMine Network\n"
@@ -221,6 +243,16 @@ runners:
     - "&c * Start: {startedAt}\n"
     - "&c * End: {finishAt}\n"
 
+  jail-alert:
+    - "       &6&lOpenMine Network\n"
+    - "&cYou have been sent to jail.\n"
+    - "\n"
+    - "&c * Jail: {jail}\n"
+    - "&c * Reason: {reason}\n"
+    - "&c * End: {finishAt}\n"
+    - "&c * Author: {author}\n"
+    - "\n"
+    - "&cUse ID &e#{id} &cto request a review on our Discord: &c&ndiscord.gg/your-server\n"
 time:
   format:
     year: "year"
@@ -278,6 +310,11 @@ usages:
   softmute: "&cIncorrect command. Use: /softmute (player) [reason]."
   tempsoftmute: "&cIncorrect command. Use: /tempsoftmute (player) \"(number:days,number:hours...)\" [-o] [reason]."
 
+  jail: "&cIncorrect command. Use: /jail (player) [-jail=(jail)] [reason]."
+  tempjail: "&cIncorrect command. Use: /tempjail (player) \"(number:days,number:hours...)\" [-jail=(jail)] [reason]."
+  unjail: "&cIncorrect command. Use: /unjail (player) [-s] [reason]."
+  jaillist: "&cIncorrect command. Use: /jaillist [page]."
+  jails: "&cIncorrect command. Use: /jails [list], /jails info|tp|delete|spawn|pos1|pos2 (jail), /jails create (jail) [radius], /jails release (jail) [clear], /jails shared (jail) (true|false), /jails capacity (jail) (number), /jails server (jail) (server|none), /jails escape (jail) add [chance] [radius]|list|remove (n)|clear."
 notifications:
   punish: "&7[Staff] &f{author} &7applied &c{type} &7to &f{nickname}&7: &f{reason}"
   unpunish: "&7[Staff] &f{author} &7revoked {count} &a{type} &7of &f{nickname}"
@@ -285,6 +322,8 @@ notifications:
   rollback: "&7[Staff] &f{author} &7rolled back &f{staff} &7(last {period}): {punishments} punishment(s) revoked, {warns} warn(s) deleted"
   silent-prefix: "&8[silent] "
 
+  jail-escaped: "&7[Jail] &f{nickname} &cescaped &7from &f{jail} &7(#{id})"
+  jail-caught: "&7[Jail] &f{nickname} &7was caught by &f{guard} &7and taken back to &f{jail} &7(#{id})"
 alts:
   title: "&eAccounts that shared an IP with &f{nickname}&e:"
   line: "&f • &e{account} &7- {status}"
@@ -295,6 +334,7 @@ alts:
   status:
     banned: "&cbanned"
     muted: "&6muted"
+    jailed: "&ejailed"
     clean: "&aclean"
 
 blame:
@@ -335,6 +375,65 @@ mutelist:
     - "\n&7Click to view the punishment."
   none: "&aThere are no mutes in force."
 
+jaillist:
+  title: "&ePrisoners &7({count} in total, page {page}/{pages})\n\n"
+  line: "    &f&l• &e#{id} &7- &f{nickname} &7- &c{jail} &7- &funtil {finishAt}\n"
+  hover:
+    - "&c * Reason: &f{reason}\n"
+    - "&c * Start: &f{startedAt}\n"
+    - "&c * End: &f{finishAt}\n"
+    - "&c * Author: &f{author}\n"
+    - "\n&7Click to view the punishment."
+  none: "&aNobody is in jail."
+
+jail: # what prisoners and guards are told
+  back: "&cYou cannot leave the jail."
+  caught: "&cThe guards caught you leaving the jail."
+  escape-failed: "&cThe guards caught you escaping!"
+  penalty: "&c+{time} in jail."
+  escaped: "&aYou escaped! The guards will hunt you for &e{time}&a."
+  free: "&aYou escaped and are free!"
+  hunt-over: "&aThe guards stopped looking for you: you are free."
+  captured: "&cYou were caught by &e{guard} &cand taken back to jail."
+  capture: "&aYou caught &e{nickname}&a: back to jail."
+  served: "&aYou served your time and are free."
+  command: "&cPrisoners cannot use this command."
+  server: "&cYou are in jail: you cannot go to another server."
+
+jails: # /jails
+  none: "&cThere are no jails yet: make one with /jails create (name)."
+  title: "&eJails &7({count})\n"
+  line: "\n &f&l• &e{jail} &7- {server} &7- &f{prisoners}&7/&f{room} &7prisoner(s)"
+  info:
+    - "&eJail &f{jail}\n"
+    - "&7 * Server: &f{server}\n"
+    - "&7 * World: &f{world}\n"
+    - "&7 * Spawn: &f{spawn}\n"
+    - "&7 * Area: &f{area}\n"
+    - "&7 * Release: &f{release}\n"
+    - "&7 * Prisoners: &f{prisoners}&7/&f{room}\n"
+    - "&7 * Escape routes: &f{escapes}"
+  no-server: "this server"
+  world-spawn: "world spawn"
+  solitary: "1 (not shared)"
+  no-limit: "no limit"
+  created: "&aJail &e{jail} &acreated here, with an area of {radius} blocks around you. Set its corners with /jails pos1|pos2 {jail}."
+  deleted: "&aJail &e{jail} &adeleted."
+  spawn-set: "&aPrisoners of &e{jail} &aare now put here."
+  area-set: "&aArea of &e{jail}&a: {area}."
+  release-set: "&aPrisoners freed from &e{jail} &ago here."
+  release-cleared: "&aPrisoners freed from &e{jail} &ago to the world spawn."
+  shared-set: "&aJail &e{jail} &aholds {room} prisoner(s)."
+  capacity-set: "&aJail &e{jail} &aholds {room} prisoner(s)."
+  server-set: "&aJail &e{jail} &ais on {server}."
+  no-escapes: "&7The jail &e{jail} &7has no escape route."
+  escapes-title: "&eEscape routes of &f{jail}&e:"
+  escape-line: "\n &f{index}. &7{at} &8- &7radius &f{radius} &8- &7chance &f{chance}%"
+  escape-added: "&aSecret escape route added to &e{jail} &aat {at} (chance {chance}%, radius {radius})."
+  escape-removed: "&aEscape route {index} of &e{jail} &aremoved."
+  escapes-cleared: "&aThe jail &e{jail} &ahas no escape route now."
+  teleported: "&aYou are at the jail &e{jail}&a."
+
 activity:
   title: "&eStaff activity in the last &f{period} &7({count} staff, page {page}/{pages})\n\n"
   line: "    &f&l• &e{staff}&7: {summary}\n"
@@ -370,6 +469,9 @@ help:
     lookup:
       name: "Look up"
       description: "info, history, alts, lists"
+    jail:
+      name: "Jail"
+      description: "jail, tempjail, jails"
     notes:
       name: "Notes"
       description: "notes about players"
@@ -510,6 +612,21 @@ help:
       usage: "/judicator clear (player) [confirm]"
       description: "Deletes all data of a player (console)."
 
+    jail:
+      usage: "/jail (player) [-jail=(jail)] [reason]"
+      description: "Sends a player to jail for good."
+    tempjail:
+      usage: "/tempjail (player) (time, e.g. 1:h) [-jail=(jail)] [reason]"
+      description: "Sends a player to jail for a while."
+    unjail:
+      usage: "/unjail (player) [-s] [reason]"
+      description: "Lets a player out of jail."
+    jaillist:
+      usage: "/jaillist [page]"
+      description: "Players in jail."
+    jails:
+      usage: "/jails [list|info|create|spawn|pos1|pos2|release|shared|capacity|server|escape|tp|delete]"
+      description: "Makes and changes the jails."
 edit:
   extended: "&aPunishment #{id} of {nickname} now ends {finishAt}."
   reason-changed: "&aThe reason of punishment #{id} of {nickname} is now: &f{reason}"
@@ -520,7 +637,7 @@ edit:
   not-allowed: "&cOnly the author of this punishment, or a staff member above them, can change it."
 
 rollback:
-  preview: "&eIn the last &f{period}&e, &f{staff} &eapplied what is still in force: &f{bans} &eban(s), &f{mutes} &emute(s) and &f{warns} &eactive warn(s). Bans and mutes will be revoked and warns deleted. "
+  preview: "&eIn the last &f{period}&e, &f{staff} &eapplied what is still in force: &f{bans} &eban(s), &f{mutes} &emute(s), &f{jails} &ejail(s) and &f{warns} &eactive warn(s). Bans, mutes and jails will be revoked and warns deleted. "
   confirm: "&a&l[Click to confirm]"
   none: "&a{staff} applied nothing that is still in force in the last {period}."
   done: "&aRollback of {staff}: {punishments} punishment(s) revoked and {warns} warn(s) deleted."
@@ -1075,6 +1192,7 @@ menu:
       temporary: "temporary"
       banned: "banned"
       muted: "muted"
+      jailed: "jailed"
       clean: "clean"
       open: "open"
       assigned: "assigned"

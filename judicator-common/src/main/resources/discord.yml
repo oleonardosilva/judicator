@@ -60,6 +60,18 @@ events:
     title: "⏱️ Temporary Mute"
     description: "Player **{player}** received a temporary mute from **{punisher}**."
 
+  jail:
+    enabled: true
+    color: "#7F8C8D"
+    title: "⛓️ Player Jailed"
+    description: "Player **{player}** was sent to jail by **{punisher}**."
+
+  tempjail:
+    enabled: true
+    color: "#95A5A6"
+    title: "⛓️ Temporary Jail"
+    description: "Player **{player}** was sent to jail for a while by **{punisher}**."
+
   kick:
     enabled: true
     color: "#F39C12"

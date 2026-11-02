@@ -49,17 +49,31 @@ public class RevokeHandler {
     }
 
     /**
-     * {@code /unban} or {@code /unmute}: revokes every ban (or mute) in force of a player and tells the staff.
+     * What {@link #revokeActive} lifts.
      */
-    public ActiveRevocation revokeActive(String target, boolean mute, String reason, String author, boolean silent) {
-        final PunishType[] types = mute
-                ? new PunishType[]{PunishType.MUTE, PunishType.TEMPMUTE}
-                : new PunishType[]{PunishType.BAN, PunishType.TEMPBAN};
+    public enum Kind {
+        BAN(PunishType.BAN, PunishType.TEMPBAN),
+        MUTE(PunishType.MUTE, PunishType.TEMPMUTE),
+        JAIL(PunishType.JAIL, PunishType.TEMPJAIL);
+
+        private final PunishType[] types;
+
+        Kind(PunishType... types) {
+            this.types = types;
+        }
+    }
+
+    /**
+     * {@code /unban}, {@code /unmute} or {@code /unjail}: revokes every ban (mute, jail) in force of a player and tells
+     * the staff.
+     */
+    public ActiveRevocation revokeActive(String target, Kind kind, String reason, String author, boolean silent) {
+        final PunishType[] types = kind.types;
         final List<Punishment> active = judicator.getPunishService().findAllActiveOf(judicator.getPlayerDirectory().resolve(target), types);
         if (active.isEmpty()) return new ActiveRevocation(false, List.of());
         final List<Punishment> revoked = revoke(active, reason, author, true);
         if (!revoked.isEmpty()) {
-            judicator.getStaffNotifier().notifyUnpunish(author, revoked.get(0).getNickname(), mute ? "MUTE" : "BAN", revoked.size(), silent);
+            judicator.getStaffNotifier().notifyUnpunish(author, revoked.get(0).getNickname(), kind.name(), revoked.size(), silent);
         }
         return new ActiveRevocation(true, revoked);
     }

@@ -56,6 +56,8 @@ final class MenuItems {
         look(MenuIcon.MUTE, "WRITABLE_BOOK", "BOOK_AND_QUILL", 0);
         look(MenuIcon.TEMPMUTE, "MAP", "EMPTY_MAP", 0);
         look(MenuIcon.KICK, "LEATHER_BOOTS", "LEATHER_BOOTS", 0);
+        look(MenuIcon.JAIL, "IRON_BARS", "IRON_FENCE", 0);
+        look(MenuIcon.TEMPJAIL, "IRON_DOOR", "IRON_DOOR", 0);
         look(MenuIcon.WARN, "ORANGE_DYE", "INK_SACK", 14);
         look(MenuIcon.NOTE, "BOOK", "BOOK", 0);
         look(MenuIcon.ALTS, "NAME_TAG", "NAME_TAG", 0);

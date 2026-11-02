@@ -118,6 +118,7 @@ public class DataRetentionService {
         repositories.levels().delete(player);
         judicator.getPlayerDirectory().forget(player);
         punishments.forEach(punishment -> judicator.getPunishCache().forgetMute(punishment.getId()));
+        punishments.stream().filter(Punishment::isJailType).forEach(punishment -> judicator.getJailService().deleted(punishment.getId()));
         punishments.stream().filter(punishment -> punishment.getStatus() == PunishStatus.ACTIVE)
                 .forEach(punishment -> judicator.getSyncService().publish(SyncKind.DELETED, punishment.getId()));
         judicator.getPunishCache().removeMutePunishment(PunishService.cacheKey(player));

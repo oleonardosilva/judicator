@@ -1,6 +1,7 @@
 package com.elless.judicator.importer;
 
 import com.elless.judicator.Judicator;
+import com.elless.judicator.jails.Jail;
 import com.elless.judicator.notes.Note;
 import com.elless.judicator.notes.repository.NoteRepository;
 import com.elless.judicator.notes.repository.dao.NoteRelationalDAO;
@@ -133,6 +134,10 @@ public class ImportService {
                     + "§e used more recently in the source, §f" + (result.getAddresses().size() - addressChanges.size())
                     + "§e already up to date.");
         }
+        final List<Jail> newJails = result.getJails().stream().filter(jail -> judicator.getJailService().find(jail.name()).isEmpty()).toList();
+        if (!result.getJails().isEmpty()) {
+            send(sender, "§e  jails: §f" + newJails.size() + "§e new, §f" + (result.getJails().size() - newJails.size()) + "§e already here (kept as they are).");
+        }
         result.getSkipped().forEach((reason, count) -> send(sender, "§7  skipped " + count + ": " + reason));
         result.getAdvice().forEach(text -> send(sender, "§6  note: §f" + text));
 
@@ -161,6 +166,7 @@ public class ImportService {
             return;
         }
         addressChanges.forEach(addresses::save);
+        newJails.forEach(jail -> judicator.getJailService().save(jail, "Import"));
         send(sender, "§aImported " + written + " punishments"
                 + (writtenNotes == 0 ? " and " + writtenWarns + " warns" : ", " + writtenWarns + " warns and " + writtenNotes + " staff notes")
                 + " from " + source.name()

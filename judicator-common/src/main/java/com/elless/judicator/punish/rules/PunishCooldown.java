@@ -24,6 +24,7 @@ public class PunishCooldown {
     public static final String MUTE = "mute";
     public static final String WARN = "warn";
     public static final String KICK = "kick";
+    public static final String JAIL = "jail";
 
     private final Judicator judicator;
     private final Map<String, Long> lastApplied = new ConcurrentHashMap<>();
@@ -45,6 +46,7 @@ public class PunishCooldown {
             case BAN, TEMPBAN -> BAN;
             case MUTE, TEMPMUTE -> MUTE;
             case KICK -> KICK;
+            case JAIL, TEMPJAIL -> JAIL;
         };
     }
 
@@ -114,7 +116,7 @@ public class PunishCooldown {
     }
 
     private void forgetExpired(long now) {
-        final long longest = Math.max(Math.max(seconds(BAN), seconds(MUTE)), Math.max(seconds(WARN), seconds(KICK))) * 1000L;
+        final long longest = Math.max(Math.max(Math.max(seconds(BAN), seconds(MUTE)), Math.max(seconds(WARN), seconds(KICK))), seconds(JAIL)) * 1000L;
         lastApplied.values().removeIf(last -> now - last >= longest);
     }
 

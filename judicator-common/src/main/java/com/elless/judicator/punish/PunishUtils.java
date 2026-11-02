@@ -90,6 +90,7 @@ public class PunishUtils {
                         .replace("{reason}", punishment.getReason().orElse("None"))
                         .replace("{addressIP}", punishment.getIpAddress().orElse("None"))
                         .replace("{scope}", scope)
+                        .replace("{jail}", punishment.getJail().orElse("None"))
                 )
                 .collect(Collectors.toList());
     }

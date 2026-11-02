@@ -147,6 +147,13 @@ public class ScopeService {
     }
 
     /**
+     * This server's name ({@code scopes.server-name}) on a game server; empty without it, and on the proxy.
+     */
+    public Optional<String> localName() {
+        return onProxy() || serverName.isEmpty() ? Optional.empty() : Optional.of(serverName);
+    }
+
+    /**
      * The server a player is on: the proxy's backend; on Spigot/Paper, {@code scopes.server-name}.
      */
     public Optional<String> serverOf(JudicatorPlayer player) {

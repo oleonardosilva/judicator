@@ -8,6 +8,9 @@ import com.elless.judicator.platform.PlatformType;
 import net.fabricmc.api.DedicatedServerModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
+import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerLoginConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerLoginNetworking;
@@ -16,6 +19,8 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerLoginPacketListenerImpl;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.BlockItem;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -42,6 +47,14 @@ public final class JudicatorFabric implements DedicatedServerModInitializer {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> mod.join(handler.player));
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> mod.quit(handler.player));
         ServerMessageEvents.ALLOW_CHAT_MESSAGE.register((message, sender, params) -> mod.allowChat(sender, message.signedContent()));
+        // what a prisoner may do
+        PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, blockEntity) ->
+                !(player instanceof ServerPlayer breaker) || mod.mayBreak(breaker));
+        UseBlockCallback.EVENT.register((player, level, hand, hit) ->
+                player instanceof ServerPlayer placer && player.getItemInHand(hand).getItem() instanceof BlockItem && !mod.mayPlace(placer)
+                        ? InteractionResult.FAIL : InteractionResult.PASS);
+        AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) ->
+                player instanceof ServerPlayer attacker && !mod.allowAttack(attacker, entity) ? InteractionResult.FAIL : InteractionResult.PASS);
     }
 
     /**

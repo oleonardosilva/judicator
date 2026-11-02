@@ -21,9 +21,9 @@ import java.util.Map;
 public record AltsScreen(String player, int page, ListOptions options) implements Screen {
 
     static final ListOptions.Spec SPEC = new ListOptions.Spec(
-            List.of("name", "status"), List.of("all", "banned", "muted", "clean"), List.of());
+            List.of("name", "status"), List.of("all", "banned", "jailed", "muted", "clean"), List.of());
     /** banned accounts first when sorted by status */
-    private static final List<String> STATUS_ORDER = List.of("banned", "muted", "clean");
+    private static final List<String> STATUS_ORDER = List.of("banned", "jailed", "muted", "clean");
 
     public AltsScreen(String player, int page) {
         this(player, page, SPEC.defaults());

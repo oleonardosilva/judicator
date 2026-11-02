@@ -1,5 +1,6 @@
 package com.elless.judicator.importer;
 
+import com.elless.judicator.jails.Jail;
 import com.elless.judicator.notes.Note;
 import com.elless.judicator.punish.PlayerAddress;
 import com.elless.judicator.punish.Punishment;
@@ -21,6 +22,7 @@ public final class ImportResult {
     private final List<Warn> warns = new ArrayList<>();
     private final List<PlayerAddress> addresses = new ArrayList<>();
     private final List<Note> notes = new ArrayList<>();
+    private final List<Jail> jails = new ArrayList<>();
     private final Map<String, Integer> skipped = new TreeMap<>();
     private final Set<String> advice = new TreeSet<>();
 
@@ -38,6 +40,14 @@ public final class ImportResult {
 
     public void add(Note note) {
         notes.add(note);
+    }
+
+    public void add(Jail jail) {
+        jails.add(jail);
+    }
+
+    public List<Jail> getJails() {
+        return jails;
     }
 
     public void skip(String reason) {

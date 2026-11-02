@@ -1,13 +1,19 @@
 package com.elless.judicator.bukkit;
 
 import com.elless.judicator.Judicator;
+import com.elless.judicator.jails.JailService;
 import com.elless.judicator.platform.JudicatorPlayer;
 import com.elless.judicator.punish.listeners.ChatHandler;
 import com.elless.judicator.punish.listeners.ConnectionHandler;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -25,11 +31,41 @@ public class BukkitListener implements Listener {
     private final BukkitPlatform platform;
     private final ConnectionHandler connectionHandler;
     private final ChatHandler chatHandler;
+    private final JailService jails;
 
     BukkitListener(Judicator judicator, BukkitPlatform platform) {
         this.platform = platform;
         this.connectionHandler = judicator.getConnectionHandler();
         this.chatHandler = judicator.getChatHandler();
+        this.jails = judicator.getJailService();
+    }
+
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void onPrisonerBreak(BlockBreakEvent event) {
+        platform.getPlayer(event.getPlayer().getName()).ifPresent(player -> {
+            if (!jails.mayBreak(player)) event.setCancelled(true);
+        });
+    }
+
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void onPrisonerPlace(BlockPlaceEvent event) {
+        platform.getPlayer(event.getPlayer().getName()).ifPresent(player -> {
+            if (!jails.mayPlace(player)) event.setCancelled(true);
+        });
+    }
+
+    /**
+     * A player's hit, by hand or with a projectile: prisoners do not fight, a guard catches a fugitive.
+     */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void onHit(EntityDamageByEntityEvent event) {
+        Entity damager = event.getDamager();
+        if (damager instanceof Projectile projectile && projectile.getShooter() instanceof Entity shooter) damager = shooter;
+        if (!(damager instanceof Player attacker)) return;
+        final Optional<JudicatorPlayer> hitting = platform.getPlayer(attacker.getName());
+        if (hitting.isEmpty()) return;
+        final JudicatorPlayer victim = event.getEntity() instanceof Player hit ? platform.getPlayer(hit.getName()).orElse(null) : null;
+        if (!jails.allowAttack(hitting.get(), victim)) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)

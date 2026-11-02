@@ -83,6 +83,8 @@ public class ConnectionHandler {
      * server sends them to the first server of the try list it does not cover.
      */
     public InitialServer chooseInitialServer(JudicatorPlayer player, String chosen) {
+        final Optional<String> prison = prisonServer(player);
+        if (prison.isPresent()) return new InitialServer(prison.get(), null);
         final List<Punishment> bans = scopedBans(player);
         final Optional<Punishment> ban = bannedFrom(bans, chosen);
         if (ban.isEmpty()) return new InitialServer(chosen, null);
@@ -101,6 +103,10 @@ public class ConnectionHandler {
      * @return the message to send when a ban covers that server (the connection is refused)
      */
     public Optional<Component> checkServerSwitch(JudicatorPlayer player, String server) {
+        final Optional<String> prison = prisonServer(player);
+        if (prison.isPresent() && !prison.get().equalsIgnoreCase(server)) {
+            return Optional.of(PunishUtils.getMessage(judicator.messagesFor(player), "jail", "server"));
+        }
         return bannedFrom(scopedBans(player), server)
                 .map(ban -> PunishUtils.getMessageList(judicator.messagesFor(player), ban, "runners", "ban-server"));
     }
@@ -113,6 +119,12 @@ public class ConnectionHandler {
     public void checkArrival(JudicatorPlayer player) {
         final Optional<String> server = judicator.getScopeService().serverOf(player);
         if (server.isEmpty()) return;
+        // a prisoner jailed while on their way
+        final Optional<String> prison = prisonServer(player);
+        if (prison.isPresent()) {
+            if (!prison.get().equalsIgnoreCase(server.get())) judicator.getPlatform().connect(player, prison.get());
+            return;
+        }
         final List<Punishment> bans = scopedBans(player);
         final Optional<Punishment> ban = bannedFrom(bans, server.get());
         if (ban.isEmpty()) return;
@@ -142,6 +154,14 @@ public class ConnectionHandler {
                 .findFirst();
     }
 
+    /**
+     * Proxy: the server of the player's jail while they are in one.
+     */
+    private Optional<String> prisonServer(JudicatorPlayer player) {
+        return judicator.getJailService().prisonServer(judicator.getPlayerDirectory().refOf(player))
+                .filter(server -> bannedFrom(scopedBans(player), server).isEmpty());
+    }
+
     private List<Punishment> scopedBans(JudicatorPlayer player) {
         return judicator.getPunishService().findScopedBans(judicator.getPlayerDirectory().refOf(player), player.getHostAddress());
     }
@@ -166,8 +186,12 @@ public class ConnectionHandler {
     public void onJoin(JudicatorPlayer player) {
         judicator.getUuidManager().remember(player.getName(), player.getUniqueId());
         // Proxy mode: switching servers is not joining the network; the proxy keeps the online time, staff levels and notices.
-        if (judicator.isProxyMode()) return;
-        judicator.getPunishService().resumeOnlineOnlyMutes(judicator.getPlayerDirectory().refOf(player));
+        if (judicator.isProxyMode()) {
+            judicator.getJailService().joined(player);
+            return;
+        }
+        judicator.getPunishService().resumeOnlineOnlyTime(judicator.getPlayerDirectory().refOf(player));
+        judicator.getJailService().joined(player);
         judicator.getHierarchyService().recordLevel(player);
         notifyNotes(player);
         // the proxy can only talk to the player once they are on a server: its listener does it then
@@ -205,7 +229,8 @@ public class ConnectionHandler {
 
     public void onDisconnect(UUID uuid, String username, String address) {
         judicator.getMenuService().forget(uuid);
-        if (!judicator.isProxyMode()) judicator.getPunishService().pauseOnlineOnlyMutes(judicator.getPlayerDirectory().refOf(uuid, username));
+        judicator.getJailService().left(uuid);
+        if (!judicator.isProxyMode()) judicator.getPunishService().pauseOnlineOnlyTime(judicator.getPlayerDirectory().refOf(uuid, username));
         judicator.getPunishService().cleanupMutePunishmentCache(uuid, address);
     }
 

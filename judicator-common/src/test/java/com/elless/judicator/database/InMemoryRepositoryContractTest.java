@@ -20,7 +20,7 @@ class InMemoryRepositoryContractTest extends RepositoryContract {
     protected Store open(Path folder) {
         return new Store(new InMemoryPunishmentRepository(), new InMemoryWarnRepository(),
                 new InMemoryPlayerAddressRepository(), new InMemoryPlayerLevelRepository(), new InMemoryNoteRepository(), new InMemorySyncRepository(),
-                new InMemoryPlayerRepository(), new InMemoryReportRepository(), () -> {
+                new InMemoryPlayerRepository(), new InMemoryReportRepository(), new com.elless.judicator.testing.InMemoryJailRepository(), () -> {
         });
     }
 }

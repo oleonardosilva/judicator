@@ -13,6 +13,10 @@ import com.elless.judicator.commons.db.LegacyTables;
 import com.elless.judicator.commons.db.RelationalDBManager;
 import com.elless.judicator.discord.DiscordWebhookService;
 import com.elless.judicator.importer.ImportService;
+import com.elless.judicator.jails.JailService;
+import com.elless.judicator.jails.JailsCommand;
+import com.elless.judicator.jails.repository.JailRepository;
+import com.elless.judicator.jails.repository.dao.JailRelationalDAO;
 import com.elless.judicator.menus.MenuCommand;
 import com.elless.judicator.menus.MenuService;
 import com.elless.judicator.api.JudicatorProvider;
@@ -113,6 +117,8 @@ public class Judicator {
     private ScopeService scopeService;
     /** player reports ({@code /report}, {@code /reports}) */
     private ReportService reportService;
+    /** the jails and their prisoners ({@code /jails}, {@code /jail}) */
+    private JailService jailService;
     /** the menus of {@code /jmenu}, on platforms that draw them */
     private MenuService menuService;
     private AddressPolicy addressPolicy;
@@ -140,7 +146,8 @@ public class Judicator {
      */
     public record Repositories(PunishmentRepository punishments, WarnRepository warns,
                                PlayerAddressRepository addresses, PlayerLevelRepository levels, NoteRepository notes,
-                               SyncRepository sync, PlayerRepository players, ReportRepository reports) {
+                               SyncRepository sync, PlayerRepository players, ReportRepository reports,
+                               JailRepository jails) {
     }
 
     private final Repositories providedRepositories;
@@ -196,7 +203,8 @@ public class Judicator {
                     new NoteRelationalDAO(relationalDBManager, logger),
                     new SyncRelationalDAO(relationalDBManager, logger),
                     new PlayerRelationalDAO(relationalDBManager, logger),
-                    new ReportRelationalDAO(relationalDBManager, logger));
+                    new ReportRelationalDAO(relationalDBManager, logger),
+                    new JailRelationalDAO(relationalDBManager, logger));
         } else {
             repositories = providedRepositories;
         }
@@ -211,6 +219,7 @@ public class Judicator {
         this.api = new JudicatorApiService(this);
         JudicatorProvider.register(api);
         this.syncService.start();
+        this.jailService.start();
         if (proxyMode && !syncService.isEnabled()) {
             logger.warn("proxy-mode without sync.enabled: punishments applied on the proxy reach this server only at the player's next login.");
         }
@@ -219,7 +228,7 @@ public class Judicator {
         this.dataRetentionService.start();
         // A plugin reload (Bukkit /reload) paused the online-only mutes of the players still online in disable().
         final List<PlayerRef> online = platform.getOnlinePlayers().stream().map(playerDirectory::refOf).toList();
-        if (!online.isEmpty()) platform.runAsync(() -> online.forEach(punishService::resumeOnlineOnlyMutes));
+        if (!online.isEmpty()) platform.runAsync(() -> online.forEach(punishService::resumeOnlineOnlyTime));
     }
 
     /**
@@ -243,13 +252,14 @@ public class Judicator {
         if (punishService != null && !proxyMode) {
             platform.getOnlinePlayers().forEach(player -> {
                 try {
-                    punishService.pauseOnlineOnlyMutes(playerDirectory.refOf(player));
+                    punishService.pauseOnlineOnlyTime(playerDirectory.refOf(player));
                 } catch (RuntimeException e) {
                     logger.warn("Could not pause the online-only mutes of {}", player.getName(), e);
                 }
             });
         }
         if (dataRetentionService != null) dataRetentionService.stop();
+        if (jailService != null) jailService.stop();
         if (syncService != null) syncService.stop();
         if (punishCache != null) punishCache.shutdown();
         if (relationalDBManager != null) relationalDBManager.shutdown();
@@ -272,6 +282,7 @@ public class Judicator {
         this.scopeService.reload();
         this.addressPolicy.reload();
         this.chatHandler.reload();
+        this.jailService.reload();
     }
 
     /**
@@ -296,6 +307,7 @@ public class Judicator {
         this.warnService = new WarnService(repositories.warns());
         this.noteService = new NoteService(repositories.notes());
         this.reportService = new ReportService(this, repositories.reports());
+        this.jailService = new JailService(this, repositories.jails());
         this.menuService = new MenuService(this);
         this.hierarchyService = new HierarchyService(this, repositories.levels());
         this.timeLimitService = new TimeLimitService(this);
@@ -378,6 +390,8 @@ public class Judicator {
         list.add(new PlayerInfoCommand(this));
         list.add(new ReportCommand(this));
         list.add(new ReportsCommand(this));
+        // jails are made where they are: on a proxy the command goes through to the game server
+        if (platform.hasWorlds()) list.add(new JailsCommand(this));
         list.add(new JudicatorCommand(this));
         if (menuService.isAvailable()) list.add(new MenuCommand(this));
         return List.copyOf(list);

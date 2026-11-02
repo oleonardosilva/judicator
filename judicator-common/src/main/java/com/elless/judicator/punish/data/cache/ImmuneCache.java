@@ -31,9 +31,10 @@ public class ImmuneCache {
     public static final String KICK = "kick";
     public static final String WARN = "warn";
     public static final String ALTS = "alts";
+    public static final String JAIL = "jail";
     /** cannot be reported with {@code /report} */
     public static final String REPORT = "report";
-    private static final Set<String> TYPES = Set.of(ALL, BAN, MUTE, KICK, WARN, ALTS, REPORT);
+    private static final Set<String> TYPES = Set.of(ALL, BAN, MUTE, KICK, WARN, ALTS, REPORT, JAIL);
 
     private volatile Map<String, Set<String>> byName = Map.of();
     private volatile Map<UUID, Set<String>> byUuid = Map.of();

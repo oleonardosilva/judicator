@@ -80,9 +80,13 @@ public class PunishCommand extends CoreCommand {
             builder.duration(step.duration());
         }
 
-        if (!PunishmentCommandSupport.applyScope(judicator, source, builder, flags.scope)) return;
+        if (builder.isJail()) {
+            if (!PunishmentCommandSupport.applyJail(judicator, source, builder, target, flags.jail)) return;
+            if (judicator.getJailService().onlineOnlyByDefault() && !step.isPermanent()) builder.onlineOnly(true);
+        } else if (!PunishmentCommandSupport.applyScope(judicator, source, builder, flags.scope)) return;
         if (!PunishmentCommandSupport.passesStaffRules(judicator, source, builder, targetName)) return;
-        if (!PunishmentCommandSupport.resolveTarget(judicator, source, builder, target, configuredReason.isIp())) return;
+        // a jail is for the account, whatever the reason says
+        if (!PunishmentCommandSupport.resolveTarget(judicator, source, builder, target, configuredReason.isIp() && !builder.isJail())) return;
         PunishmentCommandSupport.submit(judicator, source, builder, args);
     }
 

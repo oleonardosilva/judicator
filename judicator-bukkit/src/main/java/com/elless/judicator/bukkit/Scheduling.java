@@ -67,4 +67,11 @@ interface Scheduling {
      */
     CompletableFuture<Boolean> teleport(UUID moving, UUID destination);
 
+    /**
+     * Takes an online player to a place (Folia: from their region, to the place's).
+     *
+     * @return completes with whether the player got there (false when they are not online)
+     */
+    CompletableFuture<Boolean> teleport(UUID moving, org.bukkit.Location to);
+
 }

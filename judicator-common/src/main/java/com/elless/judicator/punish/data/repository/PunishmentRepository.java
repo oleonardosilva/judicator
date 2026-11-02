@@ -81,6 +81,20 @@ public interface PunishmentRepository extends Repository<Punishment, Long> {
     boolean changeEnd(Long id, LocalDateTime finishAt, Long pausedRemaining);
 
     /**
+     * Changes what an escape or a catch changes in a jail that was not revoked: its end, the time left of a paused
+     * online-only one, when its prisoner escaped and what was left of the sentence then.
+     *
+     * @return false when there is no such punishment or it was revoked
+     */
+    boolean changeJail(Long id, LocalDateTime finishAt, Long pausedRemaining, LocalDateTime escapedAt, Long jailLeft);
+
+    /**
+     * How many prisoners a jail holds now: jails in force in it whose prisoner did not escape (with
+     * {@code withFugitives}, those who did too).
+     */
+    int countInJail(String jail, boolean withFugitives);
+
+    /**
      * Changes only the reason of a punishment that was not revoked.
      *
      * @return false when there is no such punishment or it was revoked

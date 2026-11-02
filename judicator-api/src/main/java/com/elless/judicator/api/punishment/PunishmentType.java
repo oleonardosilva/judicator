@@ -14,7 +14,11 @@ public enum PunishmentType {
     /** Mute with an end. */
     TEMPMUTE(true),
     /** A kick; stored in the history only with {@code log-kicks: true}, and never in force. */
-    KICK(false);
+    KICK(false),
+    /** Permanent jail: the player is kept in a jail of the server ({@code /jails}). */
+    JAIL(false),
+    /** Jail with an end. */
+    TEMPJAIL(true);
 
     private final boolean temporary;
 
@@ -41,6 +45,13 @@ public enum PunishmentType {
      */
     public boolean isMute() {
         return this == MUTE || this == TEMPMUTE;
+    }
+
+    /**
+     * @return whether this is {@link #JAIL} or {@link #TEMPJAIL}
+     */
+    public boolean isJail() {
+        return this == JAIL || this == TEMPJAIL;
     }
 
 }

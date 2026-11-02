@@ -62,7 +62,9 @@ class SqliteRepositoryContractTest extends RepositoryContract {
         players.initialize();
         final ReportRelationalDAO reports = new ReportRelationalDAO(manager, LOGGER);
         reports.initialize();
-        return new Store(punishments, warns, addresses, levels, notes, sync, players, reports, manager::shutdown);
+        final com.elless.judicator.jails.repository.dao.JailRelationalDAO jails = new com.elless.judicator.jails.repository.dao.JailRelationalDAO(manager, LOGGER);
+        jails.initialize();
+        return new Store(punishments, warns, addresses, levels, notes, sync, players, reports, jails, manager::shutdown);
     }
 
     @Test

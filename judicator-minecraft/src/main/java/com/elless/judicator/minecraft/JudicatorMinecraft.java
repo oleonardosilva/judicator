@@ -10,6 +10,7 @@ import net.kyori.adventure.text.Component;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 
 import java.io.IOException;
 import java.net.URLClassLoader;
@@ -131,6 +132,37 @@ public final class JudicatorMinecraft {
             }
             default -> true;
         };
+    }
+
+    /**
+     * A player breaking a block (game thread): not a prisoner, unless {@code jail.rules.break-blocks}.
+     */
+    public boolean mayBreak(ServerPlayer breaker) {
+        final Judicator core = judicator;
+        final Optional<JudicatorPlayer> player = platform.getPlayer(breaker.getUUID());
+        return core == null || player.isEmpty() || core.getJailService().mayBreak(player.get());
+    }
+
+    /**
+     * A player placing a block (game thread): not a prisoner, unless {@code jail.rules.place-blocks}.
+     */
+    public boolean mayPlace(ServerPlayer placer) {
+        final Judicator core = judicator;
+        final Optional<JudicatorPlayer> player = platform.getPlayer(placer.getUUID());
+        return core == null || player.isEmpty() || core.getJailService().mayPlace(player.get());
+    }
+
+    /**
+     * A player hitting an entity (game thread): prisoners do not fight, and a guard who hits a fugitive catches them.
+     *
+     * @return whether the hit goes on
+     */
+    public boolean allowAttack(ServerPlayer attacker, Entity target) {
+        final Judicator core = judicator;
+        final Optional<JudicatorPlayer> player = platform.getPlayer(attacker.getUUID());
+        if (core == null || player.isEmpty()) return true;
+        final JudicatorPlayer victim = target instanceof ServerPlayer hit ? platform.getPlayer(hit.getUUID()).orElse(null) : null;
+        return core.getJailService().allowAttack(player.get(), victim);
     }
 
     /**

@@ -33,6 +33,7 @@ public final class PunishmentRequest {
     private final boolean onlineOnly;
     private final List<String> evidences;
     private final String scope;
+    private final String jail;
 
     private PunishmentRequest(Builder builder) {
         this.type = builder.type;
@@ -46,11 +47,12 @@ public final class PunishmentRequest {
         this.onlineOnly = builder.onlineOnly;
         this.evidences = List.copyOf(builder.evidences);
         this.scope = builder.scope;
+        this.jail = builder.jail;
     }
 
     /**
-     * @param type   {@link PunishmentType#BAN}, {@link PunishmentType#TEMPBAN}, {@link PunishmentType#MUTE} or
-     *               {@link PunishmentType#TEMPMUTE} (kicks go through
+     * @param type   {@link PunishmentType#BAN}, {@link PunishmentType#TEMPBAN}, {@link PunishmentType#MUTE},
+     *               {@link PunishmentType#TEMPMUTE}, {@link PunishmentType#JAIL} or {@link PunishmentType#TEMPJAIL} (kicks go through
      *               {@link com.elless.judicator.api.JudicatorApi#kick(String, String, String, boolean)})
      * @param target the name of the player to punish (online or not)
      * @return a builder for that punishment
@@ -99,7 +101,7 @@ public final class PunishmentRequest {
         return soft;
     }
 
-    /** @return whether the time of this temporary mute only runs while the player is online */
+    /** @return whether the time of this temporary mute or jail only runs while the player is online */
     public boolean onlineOnly() {
         return onlineOnly;
     }
@@ -109,6 +111,14 @@ public final class PunishmentRequest {
      */
     public Optional<String> scope() {
         return Optional.ofNullable(scope);
+    }
+
+    /**
+     * @return the jail of a {@link PunishmentType#JAIL}/{@link PunishmentType#TEMPJAIL}, as given to {@link Builder#jail};
+     * empty to take the first one with room
+     */
+    public Optional<String> jail() {
+        return Optional.ofNullable(jail);
     }
 
     /** @return the evidence links to attach */
@@ -132,6 +142,7 @@ public final class PunishmentRequest {
         private boolean onlineOnly;
         private final List<String> evidences = new ArrayList<>();
         private String scope;
+        private String jail;
 
         private Builder(PunishmentType type, String target) {
             this.type = Objects.requireNonNull(type, "type");
@@ -195,7 +206,8 @@ public final class PunishmentRequest {
 
         /**
          * @param onlineOnly the time only runs while the player is online ({@link PunishmentType#TEMPMUTE} of an
-         *                   account only)
+         *                   account only, or {@link PunishmentType#TEMPJAIL}; a TEMPJAIL also is with
+         *                   {@code jail.online-only} in {@code config.yml})
          * @return this builder
          */
         public Builder onlineOnly(boolean onlineOnly) {
@@ -210,6 +222,16 @@ public final class PunishmentRequest {
          */
         public Builder scope(String scope) {
             this.scope = scope;
+            return this;
+        }
+
+        /**
+         * @param jail a jail made with {@code /jails}, for a {@link PunishmentType#JAIL}/{@link PunishmentType#TEMPJAIL};
+         *             null to take the first one with room (the default)
+         * @return this builder
+         */
+        public Builder jail(String jail) {
+            this.jail = jail;
             return this;
         }
 
@@ -243,9 +265,12 @@ public final class PunishmentRequest {
                 throw new IllegalArgumentException(type + " is permanent: use the temporary type for a duration");
             }
             if (soft && !type.isMute()) throw new IllegalArgumentException("Only mutes can be soft");
-            if (onlineOnly && (type != PunishmentType.TEMPMUTE || byAddress)) {
-                throw new IllegalArgumentException("Only a TEMPMUTE of an account (not by address) can be online-only");
+            if (onlineOnly && ((type != PunishmentType.TEMPMUTE && type != PunishmentType.TEMPJAIL) || byAddress)) {
+                throw new IllegalArgumentException("Only a TEMPMUTE or TEMPJAIL of an account (not by address) can be online-only");
             }
+            if (type.isJail() && byAddress) throw new IllegalArgumentException("Jails are for accounts, not addresses");
+            if (jail != null && !type.isJail()) throw new IllegalArgumentException("Only a JAIL or TEMPJAIL has a jail");
+            if (scope != null && type.isJail()) throw new IllegalArgumentException("A jail has no scope: the prisoner is kept on the jail's server");
             for (String link : evidences) {
                 if (link.isBlank() || link.chars().anyMatch(c -> c == ',' || Character.isWhitespace(c))) {
                     throw new IllegalArgumentException("Evidence links cannot be blank or have spaces or commas: " + link);

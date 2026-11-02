@@ -16,6 +16,10 @@ public enum ActionStatus {
     /** Refused: the scope is neither a group of {@code scopes.groups} nor a server of the network, or this Spigot/Paper
      * server has no {@code scopes.server-name}. */
     SCOPE_UNKNOWN,
+    /** Refused: no jail ({@code /jails}) has room for a new prisoner, or there is no jail of the name asked for. */
+    NO_JAIL,
+    /** Refused: the player is already in jail (a fugitive can be jailed again). */
+    ALREADY_JAILED,
     /** Refused: a kick of a player who is not online on this server. */
     TARGET_OFFLINE,
     /** Nothing to act on: no punishment or warn with that id, or no ban/mute in force for that player. */

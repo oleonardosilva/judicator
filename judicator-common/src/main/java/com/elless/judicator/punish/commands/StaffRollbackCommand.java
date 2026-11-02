@@ -71,11 +71,13 @@ public class StaffRollbackCommand extends CoreCommand {
 
         final long bans = punishments.stream().filter(Punishment::isBanType).count();
         final long mutes = punishments.stream().filter(Punishment::isMuteType).count();
+        final long jails = punishments.stream().filter(Punishment::isJailType).count();
         final Map<String, String> placeholders = Map.of(
                 "staff", staff.get(),
                 "period", DateTimeOffsetParser.format(messages, millis.getAsLong()),
                 "bans", String.valueOf(bans),
                 "mutes", String.valueOf(mutes),
+                "jails", String.valueOf(jails),
                 "warns", String.valueOf(warns.size()));
         if (punishments.isEmpty() && warns.isEmpty()) {
             source.sendMessage(PunishUtils.format(messages, placeholders, "rollback", "none"));

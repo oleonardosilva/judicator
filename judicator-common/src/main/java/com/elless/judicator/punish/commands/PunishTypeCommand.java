@@ -4,6 +4,7 @@ import com.elless.judicator.players.PlayerRef;
 import com.elless.judicator.Judicator;
 import com.elless.judicator.commons.command.CommandArgs;
 import com.elless.judicator.commons.command.CoreCommand;
+import com.elless.judicator.jails.Jail;
 import com.elless.judicator.platform.JudicatorSender;
 import com.elless.judicator.punish.PunishUtils;
 import com.elless.judicator.punish.PunishmentBuilder;
@@ -44,7 +45,9 @@ public class PunishTypeCommand extends CoreCommand {
                 new PunishTypeCommand(judicator, "tempmute", PunishType.TEMPMUTE, false, PunishPermissions.TEMPMUTE),
                 new PunishTypeCommand(judicator, "tempmuteip", PunishType.TEMPMUTE, true, PunishPermissions.TEMPMUTEIP),
                 new PunishTypeCommand(judicator, "softmute", PunishType.MUTE, false, true, PunishPermissions.SOFTMUTE),
-                new PunishTypeCommand(judicator, "tempsoftmute", PunishType.TEMPMUTE, false, true, PunishPermissions.TEMPSOFTMUTE)
+                new PunishTypeCommand(judicator, "tempsoftmute", PunishType.TEMPMUTE, false, true, PunishPermissions.TEMPSOFTMUTE),
+                new PunishTypeCommand(judicator, "jail", PunishType.JAIL, false, PunishPermissions.JAIL),
+                new PunishTypeCommand(judicator, "tempjail", PunishType.TEMPJAIL, false, PunishPermissions.TEMPJAIL)
         );
     }
 
@@ -56,7 +59,7 @@ public class PunishTypeCommand extends CoreCommand {
             return;
         }
         final String targetName = optTarget.get();
-        final PunishmentFlags flags = new PunishmentFlags(type == PunishType.TEMPMUTE);
+        final PunishmentFlags flags = new PunishmentFlags(type == PunishType.TEMPMUTE || type == PunishType.TEMPJAIL);
         flags.read(args);
 
         String duration = null;
@@ -70,7 +73,8 @@ public class PunishTypeCommand extends CoreCommand {
             flags.read(args);
         }
         final boolean silent = flags.silent;
-        final boolean onlineOnly = flags.onlineOnly;
+        final boolean onlineOnly = flags.onlineOnly
+                || (type == PunishType.TEMPJAIL && judicator.getJailService().onlineOnlyByDefault());
         if (onlineOnly && byAddress) {
             source.sendMessage(PunishUtils.getMessage(messages(source), "error", "online-only-ip"));
             return;
@@ -97,17 +101,28 @@ public class PunishTypeCommand extends CoreCommand {
                 return;
             }
         }
-        if (!PunishmentCommandSupport.applyScope(judicator, source, builder, flags.scope)) return;
+        if (isJail()) {
+            if (!PunishmentCommandSupport.applyJail(judicator, source, builder, target, flags.jail)) return;
+        } else if (!PunishmentCommandSupport.applyScope(judicator, source, builder, flags.scope)) return;
 
         if (!PunishmentCommandSupport.passesStaffRules(judicator, source, builder, targetName)) return;
         if (!PunishmentCommandSupport.resolveTarget(judicator, source, builder, target, byAddress)) return;
         PunishmentCommandSupport.submit(judicator, source, builder, args);
     }
 
+    private boolean isJail() {
+        return type == PunishType.JAIL || type == PunishType.TEMPJAIL;
+    }
+
     @Override
     public List<String> suggest(JudicatorSender sender, String[] args) {
         if (args.length > 1 && args[args.length - 1].startsWith(PunishmentFlags.SCOPE)) {
             return PunishmentCommandSupport.suggestScopes(judicator, args[args.length - 1]);
+        }
+        if (isJail() && args.length > 1 && args[args.length - 1].startsWith(PunishmentFlags.JAIL)) {
+            final String prefix = args[args.length - 1].substring(PunishmentFlags.JAIL.length()).toLowerCase(java.util.Locale.ROOT);
+            return judicator.getJailService().all().stream().map(Jail::name).filter(name -> name.startsWith(prefix))
+                    .map(name -> PunishmentFlags.JAIL + name).toList();
         }
         final List<String> shortcuts = ReasonShortcuts.suggest(judicator, sender, args, type.isTemp() ? 2 : 1);
         return shortcuts.isEmpty() ? super.suggest(sender, args) : shortcuts;

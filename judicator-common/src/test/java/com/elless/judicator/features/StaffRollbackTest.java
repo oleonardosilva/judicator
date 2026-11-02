@@ -59,7 +59,7 @@ class StaffRollbackTest {
 
         server.command(server.console, "staffrollback Rogue 1:d");
 
-        assertTrue(server.console.received("Rogue applied what is still in force: 1 ban(s), 1 mute(s) and 1 active warn(s)"),
+        assertTrue(server.console.received("Rogue applied what is still in force: 1 ban(s), 1 mute(s), 0 jail(s) and 1 active warn(s)"),
                 server.console.messages().toString());
         assertTrue(server.console.clicks().contains("/staffrollback Rogue 1:d confirm"));
         assertEquals(1, active("Steve", PunishType.BAN));

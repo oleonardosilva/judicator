@@ -283,6 +283,17 @@ public interface JudicatorApi {
     CompletableFuture<ActionResult<List<PunishmentView>>> unmute(String target, String reason, String revokedBy);
 
     /**
+     * Lets an account out of jail: revokes every jail in force of it, as {@code /unjail}.
+     *
+     * @param target    the player's name
+     * @param reason    why; null for none
+     * @param revokedBy the name of who revokes them
+     * @return {@link ActionStatus#SUCCESS} with the revoked jails; {@link ActionStatus#NOT_FOUND} when there was none
+     * in force, {@link ActionStatus#FAILED} when none could be revoked
+     */
+    CompletableFuture<ActionResult<List<PunishmentView>>> unjail(String target, String reason, String revokedBy);
+
+    /**
      * Removes a warn, as {@code /unwarn}: Judicator deletes it, so it no longer counts nor shows in the history.
      *
      * @param id        the warn id

@@ -24,6 +24,7 @@ per-player-language: false # true: each player gets the messages in their game l
 #     mute: true
 #     kick: false
 #     warn: false
+#     jail: true
 announce: true
 staff-notifications: true # players with judicator.notify see every punishment; silent (-s) ones only judicator.notify.silent
 log-kicks: false # true: /kick is stored in the punishment history (/phistory, /pview, /blame, /activity)
@@ -71,7 +72,7 @@ hierarchy:
   enabled: true # staff can only punish players with a lower judicator.level.<N>; players without a level can always be punished
   max-level: 100 # highest N checked in judicator.level.<N>
 
-# Longest ban/mute a staff group may apply, given by the explicit permission judicator.timelimit.<group>.
+# Longest ban/mute/jail a staff group may apply, given by the explicit permission judicator.timelimit.<group>.
 # A limited staff member cannot apply a permanent punishment; with several groups the longest limit wins.
 # Ranks that inherit a limited group must set its permission to false.
 time-limits:
@@ -86,6 +87,7 @@ cooldowns:
   mute: 30
   warn: 30
   kick: 0
+  jail: 30
 
 # ------------------------------------------------------------
 #  Muted players
@@ -96,6 +98,35 @@ commands-locked-when-silenced: # commands muted players cannot use; also caught 
   - "/l"
   - "/tell"
 soft-mute-format: "<{player}> {message}" # proxy only (Velocity, BungeeCord): what a soft-muted player sees of their own message (Spigot/Paper keeps the server's chat format)
+
+# ------------------------------------------------------------
+#  Jail
+# ------------------------------------------------------------
+# /jail and /tempjail keep a player in a jail made in game with /jails (create, area, spawn, release point, shared or
+# not, capacity, secret escape routes). Works on Spigot/Paper/Folia and on the Fabric, NeoForge and Forge mods.
+#
+# NETWORKS (Velocity/BungeeCord): a jail is on one game server, but only the proxy can send a prisoner to that server
+# and keep them there. Jails only make sense in a network with Judicator on the proxy too: sync.enabled on the proxy
+# and on every server, proxy-mode: true and scopes.server-name (the name the proxy gives the server) on the game
+# servers. Without Judicator on the proxy a prisoner is only held while they are on the jail's server: switching
+# servers sets them free.
+jail:
+  online-only: true # the time of /tempjail only runs while the prisoner is online (as -o)
+  check-interval: 250 # milliseconds between two checks of where each prisoner is (50 to 5000)
+  allowed-commands: # what prisoners can still run while in jail (Judicator's commands included); everything else is blocked
+    - "/msg"
+    - "/tell"
+    - "/r"
+    - "/helpop"
+  rules: # what prisoners may do while in jail
+    break-blocks: false
+    place-blocks: false
+    attack: false # false: prisoners cannot hit anyone
+    protect: true # true: nobody can hit prisoners
+  escape: # jails with secret escape routes (/jails escape <jail> add): reaching one escapes with its chance, else the guards catch the prisoner
+    caught-penalty: "10:m" # time added to a /tempjail when the prisoner is caught leaving the area, failing an escape or as a fugitive ("0" = none)
+    fugitive-time: "10:m" # after an escape, how long a guard (judicator.jail.guard) can catch the fugitive by hitting them; then they are free. "0" = free at once
+    notify: true # staff with judicator.jail.notify hear of escapes and catches
 
 # ------------------------------------------------------------
 #  Warns
@@ -148,10 +179,10 @@ trust-uuids: false
 sync: # servers sharing one MySQL/PostgreSQL database: what one applies, revokes or edits reaches the players of the others
   enabled: false # true on every server of the network (restart)
   poll-interval: 1 # seconds between checks for changes made by the other servers, 1 to 30 (restart)
-proxy-mode: false # Spigot/Paper behind a Velocity or BungeeCord running Judicator, with sync on both: the proxy refuses logins, kicks, announces and notifies; this server only blocks muted chat (restart)
+proxy-mode: false # Spigot/Paper (or a mod server) behind a Velocity or BungeeCord running Judicator, with sync on both: the proxy refuses logins, kicks, announces and notifies; this server only blocks muted chat and holds its jail's prisoners (restart)
 chat-on-backends: false # proxy only (Velocity, BungeeCord): true when the backends run Judicator in proxy-mode, so the proxy never denies (signed) chat of muted players itself
 scopes: # punishments for one server or a group of servers of the network: /ban Steve -scope=survival hacking
-  server-name: '' # Spigot/Paper only: this server's name as the proxy's config calls it; empty = only global punishments here
+  server-name: '' # Spigot/Paper only: this server's name as the proxy's config calls it; empty = only global punishments here. Needed behind a proxy for jails: it is the server the proxy sends their prisoners to
   groups: {} # e.g. survival: [survival1, survival2] (a group wins over a server with the same name)
 menus: # Spigot/Paper: the menus of /jmenu
   dialogs: mixed # Paper 1.21.6+, players whose game is 1.21.6 or newer: mixed = the lists (with their order and filters) as inventories, everything else (main menu, pages, confirmations, questions, sort-and-filter form) as dialogs; all = everything as dialogs; none = everything as inventories. Older games and Spigot always get inventories

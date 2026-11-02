@@ -3,6 +3,7 @@ package com.elless.judicator.bukkit;
 import com.elless.judicator.menus.MenuRenderer;
 import com.elless.judicator.platform.JudicatorPlayer;
 import com.elless.judicator.platform.JulLoggerAdapter;
+import com.elless.judicator.platform.Location;
 import com.elless.judicator.platform.Platform;
 import com.elless.judicator.platform.PlatformTask;
 import com.elless.judicator.platform.PlatformType;
@@ -10,6 +11,7 @@ import com.elless.judicator.platform.TeleportOutcome;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.slf4j.Logger;
@@ -195,6 +197,39 @@ public class BukkitPlatform implements Platform {
     public CompletableFuture<TeleportOutcome> teleport(JudicatorPlayer staff, JudicatorPlayer target) {
         return scheduling.teleport(staff.getUniqueId(), target.getUniqueId())
                 .thenApply(teleported -> teleported ? TeleportOutcome.TELEPORTED : TeleportOutcome.FAILED);
+    }
+
+    @Override
+    public boolean hasWorlds() {
+        return true;
+    }
+
+    @Override
+    public Optional<Location> locationOf(JudicatorPlayer player) {
+        final Player online = Bukkit.getPlayer(player.getUniqueId());
+        if (online == null) return Optional.empty();
+        return Optional.of(of(online.getLocation()));
+    }
+
+    @Override
+    public CompletableFuture<Boolean> teleport(JudicatorPlayer player, Location to) {
+        final World world = Bukkit.getWorld(to.world());
+        if (world == null) {
+            logger.warn("The world '{}' is not loaded: {} could not be moved there.", to.world(), player.getName());
+            return CompletableFuture.completedFuture(false);
+        }
+        return scheduling.teleport(player.getUniqueId(), new org.bukkit.Location(world, to.x(), to.y(), to.z(), to.yaw(), to.pitch()));
+    }
+
+    @Override
+    public Optional<Location> worldSpawn() {
+        final List<World> worlds = Bukkit.getWorlds();
+        return worlds.isEmpty() ? Optional.empty() : Optional.of(of(worlds.get(0).getSpawnLocation()));
+    }
+
+    private static Location of(org.bukkit.Location location) {
+        return new Location(location.getWorld().getName(), location.getX(), location.getY(), location.getZ(),
+                location.getYaw(), location.getPitch());
     }
 
     @Override

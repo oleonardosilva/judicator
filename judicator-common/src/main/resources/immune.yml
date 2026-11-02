@@ -5,7 +5,7 @@
 #
 #   key:   the player's UUID (recommended: it survives a name change, and in offline mode anyone can join with any
 #          name) or their name (any case)
-#   value: a list of all, ban, mute, kick, warn, alts, report
+#   value: a list of all, ban, mute, kick, warn, jail, alts, report
 #          alts = may join even when alts.deny-if-banned (config.yml) would refuse the account
 #          report = cannot be reported with /report
 #

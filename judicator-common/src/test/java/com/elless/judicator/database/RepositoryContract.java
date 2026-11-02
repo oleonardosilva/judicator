@@ -1,6 +1,11 @@
 package com.elless.judicator.database;
 
 import com.elless.judicator.commons.ListQuery;
+import com.elless.judicator.jails.EscapeRoute;
+import com.elless.judicator.jails.Jail;
+import com.elless.judicator.jails.JailArea;
+import com.elless.judicator.jails.repository.JailRepository;
+import com.elless.judicator.platform.Location;
 import com.elless.judicator.reports.Report;
 import com.elless.judicator.notes.Note;
 import com.elless.judicator.notes.repository.NoteRepository;
@@ -52,7 +57,7 @@ abstract class RepositoryContract {
      */
     protected record Store(PunishmentRepository punishments, WarnRepository warns, PlayerAddressRepository addresses,
                            PlayerLevelRepository levels, NoteRepository notes, SyncRepository sync, PlayerRepository players,
-                           ReportRepository reports, Runnable close) {
+                           ReportRepository reports, JailRepository jails, Runnable close) {
     }
 
     @TempDir
@@ -74,6 +79,64 @@ abstract class RepositoryContract {
         store.sync().initialize();
         store.players().initialize();
         store.reports().initialize();
+        store.jails().initialize();
+    }
+
+    // --- jails ---
+
+    @Test
+    void jailsReadBackAsSaved_andSavingAgainReplacesThem() {
+        final Location spawn = new Location("minecraft:overworld", 10.5, 64, -20.25, 90, 0);
+        final Jail jail = Jail.create("cell", "prison", spawn)
+                .withArea(JailArea.between(new Location("minecraft:overworld", 5, 60, -25, 0, 0), new Location("minecraft:overworld", 15, 70, -15, 0, 0)))
+                .withRelease(new Location("minecraft:overworld", 0.5, 64, 0.5, 0, 0))
+                .withCapacity(4)
+                .withEscape(new EscapeRoute(new Location("minecraft:overworld", 14.5, 61, -16.5, 0, 0), 2, 35));
+        assertTrue(store.jails().save(jail, "Warden"));
+        assertEquals(List.of(jail), store.jails().findAll());
+
+        final Jail changed = jail.withShared(false).withoutEscapes().withRelease(null).withServer("");
+        assertTrue(store.jails().save(changed, "Warden"));
+        assertEquals(List.of(changed), store.jails().findAll());
+
+        assertTrue(store.jails().delete("cell"));
+        assertFalse(store.jails().delete("cell"));
+        assertTrue(store.jails().findAll().isEmpty());
+    }
+
+    @Test
+    void jailPunishments_keepTheirJail_escapeAndCatch_andCountTheirPrisoners() {
+        final LocalDateTime start = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final Punishment steve = punishment("Steve", null, PunishType.TEMPJAIL, start, start.plusHours(1), "Mod");
+        steve.setJail("cell");
+        store.punishments().save(steve);
+        final Punishment alex = punishment("Alex", null, PunishType.JAIL, start, null, "Mod");
+        alex.setJail("cell");
+        store.punishments().save(alex);
+        final Punishment other = punishment("Bob", null, PunishType.JAIL, start, null, "Mod");
+        other.setJail("yard");
+        store.punishments().save(other);
+        assertEquals("cell", store.punishments().findById(steve.getId()).orElseThrow().getJail().orElseThrow());
+        assertEquals(2, store.punishments().countInJail("cell", false));
+
+        final LocalDateTime escaped = start.plusMinutes(5);
+        assertTrue(store.punishments().changeJail(steve.getId(), start.plusMinutes(15), null, escaped, 3_300_000L));
+        final Punishment fugitive = store.punishments().findById(steve.getId()).orElseThrow();
+        assertEquals(escaped, fugitive.getEscapedAt().orElseThrow());
+        assertEquals(3_300_000L, fugitive.getJailLeft());
+        assertEquals(start.plusMinutes(15), fugitive.getFinishAt().orElseThrow());
+        assertEquals(1, store.punishments().countInJail("cell", false), "a fugitive left the cell");
+        assertEquals(2, store.punishments().countInJail("cell", true), "but would come back to it");
+
+        assertTrue(store.punishments().changeJail(steve.getId(), start.plusHours(2), null, null, null));
+        final Punishment caught = store.punishments().findById(steve.getId()).orElseThrow();
+        assertTrue(caught.getEscapedAt().isEmpty());
+        assertEquals(null, caught.getJailLeft());
+        assertEquals(2, store.punishments().countInJail("cell", false));
+
+        store.punishments().revoke(alex.getId(), "freed");
+        assertFalse(store.punishments().changeJail(alex.getId(), null, null, escaped, null), "a revoked jail stays as it is");
+        assertEquals(1, store.punishments().countInJail("cell", false));
     }
 
     // --- reports ---

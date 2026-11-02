@@ -68,4 +68,14 @@ final class BukkitScheduling implements Scheduling {
         return done;
     }
 
+    @Override
+    public CompletableFuture<Boolean> teleport(UUID moving, org.bukkit.Location to) {
+        final CompletableFuture<Boolean> done = new CompletableFuture<>();
+        global(() -> {
+            final Player player = Bukkit.getPlayer(moving);
+            done.complete(player != null && player.teleport(to));
+        });
+        return done;
+    }
+
 }

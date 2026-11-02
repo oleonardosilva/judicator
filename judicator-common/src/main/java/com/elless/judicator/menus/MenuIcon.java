@@ -12,6 +12,8 @@ public enum MenuIcon {
     MUTE,
     TEMPMUTE,
     KICK,
+    JAIL,
+    TEMPJAIL,
     WARN,
     NOTE,
     ALTS,

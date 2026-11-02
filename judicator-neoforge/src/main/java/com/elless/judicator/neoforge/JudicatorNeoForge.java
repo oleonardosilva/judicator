@@ -18,7 +18,10 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.CommandEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.ServerChatEvent;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.network.event.RegisterConfigurationTasksEvent;
@@ -57,6 +60,16 @@ public final class JudicatorNeoForge {
             if (!mod.allowChat(event.getPlayer(), event.getRawText())) event.setCanceled(true);
         });
         game.addListener(this::onCommand);
+        // what a prisoner may do
+        game.addListener((BreakBlockEvent event) -> {
+            if (event.getPlayer() instanceof ServerPlayer player && !mod.mayBreak(player)) event.setCanceled(true);
+        });
+        game.addListener((BlockEvent.EntityPlaceEvent event) -> {
+            if (event.getEntity() instanceof ServerPlayer player && !mod.mayPlace(player)) event.setCanceled(true);
+        });
+        game.addListener((AttackEntityEvent event) -> {
+            if (event.getEntity() instanceof ServerPlayer player && !mod.allowAttack(player, event.getTarget())) event.setCanceled(true);
+        });
     }
 
     /**

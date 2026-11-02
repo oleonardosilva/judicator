@@ -49,6 +49,19 @@ public class Punishment {
      * ({@link com.elless.judicator.punish.scopes.ScopeService}).
      */
     private String scope;
+    /**
+     * The jail ({@link com.elless.judicator.jails.Jail}) of a {@code JAIL}/{@code TEMPJAIL}; null for the other types.
+     */
+    private String jail;
+    /**
+     * When the prisoner escaped; null while they are in jail. A fugitive's punishment ends when the guards had their
+     * time to catch them ({@code finishAt}).
+     */
+    private LocalDateTime escapedAt;
+    /**
+     * Milliseconds of a temporary jail left when the prisoner escaped, given back if they are caught; null otherwise.
+     */
+    private Long jailLeft;
 
     public Punishment(Long id, UUID playerUUID, String reason, String punisher, String nickname, String ipAddress, LocalDateTime startedAt, LocalDateTime finishAt, boolean revoked, String revokedReason, List<String> evidences, PunishType type, boolean permanent) {
         this.id = id;
@@ -93,12 +106,23 @@ public class Punishment {
         return this.type == PunishType.MUTE || this.type == PunishType.TEMPMUTE;
     }
 
+    public boolean isJailType() {
+        return this.type == PunishType.JAIL || this.type == PunishType.TEMPJAIL;
+    }
+
+    /**
+     * A jail whose prisoner escaped: they walk free while the guards may still catch them.
+     */
+    public boolean isEscaped() {
+        return escapedAt != null;
+    }
+
     public PunishStatus getStatus() {
         final LocalDateTime now = LocalDateTime.now();
         if (revoked) return PunishStatus.REVOKED;
         if (type == PunishType.KICK) return PunishStatus.FINISHED;
-        // a paused online-only mute has no end yet: it is still in force
-        if (type.isTemp() && finishAt != null && finishAt.isBefore(now))
+        // a paused online-only mute has no end yet: it is still in force; an escape gives a permanent jail an end
+        if ((type.isTemp() || escapedAt != null) && finishAt != null && finishAt.isBefore(now))
             return PunishStatus.FINISHED;
         return PunishStatus.ACTIVE;
     }
@@ -137,6 +161,14 @@ public class Punishment {
 
     public Optional<String> getScope() {
         return Optional.ofNullable(scope);
+    }
+
+    public Optional<String> getJail() {
+        return Optional.ofNullable(jail);
+    }
+
+    public Optional<LocalDateTime> getEscapedAt() {
+        return Optional.ofNullable(escapedAt);
     }
 
     public Optional<UUID> getPunisherUuid() {

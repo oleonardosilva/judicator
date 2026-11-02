@@ -21,6 +21,7 @@ import com.elless.judicator.punish.handlers.PunishFactory;
 import com.elless.judicator.punish.handlers.RevokeHandler;
 import com.elless.judicator.punish.rules.PunishCooldown;
 import com.elless.judicator.punish.types.PunishType;
+import com.elless.judicator.jails.JailService;
 import com.elless.judicator.warns.Warn;
 import com.elless.judicator.warns.WarnBuilder;
 import com.elless.judicator.warns.handlers.UnwarnHandler;
@@ -160,6 +161,15 @@ public class JudicatorApiService implements JudicatorApi {
                     .onlineOnly(request.onlineOnly())
                     .evidences(request.evidences());
             request.duration().ifPresent(builder::duration);
+            if (type == PunishType.TEMPJAIL && judicator.getJailService().onlineOnlyByDefault()) builder.onlineOnly(true);
+            if (request.type().isJail()) {
+                final boolean jailed = judicator.getPunishService().findAllActiveOf(player, PunishType.JAIL, PunishType.TEMPJAIL).stream()
+                        .anyMatch(punishment -> !punishment.isEscaped());
+                if (jailed) return ActionResult.failure(ActionStatus.ALREADY_JAILED);
+                final JailService.Choice choice = judicator.getJailService().choose(request.jail().orElse(null));
+                if (choice.jail() == null) return ActionResult.failure(ActionStatus.NO_JAIL);
+                builder.jail(choice.jail().name());
+            }
             if (request.scope().isPresent()) {
                 final Optional<String> scope = judicator.getScopeService().canScope()
                         ? judicator.getScopeService().parse(request.scope().get()) : Optional.empty();
@@ -263,21 +273,26 @@ public class JudicatorApiService implements JudicatorApi {
 
     @Override
     public CompletableFuture<ActionResult<List<PunishmentView>>> unban(String target, String reason, String revokedBy) {
-        return revokeActive(target, false, reason, revokedBy);
+        return revokeActive(target, RevokeHandler.Kind.BAN, reason, revokedBy);
     }
 
     @Override
     public CompletableFuture<ActionResult<List<PunishmentView>>> unmute(String target, String reason, String revokedBy) {
-        return revokeActive(target, true, reason, revokedBy);
+        return revokeActive(target, RevokeHandler.Kind.MUTE, reason, revokedBy);
     }
 
-    private CompletableFuture<ActionResult<List<PunishmentView>>> revokeActive(String target, boolean mute, String reason, String revokedBy) {
+    @Override
+    public CompletableFuture<ActionResult<List<PunishmentView>>> unjail(String target, String reason, String revokedBy) {
+        return revokeActive(target, RevokeHandler.Kind.JAIL, reason, revokedBy);
+    }
+
+    private CompletableFuture<ActionResult<List<PunishmentView>>> revokeActive(String target, RevokeHandler.Kind kind, String reason, String revokedBy) {
         Objects.requireNonNull(target, "target");
         checkPunisher(revokedBy);
         return async(() -> {
             final String stored = reason == null ? "" : reason;
             final RevokeHandler.ActiveRevocation revocation = new RevokeHandler(judicator)
-                    .revokeActive(target, mute, stored, revokedBy, false);
+                    .revokeActive(target, kind, stored, revokedBy, false);
             if (!revocation.found()) return ActionResult.failure(ActionStatus.NOT_FOUND);
             if (revocation.revoked().isEmpty()) return ActionResult.failure(ActionStatus.FAILED);
             return ActionResult.success(revocation.revoked().stream()
