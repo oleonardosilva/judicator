@@ -773,7 +773,8 @@ the player's messages file (their language with `per-player-language`).
 
 ## 🔌 API for Plugin Developers
 
-Other plugins (an anticheat, a report system, a Discord bot) can look up, apply and revoke punishments and listen to
+Other plugins (an anticheat, a report system, a Discord bot, a prison minigame) can look up, apply and revoke
+punishments, handle reports and staff notes, read accounts, alts and what the staff did, make jails, and listen to
 what happens, on Velocity, BungeeCord and Spigot/Paper alike, through the `judicator-api` module (package
 `com.elless.judicator.api`, plain Java 17, no dependencies). Both Judicator JARs ship it; **do not shade it** into
 your plugin.
@@ -821,6 +822,16 @@ Rules worth knowing (details in the Javadoc of `JudicatorApi` and `JudicatorEven
 * Jails: `jail`/`tempjail`/`unjail`, `getActiveJail`/`isJailed` (a fugitive is not jailed:
   `PunishmentView.isFugitive()`, with `jail()` and `escapedAt()`), `getJails()` (name, server, room, prisoners) and the
   events `PrisonerEscapedEvent` and `PrisonerCaughtEvent` (with the guard). Refusals: `NO_JAIL`, `ALREADY_JAILED`.
+  Jails from code: `getJail`, `saveJail(JailDefinition, author)` (its rules are checked when it is built: spawn in the
+  area, no escape route over it, at most 10 routes) and `deleteJail` (`IN_USE` while someone is in it or escaped from it).
+* Reports: `getReport`, `getReports(statuses, limit, offset)`, `countReports`, `countReportsAgainst`, `report(reporter,
+  target, reason)` for a plugin (an anticheat: no cooldown, the target need not be online; `ALREADY_REPORTED` for a
+  second open one) and `closeReport`; events `ReportCreatedEvent` and `ReportChangedEvent` (assigned, given back,
+  closed).
+* Staff notes: `getNotes`, `addNote`, `deleteNote`; events `NoteAddedEvent` and `NoteDeletedEvent`.
+* Accounts: `getPlayer(uuid)` (last name and login), `getAccountStatus` (`CLEAN`, `MUTED`, `JAILED`, `BANNED`) and
+  `getAlts` (with the status of each). Staff: `getPunishmentsBy(staff, since, limit, offset)` (`/blame`) and
+  `getStaffActivity(since)` (`/activity`).
 * Events are posted after the change is stored, on the thread that made it (usually not the server thread), and only
   on the server where it was made, not on the servers that learn about it through `sync`. A listener that throws is
   logged and never stops a punishment. There is no cancellable "before" event.

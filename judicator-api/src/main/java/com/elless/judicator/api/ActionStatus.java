@@ -20,9 +20,16 @@ public enum ActionStatus {
     NO_JAIL,
     /** Refused: the player is already in jail (a fugitive can be jailed again). */
     ALREADY_JAILED,
+    /** Refused: the reporter already has an open report about that player. */
+    ALREADY_REPORTED,
+    /** The report was already closed. */
+    ALREADY_CLOSED,
+    /** Refused: the jail has prisoners or fugitives who would come back to it. */
+    IN_USE,
     /** Refused: a kick of a player who is not online on this server. */
     TARGET_OFFLINE,
-    /** Nothing to act on: no punishment or warn with that id, or no ban/mute in force for that player. */
+    /** Nothing to act on: no punishment, warn, report, note or jail with that id or name, no ban/mute/jail in force for
+     * that player, or (a report) a name no account has. */
     NOT_FOUND,
     /** The punishment was already revoked. */
     ALREADY_REVOKED,

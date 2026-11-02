@@ -3,7 +3,12 @@ package com.elless.judicator.integration;
 import com.elless.judicator.api.punishment.PunishmentStatus;
 import com.elless.judicator.api.punishment.PunishmentType;
 import com.elless.judicator.api.punishment.PunishmentView;
+import com.elless.judicator.api.note.NoteView;
+import com.elless.judicator.api.report.ReportStatus;
+import com.elless.judicator.api.report.ReportView;
 import com.elless.judicator.api.warn.WarnStatus;
+import com.elless.judicator.notes.Note;
+import com.elless.judicator.reports.Report;
 import com.elless.judicator.api.warn.WarnView;
 import com.elless.judicator.punish.PunishService;
 import com.elless.judicator.punish.Punishment;
@@ -57,6 +62,18 @@ public final class ApiViews {
                 punishment.getScope(),
                 punishment.getJail(),
                 punishment.getEscapedAt().map(ApiViews::instant));
+    }
+
+    public static ReportView report(Report report) {
+        return new ReportView(report.getId(), report.getReporterName(), report.getReporterUuid(), report.getTargetName(),
+                report.getTargetUuid(), report.getReason(), report.getServer(), ReportStatus.valueOf(report.getState().name()),
+                report.getAssigneeName(), instant(report.getCreatedAt()), instant(report.getUpdatedAt()),
+                report.getClosedAt().map(ApiViews::instant), report.getCloseComment());
+    }
+
+    public static NoteView note(Note note) {
+        return new NoteView(note.getId(), note.getNickname(), note.getPlayerUUID(), note.getAuthor(),
+                note.getAuthorUuid(), note.getContent(), instant(note.getCreatedAt()));
     }
 
     public static WarnView warn(Warn warn) {

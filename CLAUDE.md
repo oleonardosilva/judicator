@@ -115,7 +115,11 @@ the staff rules treat as the console, but `ImmuneCache`/`AddressPolicy` exemptio
 and `ApiViews` (core model → API views, `LocalDateTime` → `Instant`). `Judicator.enable()` registers the API in
 `JudicatorProvider`; `disable()` clears it. Events are posted, after the change is stored and only on the instance
 that made it (never from `SyncService`), by `PunishFactory`, `KickHandler`, `WarnHandler`, `RevokeHandler`,
-`UnwarnHandler`, `EditPunishmentCommand` and `JailService` (`PrisonerEscapedEvent`, `PrisonerCaughtEvent`): a new way of applying or revoking must go through those handlers.
+`UnwarnHandler`, `EditPunishmentCommand`, `JailService` (`PrisonerEscapedEvent`, `PrisonerCaughtEvent`), `ReportService`
+(`ReportCreatedEvent`, `ReportChangedEvent`) and `notes/NoteHandler` (`NoteAddedEvent`, `NoteDeletedEvent`): a new way
+of applying or revoking must go through those handlers. Besides punishments the API covers reports (a plugin reports
+with `ReportService.reportAs`: no cooldown, a UUID made from its name), staff notes, accounts (`statusOf`, alts),
+`/blame`/`/activity` and jails from code (`JailDefinition` ↔ core `Jail` in `JudicatorApiService`).
 
 `placeholders/PlaceholderService` builds `%judicator_...%` from the API alone: a Caffeine cache of each player's ban,
 mute, history and warns, loaded on the first request and refreshed every 30 s and on the API events, so a placeholder

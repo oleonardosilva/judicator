@@ -4,6 +4,9 @@ import com.elless.judicator.commons.ListQuery;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.elless.judicator.Judicator;
+import com.elless.judicator.api.event.ReportChangedEvent;
+import com.elless.judicator.api.event.ReportCreatedEvent;
+import com.elless.judicator.integration.ApiViews;
 import com.elless.judicator.platform.JudicatorPlayer;
 import com.elless.judicator.platform.JudicatorSender;
 import com.elless.judicator.players.PlayerRef;
@@ -99,16 +102,45 @@ public class ReportService {
         if (judicator.getImmuneCache().isExemptFrom(target.name(), target.uuid(), ImmuneCache.REPORT)) return new Creation(Outcome.EXEMPT, null, 0);
         if (repository.hasOpen(reporter.getUniqueId(), target)) return new Creation(Outcome.DUPLICATE, null, 0);
 
-        final String server = online.flatMap(player -> judicator.getScopeService().serverOf(player)).orElse(null);
-        final Report report = repository.insert(Report.create(reporter.getUniqueId(), reporter.getName(), target.uuid(), target.name(),
-                storedText(reason), server));
-        if (report.getId() == null) {
-            lastReport.remove(reporter.getUniqueId());
-            return new Creation(Outcome.FAILED, null, 0);
-        }
+        final Creation creation = store(Report.create(reporter.getUniqueId(), reporter.getName(), target.uuid(), target.name(),
+                storedText(reason), serverOf(online)));
+        if (creation.outcome() == Outcome.FAILED) lastReport.remove(reporter.getUniqueId());
+        return creation;
+    }
+
+    /**
+     * A plugin reports a player (the API): no cooldown, and the player need not be online. The reporter's UUID is made
+     * from its name, so its own open reports are recognized.
+     */
+    public Creation reportAs(String reporterName, String targetName, String reason) {
+        if (targetName.length() > NAME_MAX_LENGTH) return new Creation(Outcome.UNKNOWN_PLAYER, null, 0);
+        final PlayerRef target = judicator.getPlayerDirectory().resolve(targetName);
+        if (judicator.trustsUuids() && !target.identifiedByUuid()) return new Creation(Outcome.UNKNOWN_PLAYER, null, 0);
+        if (judicator.getImmuneCache().isExemptFrom(target.name(), target.uuid(), ImmuneCache.REPORT)) return new Creation(Outcome.EXEMPT, null, 0);
+        final UUID reporter = pluginUuid(reporterName);
+        if (repository.hasOpen(reporter, target)) return new Creation(Outcome.DUPLICATE, null, 0);
+        return store(Report.create(reporter, reporterName, target.uuid(), target.name(), storedText(reason),
+                serverOf(judicator.getPlatform().getPlayer(target.name()))));
+    }
+
+    /**
+     * The UUID a plugin reports with (the API).
+     */
+    public static UUID pluginUuid(String name) {
+        return UUID.nameUUIDFromBytes(("Judicator API:" + name).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    private String serverOf(Optional<JudicatorPlayer> online) {
+        return online.flatMap(player -> judicator.getScopeService().serverOf(player)).orElse(null);
+    }
+
+    private Creation store(Report created) {
+        final Report report = repository.insert(created);
+        if (report.getId() == null) return new Creation(Outcome.FAILED, null, 0);
         notifyStaff(report);
         judicator.getSyncService().publish(SyncKind.REPORTED, report.getId());
         judicator.getDiscordWebhookService().sendReport(report);
+        judicator.getEventBus().post(() -> new ReportCreatedEvent(ApiViews.report(report)));
         return new Creation(Outcome.CREATED, report, 0);
     }
 
@@ -235,6 +267,7 @@ public class ReportService {
         if (report.getState() == ReportState.ASSIGNED) tellAssignee(report, actor);
         tellReporter(report);
         judicator.getSyncService().publish(SyncKind.REPORT_CHANGED, report.getId());
+        judicator.getEventBus().post(() -> new ReportChangedEvent(ApiViews.report(report), actor.getName()));
         return Change.DONE;
     }
 

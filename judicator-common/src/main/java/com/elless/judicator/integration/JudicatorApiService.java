@@ -22,6 +22,31 @@ import com.elless.judicator.punish.handlers.RevokeHandler;
 import com.elless.judicator.punish.rules.PunishCooldown;
 import com.elless.judicator.punish.types.PunishType;
 import com.elless.judicator.api.jail.JailView;
+import com.elless.judicator.api.jail.JailDefinition;
+import com.elless.judicator.api.jail.JailEscape;
+import com.elless.judicator.api.jail.JailPoint;
+import com.elless.judicator.api.note.NoteView;
+import com.elless.judicator.api.player.AccountStatus;
+import com.elless.judicator.api.player.AccountView;
+import com.elless.judicator.api.player.PlayerView;
+import com.elless.judicator.api.report.ReportStatus;
+import com.elless.judicator.api.report.ReportView;
+import com.elless.judicator.api.staff.StaffActivity;
+import com.elless.judicator.jails.EscapeRoute;
+import com.elless.judicator.jails.Jail;
+import com.elless.judicator.jails.JailArea;
+import com.elless.judicator.notes.Note;
+import com.elless.judicator.notes.NoteHandler;
+import com.elless.judicator.platform.Location;
+import com.elless.judicator.reports.ReportService;
+import com.elless.judicator.reports.ReportState;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Stream;
 import com.elless.judicator.jails.JailService;
 import com.elless.judicator.warns.Warn;
 import com.elless.judicator.warns.WarnBuilder;
@@ -338,6 +363,255 @@ public class JudicatorApiService implements JudicatorApi {
             if (warn.isEmpty()) return ActionResult.failure(ActionStatus.NOT_FOUND);
             new UnwarnHandler(judicator).remove(warn.get(), revokedBy, true);
             return ActionResult.success(ApiViews.warn(warn.get()));
+        });
+    }
+
+
+    // ---- jails --------------------------------------------------------------------------------------------------
+
+    @Override
+    public CompletableFuture<Optional<JailDefinition>> getJail(String name) {
+        Objects.requireNonNull(name, "name");
+        return async(() -> judicator.getJailService().find(name).map(JudicatorApiService::definition));
+    }
+
+    @Override
+    public CompletableFuture<ActionResult<JailView>> saveJail(JailDefinition definition, String author) {
+        Objects.requireNonNull(definition, "definition");
+        checkPunisher(author);
+        return async(() -> {
+            final Jail jail = jail(definition);
+            if (!judicator.getJailService().save(jail, author)) return ActionResult.failure(ActionStatus.FAILED);
+            return ActionResult.success(jailView(jail));
+        });
+    }
+
+    @Override
+    public CompletableFuture<ActionResult<JailView>> deleteJail(String name) {
+        Objects.requireNonNull(name, "name");
+        return async(() -> {
+            final Optional<Jail> jail = judicator.getJailService().find(name);
+            if (jail.isEmpty()) return ActionResult.failure(ActionStatus.NOT_FOUND);
+            if (judicator.getJailService().isInUse(jail.get())) return ActionResult.failure(ActionStatus.IN_USE);
+            final JailView view = jailView(jail.get());
+            if (!judicator.getJailService().delete(jail.get().name())) return ActionResult.failure(ActionStatus.FAILED);
+            return ActionResult.success(view);
+        });
+    }
+
+    private JailView jailView(Jail jail) {
+        return new JailView(jail.name(), Optional.of(jail.server()).filter(server -> !server.isEmpty()), jail.shared(),
+                jail.capacity(), judicator.getJailService().occupants(jail), jail.escapes().size());
+    }
+
+    private static JailDefinition definition(Jail jail) {
+        final JailArea area = jail.area();
+        return new JailDefinition(jail.name(), Optional.of(jail.server()).filter(server -> !server.isEmpty()), point(jail.spawn()),
+                JailPoint.of(area.world(), area.minX(), area.minY(), area.minZ()),
+                JailPoint.of(area.world(), area.maxX(), area.maxY(), area.maxZ()),
+                jail.release().map(JudicatorApiService::point), jail.shared(), jail.capacity(),
+                jail.escapes().stream().map(route -> new JailEscape(point(route.at()), route.radius(), route.chance())).toList());
+    }
+
+    private static Jail jail(JailDefinition definition) {
+        final Location spawn = location(definition.spawn());
+        return new Jail(definition.name(), definition.server().orElse(""), spawn,
+                JailArea.between(location(definition.corner1()), location(definition.corner2())),
+                definition.release().map(JudicatorApiService::location), definition.shared(), definition.capacity(),
+                definition.escapes().stream().map(escape -> new EscapeRoute(location(escape.at()), escape.radius(), escape.chance())).toList());
+    }
+
+    private static JailPoint point(Location location) {
+        return new JailPoint(location.world(), location.x(), location.y(), location.z(), location.yaw(), location.pitch());
+    }
+
+    private static Location location(JailPoint point) {
+        return new Location(point.world(), point.x(), point.y(), point.z(), point.yaw(), point.pitch());
+    }
+
+    // ---- accounts -----------------------------------------------------------------------------------------------
+
+    @Override
+    public CompletableFuture<Optional<PlayerView>> getPlayer(UUID uniqueId) {
+        Objects.requireNonNull(uniqueId, "uniqueId");
+        return async(() -> judicator.getPlayerDirectory().findByUuid(uniqueId)
+                .map(known -> new PlayerView(known.uuid(), known.name(), ApiViews.instant(known.lastSeen()))));
+    }
+
+    @Override
+    public CompletableFuture<AccountStatus> getAccountStatus(UUID uniqueId) {
+        Objects.requireNonNull(uniqueId, "uniqueId");
+        return async(() -> status(judicator.getPlayerDirectory().refOf(uniqueId)));
+    }
+
+    @Override
+    public CompletableFuture<AccountStatus> getAccountStatus(String name) {
+        Objects.requireNonNull(name, "name");
+        return async(() -> status(judicator.getPlayerDirectory().resolve(name)));
+    }
+
+    @Override
+    public CompletableFuture<List<AccountView>> getAlts(UUID uniqueId) {
+        Objects.requireNonNull(uniqueId, "uniqueId");
+        return async(() -> alts(judicator.getPlayerDirectory().refOf(uniqueId)));
+    }
+
+    @Override
+    public CompletableFuture<List<AccountView>> getAlts(String name) {
+        Objects.requireNonNull(name, "name");
+        return async(() -> alts(judicator.getPlayerDirectory().resolve(name)));
+    }
+
+    private AccountStatus status(PlayerRef player) {
+        return AccountStatus.valueOf(judicator.getPunishService().statusOf(player).toUpperCase(java.util.Locale.ROOT));
+    }
+
+    private List<AccountView> alts(PlayerRef player) {
+        return judicator.getAddressService().findAlts(player, judicator.getAddressPolicy()::isExempt).stream()
+                .map(account -> new AccountView(account.name(), Optional.ofNullable(account.uuid()), status(account)))
+                .toList();
+    }
+
+    // ---- staff --------------------------------------------------------------------------------------------------
+
+    @Override
+    public CompletableFuture<List<PunishmentView>> getPunishmentsBy(String staff, Instant since, int limit, int offset) {
+        Objects.requireNonNull(staff, "staff");
+        if (limit < 0 || offset < 0) throw new IllegalArgumentException("limit and offset cannot be negative");
+        return async(() -> judicator.getPunishService().findByPunisher(judicator.getPlayerDirectory().resolveKnown(staff),
+                since == null ? null : local(since), limit, offset).stream().map(ApiViews::punishment).toList());
+    }
+
+    @Override
+    public CompletableFuture<List<StaffActivity>> getStaffActivity(Instant since) {
+        Objects.requireNonNull(since, "since");
+        return async(() -> {
+            final LocalDateTime from = local(since);
+            final Map<String, String> names = new LinkedHashMap<>();
+            final Map<String, Map<String, Integer>> counts = new LinkedHashMap<>();
+            Stream.concat(judicator.getPunishService().countByStaffSince(from).stream(),
+                    judicator.getWarnService().countByStaffSince(from).stream()).forEach(count -> {
+                final String key = count.punisher().toLowerCase(java.util.Locale.ROOT);
+                names.putIfAbsent(key, count.punisher());
+                counts.computeIfAbsent(key, ignored -> new LinkedHashMap<>()).merge(count.type(), count.count(), Integer::sum);
+            });
+            return counts.entrySet().stream()
+                    .map(entry -> new StaffActivity(names.get(entry.getKey()), entry.getValue()))
+                    .sorted(Comparator.comparingInt(StaffActivity::total).reversed()
+                            .thenComparing(StaffActivity::staff, String.CASE_INSENSITIVE_ORDER))
+                    .toList();
+        });
+    }
+
+    private static LocalDateTime local(Instant instant) {
+        return LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+    }
+
+    // ---- reports ------------------------------------------------------------------------------------------------
+
+    @Override
+    public CompletableFuture<Optional<ReportView>> getReport(long id) {
+        return async(() -> judicator.getReportService().findById(id).map(ApiViews::report));
+    }
+
+    @Override
+    public CompletableFuture<List<ReportView>> getReports(Set<ReportStatus> statuses, int limit, int offset) {
+        Objects.requireNonNull(statuses, "statuses");
+        if (limit < 0 || offset < 0) throw new IllegalArgumentException("limit and offset cannot be negative");
+        return async(() -> statuses.isEmpty() ? List.<ReportView>of()
+                : judicator.getReportService().find(states(statuses), limit, offset).stream().map(ApiViews::report).toList());
+    }
+
+    @Override
+    public CompletableFuture<Integer> countReports(Set<ReportStatus> statuses) {
+        Objects.requireNonNull(statuses, "statuses");
+        return async(() -> statuses.isEmpty() ? 0 : judicator.getReportService().count(states(statuses)));
+    }
+
+    @Override
+    public CompletableFuture<Integer> countReportsAgainst(String name) {
+        Objects.requireNonNull(name, "name");
+        return async(() -> judicator.getReportService().countAgainst(judicator.getPlayerDirectory().resolve(name)));
+    }
+
+    private static List<ReportState> states(Set<ReportStatus> statuses) {
+        return statuses.stream().map(status -> ReportState.valueOf(status.name())).toList();
+    }
+
+    @Override
+    public CompletableFuture<ActionResult<ReportView>> report(String reporter, String target, String reason) {
+        checkPunisher(reporter);
+        Objects.requireNonNull(target, "target");
+        Objects.requireNonNull(reason, "reason");
+        if (reason.isBlank()) throw new IllegalArgumentException("A report needs a reason");
+        return async(() -> {
+            final ReportService.Creation creation = judicator.getReportService().reportAs(reporter, target, reason);
+            return switch (creation.outcome()) {
+                case CREATED -> ActionResult.success(ApiViews.report(creation.report()));
+                case EXEMPT -> ActionResult.failure(ActionStatus.TARGET_EXEMPT);
+                case DUPLICATE -> ActionResult.failure(ActionStatus.ALREADY_REPORTED);
+                case UNKNOWN_PLAYER -> ActionResult.failure(ActionStatus.NOT_FOUND);
+                default -> ActionResult.failure(ActionStatus.FAILED);
+            };
+        });
+    }
+
+    @Override
+    public CompletableFuture<ActionResult<ReportView>> closeReport(long id, String comment, String closedBy) {
+        checkPunisher(closedBy);
+        return async(() -> {
+            final ReportService.Change change = judicator.getReportService().close(new ApiSender(closedBy), id, comment);
+            return switch (change) {
+                case DONE -> judicator.getReportService().findById(id)
+                        .<ActionResult<ReportView>>map(report -> ActionResult.success(ApiViews.report(report)))
+                        .orElseGet(() -> ActionResult.failure(ActionStatus.NOT_FOUND));
+                case NOT_FOUND -> ActionResult.failure(ActionStatus.NOT_FOUND);
+                case CLOSED -> ActionResult.failure(ActionStatus.ALREADY_CLOSED);
+                default -> ActionResult.failure(ActionStatus.FAILED);
+            };
+        });
+    }
+
+    // ---- staff notes --------------------------------------------------------------------------------------------
+
+    @Override
+    public CompletableFuture<List<NoteView>> getNotes(UUID uniqueId) {
+        Objects.requireNonNull(uniqueId, "uniqueId");
+        return async(() -> notes(judicator.getPlayerDirectory().refOf(uniqueId)));
+    }
+
+    @Override
+    public CompletableFuture<List<NoteView>> getNotes(String name) {
+        Objects.requireNonNull(name, "name");
+        return async(() -> notes(judicator.getPlayerDirectory().resolve(name)));
+    }
+
+    private List<NoteView> notes(PlayerRef player) {
+        final int count = judicator.getNoteService().countOf(player);
+        return count == 0 ? List.of() : judicator.getNoteService().findOf(player, count, 0).stream().map(ApiViews::note).toList();
+    }
+
+    @Override
+    public CompletableFuture<ActionResult<NoteView>> addNote(String target, String content, String author) {
+        checkPunisher(author);
+        Objects.requireNonNull(target, "target");
+        Objects.requireNonNull(content, "content");
+        if (target.isBlank() || target.length() > PunishmentRequest.NAME_MAX_LENGTH) throw new IllegalArgumentException("Not a player name: " + target);
+        if (content.isBlank() || content.trim().length() > NoteHandler.CONTENT_MAX_LENGTH) {
+            throw new IllegalArgumentException("A note is 1 to " + NoteHandler.CONTENT_MAX_LENGTH + " characters");
+        }
+        return async(() -> ActionResult.success(ApiViews.note(new NoteHandler(judicator)
+                .add(judicator.getPlayerDirectory().resolve(target), content.trim(), author, null))));
+    }
+
+    @Override
+    public CompletableFuture<ActionResult<NoteView>> deleteNote(long id, String deletedBy) {
+        checkPunisher(deletedBy);
+        return async(() -> {
+            final Optional<Note> note = judicator.getNoteService().findById(id);
+            if (note.isEmpty()) return ActionResult.failure(ActionStatus.NOT_FOUND);
+            new NoteHandler(judicator).delete(note.get(), deletedBy);
+            return ActionResult.success(ApiViews.note(note.get()));
         });
     }
 

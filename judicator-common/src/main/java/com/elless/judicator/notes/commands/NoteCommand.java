@@ -4,6 +4,7 @@ import com.elless.judicator.Judicator;
 import com.elless.judicator.commons.command.CommandArgs;
 import com.elless.judicator.commons.command.CoreCommand;
 import com.elless.judicator.notes.Note;
+import com.elless.judicator.notes.NoteHandler;
 import com.elless.judicator.platform.JudicatorPlayer;
 import com.elless.judicator.platform.JudicatorSender;
 import com.elless.judicator.players.PlayerRef;
@@ -42,9 +43,8 @@ public class NoteCommand extends CoreCommand {
         final String nickname = player.name();
         final String author = source.asPlayer().map(JudicatorPlayer::getName).orElse("Console");
 
-        final Note created = Note.create(player.uuid(), nickname, author, content);
-        source.asPlayer().ifPresent(staff -> created.setAuthorUuid(staff.getUniqueId()));
-        final Note note = judicator.getNoteService().save(created);
+        final Note note = new NoteHandler(judicator).add(player, content, author,
+                source.asPlayer().map(JudicatorPlayer::getUniqueId).orElse(null));
         source.sendMessage(PunishUtils.format(messages(source), Map.of("id", String.valueOf(note.getId()), "nickname", nickname),
                 "notes", "added"));
     }

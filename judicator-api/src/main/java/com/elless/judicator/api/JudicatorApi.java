@@ -1,7 +1,15 @@
 package com.elless.judicator.api;
 
 import com.elless.judicator.api.event.EventBus;
+import com.elless.judicator.api.jail.JailDefinition;
 import com.elless.judicator.api.jail.JailView;
+import com.elless.judicator.api.note.NoteView;
+import com.elless.judicator.api.player.AccountStatus;
+import com.elless.judicator.api.player.AccountView;
+import com.elless.judicator.api.player.PlayerView;
+import com.elless.judicator.api.report.ReportStatus;
+import com.elless.judicator.api.report.ReportView;
+import com.elless.judicator.api.staff.StaffActivity;
 import com.elless.judicator.api.punishment.PunishmentRequest;
 import com.elless.judicator.api.punishment.PunishmentType;
 import com.elless.judicator.api.punishment.PunishmentView;
@@ -9,13 +17,16 @@ import com.elless.judicator.api.warn.WarnRequest;
 import com.elless.judicator.api.warn.WarnView;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Judicator for other plugins: look up punishments, jails and warns, apply and revoke them, and listen to what happens.
+ * Judicator for other plugins: look up punishments, jails, warns, reports, staff notes, accounts and what the staff
+ * did, apply and revoke punishments, make jails, handle reports and notes, and listen to what happens.
  * Get it with {@link JudicatorProvider#get()} (or, on Spigot/Paper, from the {@code ServicesManager}).
  *
  * <h2>Threads</h2>
@@ -142,6 +153,31 @@ public interface JudicatorApi {
     CompletableFuture<List<JailView>> getJails();
 
     /**
+     * @param name the jail's name
+     * @return everything about the jail (its places and escape routes included)
+     */
+    CompletableFuture<Optional<JailDefinition>> getJail(String name);
+
+    /**
+     * Makes a jail, or replaces the one with its name, as {@code /jails} does in game; every server sharing the database
+     * gets it ({@code sync}). Prisoners already in it stay and are held by its new places.
+     *
+     * @param jail   the jail (its rules are checked when it is built)
+     * @param author the name recorded as who made it
+     * @return {@link ActionStatus#SUCCESS} with the jail as listed, or {@link ActionStatus#FAILED}
+     */
+    CompletableFuture<ActionResult<JailView>> saveJail(JailDefinition jail, String author);
+
+    /**
+     * Deletes a jail nobody is in (no prisoner, no fugitive who would come back to it).
+     *
+     * @param name the jail's name
+     * @return {@link ActionStatus#SUCCESS} with the jail as it was, {@link ActionStatus#NOT_FOUND},
+     * {@link ActionStatus#IN_USE} or {@link ActionStatus#FAILED}
+     */
+    CompletableFuture<ActionResult<JailView>> deleteJail(String name);
+
+    /**
      * @param uniqueId the player's UUID
      * @return every punishment of the account (in force, finished, revoked, logged kicks), newest first
      */
@@ -178,6 +214,147 @@ public interface JudicatorApi {
      * @return the warn with that id
      */
     CompletableFuture<Optional<WarnView>> getWarn(long id);
+
+    // ---- accounts -----------------------------------------------------------------------------------------------
+
+    /**
+     * @param uniqueId the account's UUID
+     * @return the account when it joined a server running Judicator: its last name and when it last joined
+     */
+    CompletableFuture<Optional<PlayerView>> getPlayer(UUID uniqueId);
+
+    /**
+     * @param uniqueId the account's UUID
+     * @return the heaviest punishment it has in force
+     */
+    CompletableFuture<AccountStatus> getAccountStatus(UUID uniqueId);
+
+    /**
+     * @param name the player's name, any letter case
+     * @return the heaviest punishment the account has in force
+     */
+    CompletableFuture<AccountStatus> getAccountStatus(String name);
+
+    /**
+     * @param uniqueId the account's UUID
+     * @return the other accounts that joined from an address it used ({@code /alts}; addresses in
+     * {@code exempt-addresses} are not followed), with what each has in force
+     */
+    CompletableFuture<List<AccountView>> getAlts(UUID uniqueId);
+
+    /**
+     * @param name the player's name, any letter case
+     * @return the other accounts that joined from an address it used, with what each has in force
+     */
+    CompletableFuture<List<AccountView>> getAlts(String name);
+
+    // ---- staff --------------------------------------------------------------------------------------------------
+
+    /**
+     * What a staff member applied, newest first ({@code /blame}).
+     *
+     * @param staff  the staff member's name ({@code Console} for the console, or the name a plugin gave)
+     * @param since  only what was applied from then on; null for everything
+     * @param limit  at most this many
+     * @param offset skipping the first ones (pages)
+     * @return the punishments, whatever became of them
+     */
+    CompletableFuture<List<PunishmentView>> getPunishmentsBy(String staff, Instant since, int limit, int offset);
+
+    /**
+     * How much each staff member applied since a moment ({@code /activity}), busiest first.
+     *
+     * @param since from when
+     * @return one entry per staff member who applied anything
+     */
+    CompletableFuture<List<StaffActivity>> getStaffActivity(Instant since);
+
+    // ---- reports ------------------------------------------------------------------------------------------------
+
+    /**
+     * @param id the report id
+     * @return the report with that id
+     */
+    CompletableFuture<Optional<ReportView>> getReport(long id);
+
+    /**
+     * @param statuses which reports (e.g. {@link ReportStatus#OPEN} and {@link ReportStatus#ASSIGNED} for those waiting)
+     * @param limit    at most this many
+     * @param offset   skipping the first ones (pages)
+     * @return the reports, newest first
+     */
+    CompletableFuture<List<ReportView>> getReports(Set<ReportStatus> statuses, int limit, int offset);
+
+    /**
+     * @param statuses which reports
+     * @return how many there are
+     */
+    CompletableFuture<Integer> countReports(Set<ReportStatus> statuses);
+
+    /**
+     * @param name the reported player's name, any letter case
+     * @return how many times the account was reported (every report, closed ones included)
+     */
+    CompletableFuture<Integer> countReportsAgainst(String name);
+
+    /**
+     * Reports a player in the name of a plugin (an anticheat flag, say): stored, synced, the staff with
+     * {@code judicator.reports.notify} hear of it and the Discord webhook is called, as for {@code /report}. There is no
+     * cooldown and the player need not be online.
+     *
+     * @param reporter the name recorded as the reporter (up to {@value PunishmentRequest#NAME_MAX_LENGTH} characters)
+     * @param target   the player's name
+     * @param reason   what happened (up to 255 characters; colour codes are removed)
+     * @return {@link ActionStatus#SUCCESS} with the report; {@link ActionStatus#NOT_FOUND} for a name no account has,
+     * {@link ActionStatus#TARGET_EXEMPT} ({@code report} in {@code immune.yml}), {@link ActionStatus#ALREADY_REPORTED}
+     * (this reporter has an open one about the player) or {@link ActionStatus#FAILED}
+     */
+    CompletableFuture<ActionResult<ReportView>> report(String reporter, String target, String reason);
+
+    /**
+     * Closes a report, as {@code /reports close}; its reporter hears of it.
+     *
+     * @param id       the report id
+     * @param comment  what was done; null for nothing
+     * @param closedBy the name recorded as who closed it
+     * @return {@link ActionStatus#SUCCESS} with the report as it is now; {@link ActionStatus#NOT_FOUND},
+     * {@link ActionStatus#ALREADY_CLOSED} or {@link ActionStatus#FAILED} (it changed meanwhile)
+     */
+    CompletableFuture<ActionResult<ReportView>> closeReport(long id, String comment, String closedBy);
+
+    // ---- staff notes --------------------------------------------------------------------------------------------
+
+    /**
+     * @param uniqueId the account's UUID
+     * @return its staff notes, newest first
+     */
+    CompletableFuture<List<NoteView>> getNotes(UUID uniqueId);
+
+    /**
+     * @param name the player's name, any letter case
+     * @return the account's staff notes, newest first
+     */
+    CompletableFuture<List<NoteView>> getNotes(String name);
+
+    /**
+     * Writes a staff note about a player, as {@code /note}.
+     *
+     * @param target  the player's name
+     * @param content the text, up to 255 characters
+     * @param author  the name recorded as the author
+     * @return {@link ActionStatus#SUCCESS} with the note
+     * @throws IllegalArgumentException when the text is blank or too long, or a name is not one
+     */
+    CompletableFuture<ActionResult<NoteView>> addNote(String target, String content, String author);
+
+    /**
+     * Deletes a staff note, as {@code /delnote}.
+     *
+     * @param id        the note id
+     * @param deletedBy the name logged as who deleted it
+     * @return {@link ActionStatus#SUCCESS} with the note as it was, or {@link ActionStatus#NOT_FOUND}
+     */
+    CompletableFuture<ActionResult<NoteView>> deleteNote(long id, String deletedBy);
 
     // ---- applying -----------------------------------------------------------------------------------------------
 

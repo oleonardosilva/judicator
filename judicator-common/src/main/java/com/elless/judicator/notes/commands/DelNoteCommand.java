@@ -4,6 +4,7 @@ import com.elless.judicator.Judicator;
 import com.elless.judicator.commons.command.CommandArgs;
 import com.elless.judicator.commons.command.CoreCommand;
 import com.elless.judicator.notes.Note;
+import com.elless.judicator.notes.NoteHandler;
 import com.elless.judicator.platform.JudicatorSender;
 import com.elless.judicator.punish.PunishUtils;
 import com.elless.judicator.punish.types.PunishPermissions;
@@ -33,9 +34,7 @@ public class DelNoteCommand extends CoreCommand {
             source.sendMessage(PunishUtils.getMessage(messages(source), "notes", "not-found"));
             return;
         }
-        judicator.getNoteService().deleteById(id.get());
-        judicator.getLogger().info("{} deleted note #{} about {} by {}: {}", source.getName(), id.get(),
-                note.get().getNickname(), note.get().getAuthor(), note.get().getContent());
+        new NoteHandler(judicator).delete(note.get(), source.getName());
         source.sendMessage(PunishUtils.format(messages(source), Map.of("id", String.valueOf(id.get()),
                 "nickname", note.get().getNickname()), "notes", "deleted"));
     }
