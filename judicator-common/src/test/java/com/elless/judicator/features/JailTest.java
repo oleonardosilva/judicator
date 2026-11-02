@@ -391,6 +391,24 @@ class JailTest {
     }
 
     @Test
+    void aReasonCanNameItsJail() {
+        start(TestServer.in(folder).set("reasons.griefing", java.util.Map.of("reason", "Griefing", "steps", List.of(
+                java.util.Map.of("type", "TEMPMUTE", "duration", "1:h"),
+                java.util.Map.of("type", "TEMPJAIL", "duration", "1:h", "jail", "solitary")))));
+        makeJail("cell", CELL);
+        makeJail("solitary", new Location("world", 200.5, 64, 200.5, 0, 0));
+        final FakePlayer steve = server.online(new FakePlayer("Steve", "10.0.0.1"));
+
+        server.command(server.console, "punish Steve Griefing");
+        server.command(server.console, "punish Steve Griefing");
+
+        final Punishment jail = server.punishments.findAllByUsername("Steve").stream()
+                .filter(Punishment::isJailType).findFirst().orElseThrow();
+        assertEquals("solitary", jail.getJail().orElseThrow(), "the second step jails, in its own jail");
+        assertEquals(new Location("world", 200.5, 64, 200.5, 0, 0), server.platform.where(steve));
+    }
+
+    @Test
     void anEscapeRouteCannotReachTheSpawn() {
         start(TestServer.in(folder));
         makeJail("cell", CELL);

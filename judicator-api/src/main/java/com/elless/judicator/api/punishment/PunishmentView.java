@@ -31,6 +31,10 @@ import java.util.UUID;
  * @param pausedRemaining what is left of an online-only mute while the player is offline (its time is stopped)
  * @param scope           where it applies: empty for every server, else {@code server:<name>} or {@code group:<name>}
  *                        (a group of {@code scopes.groups} in {@code config.yml})
+ * @param jail            the jail of a {@link PunishmentType#JAIL}/{@link PunishmentType#TEMPJAIL}; empty for the other
+ *                        types
+ * @param escapedAt       when the prisoner escaped: a fugitive until {@code endsAt}, unless a guard catches them;
+ *                        empty while in jail and for the other types
  */
 public record PunishmentView(long id,
                              PunishmentType type,
@@ -48,7 +52,9 @@ public record PunishmentView(long id,
                              boolean soft,
                              boolean onlineOnly,
                              Optional<Duration> pausedRemaining,
-                             Optional<String> scope) {
+                             Optional<String> scope,
+                             Optional<String> jail,
+                             Optional<Instant> escapedAt) {
 
     public PunishmentView {
         Objects.requireNonNull(type, "type");
@@ -63,6 +69,8 @@ public record PunishmentView(long id,
         Objects.requireNonNull(revokedReason, "revokedReason");
         Objects.requireNonNull(pausedRemaining, "pausedRemaining");
         Objects.requireNonNull(scope, "scope");
+        Objects.requireNonNull(jail, "jail");
+        Objects.requireNonNull(escapedAt, "escapedAt");
         evidences = List.copyOf(evidences);
     }
 
@@ -81,7 +89,14 @@ public record PunishmentView(long id,
     }
 
     /**
-     * @return whether it is an online-only mute whose time is stopped because the player is offline
+     * @return whether it is a jail in force whose prisoner escaped and was not caught (yet)
+     */
+    public boolean isFugitive() {
+        return isActive() && escapedAt.isPresent();
+    }
+
+    /**
+     * @return whether it is an online-only mute or jail whose time is stopped because the player is offline
      */
     public boolean isPaused() {
         return pausedRemaining.isPresent();

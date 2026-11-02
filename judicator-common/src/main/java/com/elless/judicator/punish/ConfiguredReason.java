@@ -39,7 +39,7 @@ public class ConfiguredReason {
 
         if (steps.isEmpty()) {
             final String duration = node.node("duration").isNull() ? null : node.node("duration").getString();
-            steps.add(new Step(PunishType.valueOf(node.node("type").getString()), duration));
+            steps.add(new Step(PunishType.valueOf(node.node("type").getString()), duration, node.node("jail").getString()));
         }
 
         reason.steps = List.copyOf(steps);
@@ -61,12 +61,19 @@ public class ConfiguredReason {
         return steps.get(index);
     }
 
-    public record Step(PunishType type, String duration) {
+    /**
+     * @param jail the jail of a JAIL/TEMPJAIL step ({@code jail:}); null for the first with room
+     */
+    public record Step(PunishType type, String duration, String jail) {
+
+        public Step(PunishType type, String duration) {
+            this(type, duration, null);
+        }
 
         static Step from(ConfigurationNode node) {
             final PunishType type = PunishType.valueOf(node.node("type").getString());
             final String duration = node.node("duration").isNull() ? null : node.node("duration").getString();
-            return new Step(type, duration);
+            return new Step(type, duration, node.node("jail").getString());
         }
 
         public boolean isPermanent() {

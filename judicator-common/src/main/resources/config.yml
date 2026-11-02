@@ -32,11 +32,12 @@ log-kicks: false # true: /kick is stored in the punishment history (/phistory, /
 # Predefined reasons for /punish <player>, also usable in any command as #<key> (/ban Steve #reason2 x-ray).
 #   reason: the text stored as the punishment's reason
 #   permission: needed to use it when require-reason-permission is true (judicator.admin always can)
-#   type: BAN, TEMPBAN, MUTE or TEMPMUTE      duration: for TEMPBAN/TEMPMUTE
+#   type: BAN, TEMPBAN, MUTE, TEMPMUTE, JAIL or TEMPJAIL      duration: for TEMPBAN/TEMPMUTE/TEMPJAIL
+#   jail: for JAIL/TEMPJAIL, the jail (/jails); without it, the first with room (-jail= in the command wins)
 #   ip: true punishes the player's IP address instead of the account
 #   icon: the item that shows it in the /punish menu (an item id, e.g. tnt); without it, the item of its type
-#   steps: progressive punishment instead of type/duration — the 1st offence uses the 1st step, the 2nd the 2nd...
-#          and the last step repeats from then on
+#   steps: progressive punishment instead of type/duration (and jail) — the 1st offence uses the 1st step, the 2nd
+#          the 2nd... and the last step repeats from then on; e.g. a TEMPMUTE, then a TEMPJAIL with jail: solitary
 require-reason-permission: false
 reasons:
   reason1: # 1st time 7 days and 2 hours, 2nd time 30 days, from the 3rd time on permanent

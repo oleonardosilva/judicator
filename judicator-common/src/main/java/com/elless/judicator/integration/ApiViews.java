@@ -54,7 +54,9 @@ public final class ApiViews {
                 punishment.isSoft(),
                 punishment.isOnlineOnly(),
                 Optional.ofNullable(punishment.getPausedRemaining()).map(Duration::ofMillis),
-                punishment.getScope());
+                punishment.getScope(),
+                punishment.getJail(),
+                punishment.getEscapedAt().map(ApiViews::instant));
     }
 
     public static WarnView warn(Warn warn) {

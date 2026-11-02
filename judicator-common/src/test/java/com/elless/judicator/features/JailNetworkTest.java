@@ -136,6 +136,27 @@ class JailNetworkTest {
     }
 
     @Test
+    void theProxyLimitsTheCommandsOfItsOwnToo() {
+        final FakePlayer steve = new FakePlayer("Steve", "10.0.0.1");
+        proxy.online(steve);
+        assertEquals(TestServer.Outcome.ALLOWED, proxy.playerCommand(steve, "party invite Alex"));
+
+        proxy.command(proxy.console, "jail Steve griefing");
+
+        assertEquals(TestServer.Outcome.BLOCKED_MUTED, proxy.playerCommand(steve, "party invite Alex"));
+        assertTrue(steve.received("Prisoners cannot use this command."), steve.messages().toString());
+        assertEquals(TestServer.Outcome.ALLOWED, proxy.playerCommand(steve, "msg Alex help"));
+
+        // known again after a reconnection
+        proxy.quit(steve);
+        proxy.online(steve);
+        assertEquals(TestServer.Outcome.BLOCKED_MUTED, proxy.playerCommand(steve, "party invite Alex"));
+
+        proxy.command(proxy.console, "unjail Steve");
+        assertEquals(TestServer.Outcome.ALLOWED, proxy.playerCommand(steve, "party invite Alex"));
+    }
+
+    @Test
     void unjailOnTheProxy_freesThePrisonerOnThePrison() {
         final FakePlayer steve = new FakePlayer("Steve", "10.0.0.1");
         proxy.online(steve);

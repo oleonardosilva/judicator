@@ -1,6 +1,9 @@
 package com.elless.judicator.jails;
 
 import com.elless.judicator.Judicator;
+import com.elless.judicator.api.event.PrisonerCaughtEvent;
+import com.elless.judicator.api.event.PrisonerEscapedEvent;
+import com.elless.judicator.integration.ApiViews;
 import com.elless.judicator.commons.DateTimeOffsetParser;
 import com.elless.judicator.jails.repository.JailRepository;
 import com.elless.judicator.platform.JudicatorPlayer;
@@ -57,6 +60,8 @@ public class JailService {
     private final Judicator judicator;
     private final JailRepository repository;
     private final Map<UUID, Inmate> inmates = new ConcurrentHashMap<>();
+    /** proxy: the jail of each prisoner online on the network (not fugitives), for the commands of the proxy itself */
+    private final Map<UUID, Punishment> networkPrisoners = new ConcurrentHashMap<>();
     private volatile Map<String, Jail> jails = Map.of();
     private volatile Settings settings;
     private PlatformTask checkTask;
@@ -281,6 +286,10 @@ public class JailService {
      * A jail was applied, here or (sync) on another instance: its prisoner, when online here, is taken to it.
      */
     public void punished(Punishment punishment) {
+        if (onProxy()) {
+            remember(punishment);
+            return;
+        }
         if (!holdsPrisoners()) return;
         judicator.getPunishmentEffects().onlineTarget(punishment).ifPresent(player -> track(player, punishment));
     }
@@ -290,10 +299,14 @@ public class JailService {
      * standing in a jail without being in one (it ended while they were away) is let out.
      */
     public void joined(JudicatorPlayer player) {
-        if (!holdsPrisoners()) return;
+        if (!holdsPrisoners() && !onProxy()) return;
         final Optional<Punishment> jail = judicator.getPunishService()
                 .findAllActiveOf(judicator.getPlayerDirectory().refOf(player), PunishType.JAIL, PunishType.TEMPJAIL).stream()
                 .min(Comparator.comparing(Punishment::isEscaped));
+        if (onProxy()) {
+            jail.filter(punishment -> !punishment.isEscaped()).ifPresent(punishment -> networkPrisoners.put(player.getUniqueId(), punishment));
+            return;
+        }
         if (jail.isPresent()) {
             track(player, jail.get());
             return;
@@ -309,6 +322,35 @@ public class JailService {
 
     public void left(UUID player) {
         inmates.remove(player);
+        networkPrisoners.remove(player);
+    }
+
+    private boolean onProxy() {
+        return platform().getType().isProxy();
+    }
+
+    /**
+     * Proxy: a jail of a player online on the network, as it is now: kept while it holds them, forgotten otherwise.
+     */
+    private void remember(Punishment punishment) {
+        if (!punishment.isJailType()) return;
+        networkPrisoners.values().removeIf(known -> known.getId().equals(punishment.getId()));
+        if (punishment.getStatus() != PunishStatus.ACTIVE || punishment.isEscaped()) return;
+        judicator.getPunishmentEffects().onlineTarget(punishment)
+                .ifPresent(player -> networkPrisoners.put(player.getUniqueId(), punishment));
+    }
+
+    private void forget(long id) {
+        networkPrisoners.values().removeIf(known -> known.getId() == id);
+    }
+
+    /**
+     * Whether the player's commands are limited: in jail here, or, on a proxy, in jail on the network.
+     */
+    private boolean isPrisoner(JudicatorPlayer player) {
+        if (!onProxy()) return isPrisonerHere(player);
+        final Punishment jail = networkPrisoners.get(player.getUniqueId());
+        return jail != null && jail.getStatus() == PunishStatus.ACTIVE && !jail.isEscaped();
     }
 
     /**
@@ -353,6 +395,10 @@ public class JailService {
      * A jail changed: a new end ({@code /extend}, a pause or resume), an escape or a catch (here or elsewhere).
      */
     public void refreshed(Punishment stored) {
+        if (onProxy()) {
+            remember(stored);
+            return;
+        }
         if (!stored.isJailType() || !holdsPrisoners()) return;
         final Optional<Inmate> inmate = inmateOf(stored);
         if (inmate.isEmpty()) {
@@ -369,6 +415,7 @@ public class JailService {
      * A jail was revoked: its prisoner, when online here, goes out.
      */
     public void released(Punishment punishment) {
+        forget(punishment.getId());
         if (!holdsPrisoners()) return;
         inmateOf(punishment).ifPresent(inmate -> {
             inmates.remove(inmate.player.getUniqueId(), inmate);
@@ -380,6 +427,7 @@ public class JailService {
      * A punishment was deleted ({@code /judicator clear}, here or elsewhere): a prisoner it held goes out.
      */
     public void deleted(long id) {
+        forget(id);
         if (!holdsPrisoners()) return;
         inmates.values().stream().filter(inmate -> inmate.punishment.getId() == id).findFirst().ifPresent(inmate -> {
             inmates.remove(inmate.player.getUniqueId(), inmate);
@@ -511,6 +559,7 @@ public class JailService {
                 inmate.player.sendMessage(PunishUtils.getMessage(messages, "jail", "free"));
             }
             notifyStaff(punishment, "jail-escaped", null);
+            judicator.getEventBus().post(() -> new PrisonerEscapedEvent(ApiViews.punishment(punishment)));
         } finally {
             inmate.busy.set(false);
         }
@@ -539,6 +588,7 @@ public class JailService {
         inmate.player.sendMessage(PunishUtils.format(judicator.messagesFor(inmate.player), Map.of("guard", guard.getName()), "jail", "captured"));
         guard.sendMessage(PunishUtils.format(judicator.messagesFor(guard), Map.of("nickname", inmate.player.getName()), "jail", "capture"));
         notifyStaff(punishment, "jail-caught", guard.getName());
+        judicator.getEventBus().post(() -> new PrisonerCaughtEvent(ApiViews.punishment(punishment), guard.getName()));
     }
 
     /**
@@ -598,13 +648,14 @@ public class JailService {
     }
 
     /**
-     * A command a prisoner runs: only {@code jail.allowed-commands} while in jail here.
+     * A command a prisoner runs: only {@code jail.allowed-commands} while in jail here, or, on a proxy, while in jail
+     * anywhere on the network (the commands of the proxy itself: those of the game server are checked there).
      *
      * @param label the command, lower case, without slash nor namespace
      * @return whether it is blocked (the player was told)
      */
     public boolean blocksCommand(JudicatorPlayer player, String label) {
-        if (!isPrisonerHere(player) || settings.allowedCommands().contains(label)) return false;
+        if (!isPrisoner(player) || settings.allowedCommands().contains(label)) return false;
         player.sendMessage(PunishUtils.getMessage(judicator.messagesFor(player), "jail", "command"));
         return true;
     }

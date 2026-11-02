@@ -256,7 +256,8 @@ NeoForge and Forge mods (not on Hytale).
 | `/jails server (jail) (server\|none)` | The server it is on, as the proxy calls it (set from `scopes.server-name` when made) |
 | `/jails info (jail)`, `/jails list`, `/jails tp (jail)`, `/jails delete (jail)` | |
 
-**Inside**, prisoners can only run `jail.allowed-commands` (`/msg`, `/tell`, `/r`, `/helpop` by default), cannot break
+**Inside**, prisoners can only run `jail.allowed-commands` (`/msg`, `/tell`, `/r`, `/helpop` by default; an empty list
+`[]` blocks every command) — on the game server and, in a network, the proxy's own commands too —, cannot break
 or place blocks, hit anyone or be hit (`jail.rules`). Their position is checked every `jail.check-interval`
 milliseconds (250): a prisoner who walks or digs out of the area is **caught** and gets `jail.escape.caught-penalty`
 more (`/tempjail`); one who got out in another way (an ender pearl, a teleport, a respawn) is just brought back.
@@ -266,6 +267,10 @@ more (`/tempjail`); one who got out in another way (an ender pearl, a teleport, 
 `judicator.jail.guard`) who hits them takes them back to jail with the time they had left and the penalty. When the
 time is over they are free and the jail ends. `fugitive-time: "0"` frees an escaped prisoner at once. Staff with
 `judicator.jail.notify` hear of escapes and catches.
+
+**`/punish` reasons** can jail too: `type: JAIL` or `TEMPJAIL` (with `duration`), alone or as a step, and an optional
+`jail: (name)` (otherwise the first jail with room; `-jail=` in the command wins). For instance a `TEMPMUTE` the first
+time and a `TEMPJAIL` in the solitary cell the second.
 
 > **Networks.** A jail is on one game server, but only the proxy can send a prisoner to that server and keep them
 > there. **Jails need Judicator on the proxy too**: `sync.enabled` everywhere; on the game servers `proxy-mode: true`
@@ -812,7 +817,10 @@ Rules worth knowing (details in the Javadoc of `JudicatorApi` and `JudicatorEven
   `punisher` is any name you choose (up to 20 characters, no spaces). Exemptions still apply: players in `immune.yml`
   and addresses in `exempt-addresses` are refused with a status, not an exception.
 * `PunishmentRequest` covers IP, silent, soft, online-only, jail (`JAIL`/`TEMPJAIL`, with an optional jail name) and
-  evidence options; `WarnRequest` covers temporary warns. `unjail` lets a player out.
+  evidence options; `WarnRequest` covers temporary warns.
+* Jails: `jail`/`tempjail`/`unjail`, `getActiveJail`/`isJailed` (a fugitive is not jailed:
+  `PunishmentView.isFugitive()`, with `jail()` and `escapedAt()`), `getJails()` (name, server, room, prisoners) and the
+  events `PrisonerEscapedEvent` and `PrisonerCaughtEvent` (with the guard). Refusals: `NO_JAIL`, `ALREADY_JAILED`.
 * Events are posted after the change is stored, on the thread that made it (usually not the server thread), and only
   on the server where it was made, not on the servers that learn about it through `sync`. A listener that throws is
   logged and never stops a punishment. There is no cancellable "before" event.

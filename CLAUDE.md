@@ -115,7 +115,7 @@ the staff rules treat as the console, but `ImmuneCache`/`AddressPolicy` exemptio
 and `ApiViews` (core model → API views, `LocalDateTime` → `Instant`). `Judicator.enable()` registers the API in
 `JudicatorProvider`; `disable()` clears it. Events are posted, after the change is stored and only on the instance
 that made it (never from `SyncService`), by `PunishFactory`, `KickHandler`, `WarnHandler`, `RevokeHandler`,
-`UnwarnHandler` and `EditPunishmentCommand`: a new way of applying or revoking must go through those handlers.
+`UnwarnHandler`, `EditPunishmentCommand` and `JailService` (`PrisonerEscapedEvent`, `PrisonerCaughtEvent`): a new way of applying or revoking must go through those handlers.
 
 `placeholders/PlaceholderService` builds `%judicator_...%` from the API alone: a Caffeine cache of each player's ban,
 mute, history and warns, loaded on the first request and refreshed every 30 s and on the API events, so a placeholder
@@ -164,7 +164,8 @@ teleport, escape or catch is under way) and checks each one on their own thread 
 the area (within `WALK_STEP` of where they were last seen inside) is a catch with `jail.escape.caught-penalty`, any
 other way out (teleport, respawn) just brings them back; an ended jail lets them out (`served`). The hooks the
 platforms call: `mayBreak`, `mayPlace`, `allowAttack` (a guard hitting a fugitive is `capture`, `JAIL_CAUGHT`) and,
-through `ChatHandler.shouldBlockCommand`, `blocksCommand`. Escapes and catches are stored on the game server, which
+through `ChatHandler.shouldBlockCommand`, `blocksCommand` (on a proxy, from `networkPrisoners`, the jails of the players
+online on the network kept by the same calls, for the commands of the proxy itself). Escapes and catches are stored on the game server, which
 also does the physical part behind a proxy (`proxy-mode`); the proxy (`prisonServer`, read from the database) sends
 prisoners to their jail's server when jailed, at `chooseInitialServer`, `checkArrival` and on `JAIL_CAUGHT`, and
 `checkServerSwitch` keeps them there. Staff notices follow the punishment rule: the proxy tells, a backend in proxy

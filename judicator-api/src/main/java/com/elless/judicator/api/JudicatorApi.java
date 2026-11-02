@@ -1,6 +1,7 @@
 package com.elless.judicator.api;
 
 import com.elless.judicator.api.event.EventBus;
+import com.elless.judicator.api.jail.JailView;
 import com.elless.judicator.api.punishment.PunishmentRequest;
 import com.elless.judicator.api.punishment.PunishmentType;
 import com.elless.judicator.api.punishment.PunishmentView;
@@ -14,7 +15,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Judicator for other plugins: look up punishments and warns, apply and revoke them, and listen to what happens.
+ * Judicator for other plugins: look up punishments, jails and warns, apply and revoke them, and listen to what happens.
  * Get it with {@link JudicatorProvider#get()} (or, on Spigot/Paper, from the {@code ServicesManager}).
  *
  * <h2>Threads</h2>
@@ -109,6 +110,39 @@ public interface JudicatorApi {
 
     /**
      * @param uniqueId the player's UUID
+     * @return the jail in force for the account, a fugitive's included ({@link PunishmentView#isFugitive()})
+     */
+    CompletableFuture<Optional<PunishmentView>> getActiveJail(UUID uniqueId);
+
+    /**
+     * @param name the player's name, any letter case
+     * @return the jail in force for the account, a fugitive's included ({@link PunishmentView#isFugitive()})
+     */
+    CompletableFuture<Optional<PunishmentView>> getActiveJail(String name);
+
+    /**
+     * @param uniqueId the player's UUID
+     * @return whether the account is in jail now (a fugitive is not)
+     */
+    default CompletableFuture<Boolean> isJailed(UUID uniqueId) {
+        return getActiveJail(uniqueId).thenApply(jail -> jail.filter(view -> !view.isFugitive()).isPresent());
+    }
+
+    /**
+     * @param name the player's name, any letter case
+     * @return whether the account is in jail now (a fugitive is not)
+     */
+    default CompletableFuture<Boolean> isJailed(String name) {
+        return getActiveJail(name).thenApply(jail -> jail.filter(view -> !view.isFugitive()).isPresent());
+    }
+
+    /**
+     * @return the jails made with {@code /jails}, by name, with how many prisoners each holds
+     */
+    CompletableFuture<List<JailView>> getJails();
+
+    /**
+     * @param uniqueId the player's UUID
      * @return every punishment of the account (in force, finished, revoked, logged kicks), newest first
      */
     CompletableFuture<List<PunishmentView>> getPunishmentHistory(UUID uniqueId);
@@ -154,7 +188,8 @@ public interface JudicatorApi {
      *
      * @param request what to apply
      * @return {@link ActionStatus#SUCCESS} with the stored punishment; {@link ActionStatus#TARGET_EXEMPT},
-     * {@link ActionStatus#ADDRESS_EXEMPT}, {@link ActionStatus#ADDRESS_UNKNOWN} or {@link ActionStatus#FAILED}
+     * {@link ActionStatus#ADDRESS_EXEMPT}, {@link ActionStatus#ADDRESS_UNKNOWN}, for jails {@link ActionStatus#NO_JAIL}
+     * or {@link ActionStatus#ALREADY_JAILED}, or {@link ActionStatus#FAILED}
      */
     CompletableFuture<ActionResult<PunishmentView>> punish(PunishmentRequest request);
 
@@ -210,6 +245,34 @@ public interface JudicatorApi {
      */
     default CompletableFuture<ActionResult<PunishmentView>> tempmute(String target, Duration duration, String reason, String punisher) {
         return punish(PunishmentRequest.builder(PunishmentType.TEMPMUTE, target).duration(duration).reason(reason).punisher(punisher).build());
+    }
+
+    /**
+     * Sends an account to jail for good, in the first jail with room ({@link PunishmentRequest.Builder#jail} picks one).
+     *
+     * @param target   the player's name
+     * @param reason   the reason; null for none
+     * @param punisher the name recorded as the author
+     * @return see {@link #punish(PunishmentRequest)}
+     * @throws IllegalArgumentException when a value cannot be stored (see {@link PunishmentRequest})
+     */
+    default CompletableFuture<ActionResult<PunishmentView>> jail(String target, String reason, String punisher) {
+        return punish(PunishmentRequest.builder(PunishmentType.JAIL, target).reason(reason).punisher(punisher).build());
+    }
+
+    /**
+     * Sends an account to jail for a while, in the first jail with room. The time only runs while the prisoner is
+     * online when {@code jail.online-only} is on (the default).
+     *
+     * @param target   the player's name
+     * @param duration how long
+     * @param reason   the reason; null for none
+     * @param punisher the name recorded as the author
+     * @return see {@link #punish(PunishmentRequest)}
+     * @throws IllegalArgumentException when a value cannot be stored (see {@link PunishmentRequest})
+     */
+    default CompletableFuture<ActionResult<PunishmentView>> tempjail(String target, Duration duration, String reason, String punisher) {
+        return punish(PunishmentRequest.builder(PunishmentType.TEMPJAIL, target).duration(duration).reason(reason).punisher(punisher).build());
     }
 
     /**

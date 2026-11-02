@@ -21,6 +21,7 @@ import com.elless.judicator.punish.handlers.PunishFactory;
 import com.elless.judicator.punish.handlers.RevokeHandler;
 import com.elless.judicator.punish.rules.PunishCooldown;
 import com.elless.judicator.punish.types.PunishType;
+import com.elless.judicator.api.jail.JailView;
 import com.elless.judicator.jails.JailService;
 import com.elless.judicator.warns.Warn;
 import com.elless.judicator.warns.WarnBuilder;
@@ -43,6 +44,7 @@ public class JudicatorApiService implements JudicatorApi {
 
     private static final PunishType[] BANS = {PunishType.BAN, PunishType.TEMPBAN};
     private static final PunishType[] MUTES = {PunishType.MUTE, PunishType.TEMPMUTE};
+    private static final PunishType[] JAILS = {PunishType.JAIL, PunishType.TEMPJAIL};
     private static final Comparator<Punishment> NEWEST_FIRST = Comparator.comparing(Punishment::getStartedAt)
             .thenComparing(Punishment::getId).reversed();
     private static final Comparator<Warn> NEWEST_WARN_FIRST = Comparator.comparing(Warn::getStartedAt)
@@ -87,6 +89,33 @@ public class JudicatorApiService implements JudicatorApi {
     public CompletableFuture<Optional<PunishmentView>> getActiveMute(String name) {
         Objects.requireNonNull(name, "name");
         return async(() -> heaviest(judicator.getPunishService().findAllActiveOf(judicator.getPlayerDirectory().resolve(name), MUTES)));
+    }
+
+    @Override
+    public CompletableFuture<Optional<PunishmentView>> getActiveJail(UUID uniqueId) {
+        Objects.requireNonNull(uniqueId, "uniqueId");
+        return async(() -> jailOf(judicator.getPunishService().findAllActiveOf(judicator.getPlayerDirectory().refOf(uniqueId), JAILS)));
+    }
+
+    @Override
+    public CompletableFuture<Optional<PunishmentView>> getActiveJail(String name) {
+        Objects.requireNonNull(name, "name");
+        return async(() -> jailOf(judicator.getPunishService().findAllActiveOf(judicator.getPlayerDirectory().resolve(name), JAILS)));
+    }
+
+    /**
+     * The jail that holds the player, before one they escaped from.
+     */
+    private static Optional<PunishmentView> jailOf(List<Punishment> active) {
+        return active.stream().min(Comparator.comparing(Punishment::isEscaped)).map(ApiViews::punishment);
+    }
+
+    @Override
+    public CompletableFuture<List<JailView>> getJails() {
+        return async(() -> judicator.getJailService().all().stream()
+                .map(jail -> new JailView(jail.name(), Optional.of(jail.server()).filter(server -> !server.isEmpty()), jail.shared(),
+                        jail.capacity(), judicator.getJailService().occupants(jail), jail.escapes().size()))
+                .toList());
     }
 
     private static Optional<PunishmentView> heaviest(List<Punishment> active) {
