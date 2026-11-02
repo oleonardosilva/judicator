@@ -34,6 +34,11 @@ labels: # names of the embed fields, and texts for what has no value
   report: "Report" # the type shown for player reports
   reporter: "Reported by"
   server: "Server" # where the reported player was
+  revoked-by: "Revoked by"
+  revoke-reason: "Revocation reason"
+  edited-by: "Changed by"
+  change: "Change"
+  removed-by: "Removed by"
 
 events:
   ban:
@@ -84,6 +89,31 @@ events:
     title: "⚠️ Warning Issued"
     description: "Player **{player}** received a warning from **{punisher}**."
     # webhook-url: "" # e.g. warns in a channel of their own
+
+  # What changes a punishment afterwards, so the channel is a full record of the staff's actions.
+  revoke: # /unban, /unmute, /unjail, /revoke and the API, one embed per punishment revoked
+    enabled: true
+    color: "#2ECC71"
+    title: "🔓 Punishment Revoked"
+    description: "The {type} of **{player}** (#{id}) was revoked by **{revoker}**."
+
+  edit: # /extend and /changereason
+    enabled: true
+    color: "#3498DB"
+    title: "✏️ Punishment Changed"
+    description: "**{author}** changed the {type} #{id} of **{player}**: {change}."
+
+  unwarn: # /unwarn and the API delete the warn, so this embed is the only record left of it
+    enabled: true
+    color: "#95A5A6"
+    title: "🧹 Warning Removed"
+    description: "The warning #{id} of **{player}** was removed by **{revoker}**."
+
+  rollback: # /staffrollback, one embed for the whole rollback
+    enabled: true
+    color: "#E67E22"
+    title: "⏪ Staff Rollback"
+    description: "**{author}** undid what **{staff}** applied in the last {period}: {punishments} punishment(s) revoked, {warns} warning(s) deleted."
 
   staff-locked: # a staff member went past staff-rate-limit.max (config.yml) and was locked out of punishing
     enabled: true

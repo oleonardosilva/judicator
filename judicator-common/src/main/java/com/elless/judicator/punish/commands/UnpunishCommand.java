@@ -3,11 +3,12 @@ package com.elless.judicator.punish.commands;
 import com.elless.judicator.Judicator;
 import com.elless.judicator.commons.command.CommandArgs;
 import com.elless.judicator.commons.command.CoreCommand;
-import com.elless.judicator.platform.JudicatorPlayer;
 import com.elless.judicator.platform.JudicatorSender;
 import com.elless.judicator.punish.PunishUtils;
 import com.elless.judicator.punish.Punishment;
+import com.elless.judicator.punish.Revocation;
 import com.elless.judicator.punish.handlers.RevokeHandler;
+import com.elless.judicator.punish.rules.StaffRateLimit;
 import com.elless.judicator.punish.types.PunishPermissions;
 import org.spongepowered.configurate.ConfigurationNode;
 
@@ -45,8 +46,10 @@ public class UnpunishCommand extends CoreCommand {
         if (silent && !silentAllowed(source)) return;
 
         final ConfigurationNode messages = messages(source);
-        final String author = source.asPlayer().map(JudicatorPlayer::getName).orElse("Console");
-        final RevokeHandler.ActiveRevocation revocation = new RevokeHandler(judicator).revokeActive(targetName, kind, reason, author, silent);
+        if (!judicator.getStaffRateLimit().acquire(source, StaffRateLimit.REVOKE)) return;
+        final RevokeHandler.ActiveRevocation revocation = new RevokeHandler(judicator)
+                .revokeActive(targetName, kind, Revocation.now(reason, source), silent);
+        if (revocation.revoked().isEmpty()) judicator.getStaffRateLimit().release(source, StaffRateLimit.REVOKE);
         if (!revocation.found()) {
             source.sendMessage(PunishUtils.getMessage(messages, "error", switch (kind) {
                 case BAN -> "not-banned";

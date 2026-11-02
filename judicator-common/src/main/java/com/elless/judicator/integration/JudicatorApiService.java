@@ -15,6 +15,7 @@ import com.elless.judicator.punish.PlayerAddress;
 import com.elless.judicator.punish.PunishService;
 import com.elless.judicator.punish.Punishment;
 import com.elless.judicator.punish.PunishmentBuilder;
+import com.elless.judicator.punish.Revocation;
 import com.elless.judicator.punish.data.cache.ImmuneCache;
 import com.elless.judicator.punish.handlers.KickHandler;
 import com.elless.judicator.punish.handlers.PunishFactory;
@@ -318,7 +319,7 @@ public class JudicatorApiService implements JudicatorApi {
             final Punishment punishment = found.get();
             if (punishment.isRevoked()) return ActionResult.failure(ActionStatus.ALREADY_REVOKED);
             final String stored = reason == null ? "" : reason;
-            if (new RevokeHandler(judicator).revoke(List.of(punishment), stored, revokedBy, true).isEmpty()) {
+            if (new RevokeHandler(judicator).revoke(List.of(punishment), Revocation.now(stored, revokedBy, null)).isEmpty()) {
                 return ActionResult.failure(ActionStatus.FAILED);
             }
             return ActionResult.success(ApiViews.revoked(punishment, stored));
@@ -346,7 +347,7 @@ public class JudicatorApiService implements JudicatorApi {
         return async(() -> {
             final String stored = reason == null ? "" : reason;
             final RevokeHandler.ActiveRevocation revocation = new RevokeHandler(judicator)
-                    .revokeActive(target, kind, stored, revokedBy, false);
+                    .revokeActive(target, kind, Revocation.now(stored, revokedBy, null), false);
             if (!revocation.found()) return ActionResult.failure(ActionStatus.NOT_FOUND);
             if (revocation.revoked().isEmpty()) return ActionResult.failure(ActionStatus.FAILED);
             return ActionResult.success(revocation.revoked().stream()
@@ -361,7 +362,7 @@ public class JudicatorApiService implements JudicatorApi {
         return async(() -> {
             final Optional<Warn> warn = judicator.getWarnService().findById(id);
             if (warn.isEmpty()) return ActionResult.failure(ActionStatus.NOT_FOUND);
-            new UnwarnHandler(judicator).remove(warn.get(), revokedBy, true);
+            new UnwarnHandler(judicator).remove(warn.get(), revokedBy);
             return ActionResult.success(ApiViews.warn(warn.get()));
         });
     }

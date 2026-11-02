@@ -68,6 +68,7 @@ status:
   active: "Ativo"
   revoked: "Revogado"
 permanent: "Permanente"
+revoked-by: "&7 (por {author}, {date})" # {revokedBy}: who revoked a punishment and when (nothing while in force)
 scope:
   global: "todos os servidores"
 paused: "&efaltam {remaining} de tempo online"
@@ -214,7 +215,7 @@ runners:
     - "&c * Fim: {finishAt}\n"
     - "&c * Autor: {author}\n"
     - "&c * Status: {status}\n"
-    - "&c * Revogado: {revoked}\n"
+    - "&c * Revogado: {revoked}{revokedBy}\n"
     - "&c * Motivo da Revogação: {revokedReason}\n"
     - "&c * Evidência: {evidence}\n"
   warn-view:
@@ -953,7 +954,7 @@ menu:
         - "&7Onde: &f{scope}"
         - "&7Evidências: &f{evidence}"
         - "&7IP: &f{addressIP}"
-        - "&7Revogada: &f{revoked} &7- &f{revokedReason}"
+        - "&7Revogada: &f{revoked}{revokedBy} &7- &f{revokedReason}"
     player:
       name: "&eJogador: &f{nickname}"
       lore:

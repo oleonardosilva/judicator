@@ -423,6 +423,10 @@ time and a `TEMPJAIL` in the solitary cell the second.
   Lets the player out of jail.
   **Permission:** `judicator.unjail`
 
+A revoked punishment stays in the history with who revoked it and when, shown by `/punishview` and the menus
+(`{revokedBy}` in the messages); records revoked by older versions or imported from other plugins have only the reason.
+A removed warn is deleted, so the Discord embed (`events.unwarn`) is what is left of it.
+
 * **`/blame (staff) {period} {page}`**
   Lists the punishments applied by a staff member, newest first (10 per page). With a period (`7:d`, `24:h`), only
   the ones applied within it. Alias: `/staffhistory`.
@@ -497,8 +501,13 @@ time and a `TEMPJAIL` in the solitary cell the second.
 Set `enabled: true` and `webhook-url` in `discord.yml` and every ban, mute, kick and warn is posted to that channel as
 an embed (once, by the server that applied it). An event can post to another channel with its own `webhook-url`, or
 be turned off with `enabled: false`. Title, description and colour are set per event; the author's name and picture,
-the player picture, the footer and the field names (to translate them) are shared by all. `events.staff-locked` warns
-when the [staff rate limit](#%EF%B8%8F-time-limits-and-cooldowns) locks a staff member out of punishing.
+the player picture, the footer and the field names (to translate them) are shared by all.
+
+What changes a punishment afterwards is posted too, so the channel is a full record of the staff's actions:
+`events.revoke` (`/unban`, `/unmute`, `/unjail`, `/revoke`, the API: who revoked and why), `events.edit` (`/extend`,
+`/changereason`), `events.unwarn` and `events.rollback` (one embed per `/staffrollback`, not one per punishment it
+undoes). `events.staff-locked` warns when the [staff rate limit](#%EF%B8%8F-time-limits-and-cooldowns) locks a staff
+member out of punishing. A `discord.yml` from an older version without these events posts none of them: copy them in.
 
 ---
 
@@ -559,6 +568,7 @@ when the [staff rate limit](#%EF%B8%8F-time-limits-and-cooldowns) locks a staff 
       warn: 5
       kick: 3
       jail: 5
+      revoke: 5     # /unban, /unmute, /unjail, /revoke, /unwarn and /staffrollback (a whole rollback counts as one)
     window: 600     # seconds that max counts
     max:            # most punishments of a kind per staff member within the window (0 = no limit)
       ban: 10
@@ -566,10 +576,12 @@ when the [staff rate limit](#%EF%B8%8F-time-limits-and-cooldowns) locks a staff 
       warn: 20
       kick: 20
       jail: 10
+      revoke: 10
     lock: true
   ```
 
-  Going past a `max` locks the staff member out of punishing (every kind) until `/staffunlock` or a restart, and warns
+  Going past a `max` locks the staff member out of punishing and revoking (every kind) until `/staffunlock` or a
+  restart, and warns
   the staff with **`judicator.ratelimit.notify`** (click the alert to preview `/staffrollback` of the window), the
   console log and Discord (`events.staff-locked` in `discord.yml`). With `lock: false` they only wait for the window.
   The console and the API are never limited, and neither is the permission **`judicator.ratelimit.bypass`**, which

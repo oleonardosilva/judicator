@@ -3,6 +3,7 @@ package com.elless.judicator.testing;
 import com.elless.judicator.players.PlayerRef;
 import com.elless.judicator.commons.ListQuery;
 import com.elless.judicator.punish.Punishment;
+import com.elless.judicator.punish.Revocation;
 import com.elless.judicator.punish.data.repository.PunishmentRepository;
 import com.elless.judicator.punish.data.repository.dao.PunishmentRelationalDAO;
 import com.elless.judicator.punish.types.PunishType;
@@ -124,12 +125,16 @@ public final class InMemoryPunishmentRepository implements PunishmentRepository 
     }
 
     @Override
-    public synchronized boolean revoke(Long id, String reason) {
+    public synchronized boolean revoke(Long id, Revocation revocation) {
         final Punishment row = rows.get(id);
         if (row == null || row.isRevoked()) return false;
-        Columns.maxLength(reason, 100, "revoked_reason");
+        Columns.maxLength(revocation.reason(), 100, "revoked_reason");
+        Columns.maxLength(revocation.by(), 20, "revoked_by");
         row.setRevoked(true);
-        row.setRevokedReason(reason);
+        row.setRevokedReason(revocation.reason());
+        row.setRevokedBy(revocation.by());
+        row.setRevokedByUuid(revocation.byUuid());
+        row.setRevokedAt(trim(revocation.at()));
         return true;
     }
 
@@ -289,6 +294,7 @@ public final class InMemoryPunishmentRepository implements PunishmentRepository 
         Columns.maxLength(p.getIpAddress().orElse(null), 45, "ip_address");
         Columns.maxLength(String.join(",", p.getEvidences()), 255, "evidences");
         Columns.maxLength(p.getRevokedReason().orElse(null), 100, "revoked_reason");
+        Columns.maxLength(p.getRevokedBy().orElse(null), 20, "revoked_by");
         Columns.maxLength(p.getScope().orElse(null), 64, "scope");
         Columns.maxLength(p.getJail().orElse(null), 32, "jail");
         Columns.notNull(p.getStartedAt(), "started_at");
@@ -312,6 +318,9 @@ public final class InMemoryPunishmentRepository implements PunishmentRepository 
         row.setJail(p.getJail().orElse(null));
         row.setEscapedAt(trim(p.getEscapedAt().orElse(null)));
         row.setJailLeft(p.getJailLeft());
+        row.setRevokedBy(p.getRevokedBy().orElse(null));
+        row.setRevokedByUuid(p.getRevokedByUuid().orElse(null));
+        row.setRevokedAt(trim(p.getRevokedAt().orElse(null)));
         return row;
     }
 

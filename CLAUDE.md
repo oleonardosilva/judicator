@@ -109,7 +109,12 @@ There is no lint task.
    cooldown and the rate limit again at confirmation, and gives both back when the punishment is not stored) → `BanHandler`/`MuteHandler` → `PunishService.save()` → DB → Discord webhook.
    `ReasonShortcuts` expands `#key` reasons; list commands page with `commons/Pagination` (clickable footer).
    Changes to a stored punishment go through `PunishService.changeEnd`/`changeReason` (an `UPDATE` that leaves revoked
-   rows alone and refreshes the mute cache), never a full `save` that could undo a revocation.
+   rows alone and refreshes the mute cache), never a full `save` that could undo a revocation. A revocation goes
+   through `RevokeHandler` with a `punish/Revocation` (reason, `revoked_by`, `revoked_by_uuid`, `revoked_at`):
+   `revoke` posts each one to Discord (`events.revoke`), `revokeInBulk` (`/staffrollback`) does not, the rollback is
+   posted once (`events.rollback`); `/extend`/`/changereason` post `events.edit`, `UnwarnHandler.remove` posts
+   `events.unwarn` (`removeInBulk` does not). Revocations count for `StaffRateLimit.REVOKE`. Tests see the Discord
+   payloads with `TestServer.in(folder).discord()` and `server.discordPosts`.
 
 ### API (`judicator-api`)
 

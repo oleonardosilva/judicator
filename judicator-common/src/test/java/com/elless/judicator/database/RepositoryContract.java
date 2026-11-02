@@ -15,6 +15,7 @@ import com.elless.judicator.players.PlayerRef;
 import com.elless.judicator.players.repository.PlayerRepository;
 import com.elless.judicator.punish.PlayerAddress;
 import com.elless.judicator.punish.Punishment;
+import com.elless.judicator.punish.Revocation;
 import com.elless.judicator.punish.data.repository.PlayerAddressRepository;
 import com.elless.judicator.punish.data.repository.PunishmentRepository;
 import com.elless.judicator.punish.data.repository.dao.PunishmentRelationalDAO;
@@ -134,7 +135,7 @@ abstract class RepositoryContract {
         assertEquals(null, caught.getJailLeft());
         assertEquals(2, store.punishments().countInJail("cell", false));
 
-        store.punishments().revoke(alex.getId(), "freed");
+        store.punishments().revoke(alex.getId(), Revocation.now("freed", "Mod", null));
         assertFalse(store.punishments().changeJail(alex.getId(), null, null, escaped, null), "a revoked jail stays as it is");
         assertEquals(1, store.punishments().countInJail("cell", false));
     }
@@ -347,7 +348,7 @@ abstract class RepositoryContract {
         assertTrue(store.punishments().changeEnd(mute.getId(), null, 60_000L));
         assertEquals(60_000L, store.punishments().findById(mute.getId()).orElseThrow().getPausedRemaining());
 
-        store.punishments().revoke(mute.getId(), "appeal");
+        store.punishments().revoke(mute.getId(), Revocation.now("appeal", "Mod", null));
         assertFalse(store.punishments().changeEnd(mute.getId(), start.plusDays(9), null));
         assertFalse(store.punishments().changeReason(mute.getId(), "other"));
         assertFalse(store.punishments().changeEnd(999_999L, start, null));
@@ -370,7 +371,7 @@ abstract class RepositoryContract {
         final Punishment recentEnded = store.punishments().save(punishment("B", null, PunishType.TEMPBAN, now.minusDays(50), now.minusDays(10), "Mod"));
         final Punishment oldPermanent = store.punishments().save(punishment("C", null, PunishType.BAN, now.minusDays(400), null, "Mod"));
         final Punishment oldRevoked = store.punishments().save(punishment("C", null, PunishType.BAN, now.minusDays(400), null, "Mod"));
-        store.punishments().revoke(oldRevoked.getId(), "x");
+        store.punishments().revoke(oldRevoked.getId(), Revocation.now("x", "Mod", null));
         final Punishment paused = punishment("D", null, PunishType.TEMPMUTE, now.minusDays(400), null, "Mod");
         paused.setOnlineOnly(true);
         paused.setPausedRemaining(1000L);
@@ -525,11 +526,27 @@ abstract class RepositoryContract {
         assertEquals(1, store.punishments().findAllActiveOf(PlayerRef.account(uuidOf("Steve"), "Steve"), PunishType.TEMPBAN).size());
         assertEquals(2, store.punishments().findAllByUUID(uuidOf("Steve")).size());
 
-        assertTrue(store.punishments().revoke(ban.getId(), "appeal"));
-        assertFalse(store.punishments().revoke(ban.getId(), "again"));
+        assertTrue(store.punishments().revoke(ban.getId(), Revocation.now("appeal", "Mod", null)));
+        assertFalse(store.punishments().revoke(ban.getId(), Revocation.now("again", "Mod", null)));
         assertTrue(store.punishments().findAllActiveByUsernameAndTypes("steve", PunishType.values()).isEmpty());
         assertEquals("appeal", store.punishments().findById(ban.getId()).orElseThrow().getRevokedReason().orElseThrow());
         assertEquals(2, store.punishments().findAllByUsername("steve").size());
+    }
+
+    @Test
+    void aRevocationKeepsWhoRevokedAndWhen() {
+        final LocalDateTime start = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        final Punishment ban = store.punishments().save(punishment("Steve", null, PunishType.BAN, start, null, "Admin"));
+        final UUID mod = UUID.randomUUID();
+
+        store.punishments().revoke(ban.getId(), new Revocation("appeal", "Mod", mod, start.plusHours(2)));
+
+        final Punishment stored = store.punishments().findById(ban.getId()).orElseThrow();
+        assertEquals("Mod", stored.getRevokedBy().orElseThrow());
+        assertEquals(mod, stored.getRevokedByUuid().orElseThrow());
+        assertEquals(start.plusHours(2), stored.getRevokedAt().orElseThrow());
+        assertTrue(store.punishments().findById(store.punishments().save(punishment("Alex", null, PunishType.BAN, start, null, "Admin"))
+                .getId()).orElseThrow().getRevokedBy().isEmpty(), "nothing while in force");
     }
 
     @Test
@@ -541,7 +558,7 @@ abstract class RepositoryContract {
         store.punishments().save(punishment("Alex", null, PunishType.MUTE, now.minusDays(1), null, "Mod"));
         store.punishments().save(punishment("Other", null, PunishType.BAN, now.minusDays(1), null, "Mod"));
         final Punishment revoked = store.punishments().save(punishment("Bob", null, PunishType.BAN, now.minusDays(1), null, "Mod"));
-        store.punishments().revoke(revoked.getId(), "x");
+        store.punishments().revoke(revoked.getId(), Revocation.now("x", "Mod", null));
 
         final List<PlayerRef> accounts = new java.util.ArrayList<>();
         for (int i = 0; i < 450; i++) accounts.add(PlayerRef.account(UUID.randomUUID(), "account" + i)); // more than one statement takes
@@ -641,7 +658,7 @@ abstract class RepositoryContract {
         store.punishments().save(punishment("B", null, PunishType.TEMPBAN, now.minusHours(2), now.plusHours(1), "Mod"));
         store.punishments().save(punishment("C", null, PunishType.TEMPBAN, now.minusDays(2), now.minusDays(1), "Mod"));
         final Punishment revoked = store.punishments().save(punishment("D", null, PunishType.BAN, now.minusHours(1), null, "Mod"));
-        store.punishments().revoke(revoked.getId(), "appeal");
+        store.punishments().revoke(revoked.getId(), Revocation.now("appeal", "Mod", null));
         store.punishments().save(punishment("E", "10.0.0.1", PunishType.MUTE, now.minusMinutes(1), null, "Mod"));
 
         assertEquals(2, store.punishments().countActiveByTypes(PunishType.BAN, PunishType.TEMPBAN));

@@ -103,6 +103,7 @@ staff-rate-limit:
     warn: 5
     kick: 3
     jail: 5
+    revoke: 5 # /unban, /unmute, /unjail, /revoke, /unwarn and /staffrollback (a whole rollback counts as one)
   window: 600 # seconds that max counts
   max: # most punishments of a kind one staff member may apply within the window (0 = no limit)
     ban: 10
@@ -110,6 +111,7 @@ staff-rate-limit:
     warn: 20
     kick: 20
     jail: 10
+    revoke: 10
   lock: true # false: past a max the staff member only waits for the window, nobody is warned
 
 # ------------------------------------------------------------

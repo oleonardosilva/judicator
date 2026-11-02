@@ -6,6 +6,7 @@ import com.elless.judicator.commons.command.CoreCommand;
 import com.elless.judicator.platform.JudicatorPlayer;
 import com.elless.judicator.platform.JudicatorSender;
 import com.elless.judicator.punish.PunishUtils;
+import com.elless.judicator.punish.rules.StaffRateLimit;
 import com.elless.judicator.punish.types.PunishPermissions;
 import com.elless.judicator.warns.Warn;
 import com.elless.judicator.warns.WarnService;
@@ -39,8 +40,9 @@ public class UnwarnCommand extends CoreCommand {
             return;
         }
 
+        if (!judicator.getStaffRateLimit().acquire(source, StaffRateLimit.REVOKE)) return;
         final String author = source.asPlayer().map(JudicatorPlayer::getName).orElse("Console");
-        new UnwarnHandler(judicator).remove(optWarn.get(), author, true);
+        new UnwarnHandler(judicator).remove(optWarn.get(), author);
 
         source.sendMessage(WarnUtils.getMessage(messages, "success", "unwarn"));
     }

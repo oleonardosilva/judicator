@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * The whole core running as on a server: the real {@code *.yml} files of the plugin, the real commands, handlers and
@@ -42,6 +43,10 @@ public final class TestServer implements AutoCloseable {
     public final InMemoryPlayerRepository players;
     public final InMemoryReportRepository reports;
     public final InMemoryJailRepository jails;
+    /**
+     * The JSON of every Discord embed posted (none unless the builder asked for {@link Builder#discord()}).
+     */
+    public final List<String> discordPosts = new CopyOnWriteArrayList<>();
 
     private TestServer(Path folder, boolean onlineMode, PlatformType type, TestServer sharedDatabase) {
         this.platform = new FakePlatform(folder, onlineMode, type);
@@ -63,6 +68,7 @@ public final class TestServer implements AutoCloseable {
         core.enable();
         // A test never talks to the Mojang API: unknown names simply have no UUID.
         core.getUuidManager().setRemoteLookups(false);
+        core.getDiscordWebhookService().postWith((url, json) -> discordPosts.add(json));
         return core;
     }
 
@@ -270,11 +276,21 @@ public final class TestServer implements AutoCloseable {
         private String immuneFile;
         private PlatformType type = PlatformType.VELOCITY;
         private TestServer sharedDatabase;
+        private boolean discord;
 
         private Builder(Path folder) {
             this.folder = folder;
             // most tests punish several players in a row; StaffRateLimitTest turns it back on
             configValues.put("staff-rate-limit.enabled", false);
+        }
+
+        /**
+         * The bundled {@code discord.yml}, turned on with a webhook: what would be posted ends up in
+         * {@link TestServer#discordPosts}.
+         */
+        public Builder discord() {
+            this.discord = true;
+            return this;
         }
 
         public Builder offlineMode() {
@@ -338,8 +354,11 @@ public final class TestServer implements AutoCloseable {
                 Files.createDirectories(folder);
                 Files.writeString(folder.resolve("config.yml"), resource("/config.yml"), StandardCharsets.UTF_8);
                 if (!configValues.isEmpty()) applyConfigValues(folder.resolve("config.yml"));
-                // Never post to Discord from a test.
-                Files.writeString(folder.resolve("discord.yml"), "enabled: false\n", StandardCharsets.UTF_8);
+                // Never post to Discord from a test: with discord() the bundled file is used and the posts are kept.
+                Files.writeString(folder.resolve("discord.yml"), discord
+                        ? resource("/discord.yml").replaceFirst("(?m)^enabled: false", "enabled: true")
+                        .replaceFirst("(?m)^webhook-url: \"\"", "webhook-url: \"https://discord.com/api/webhooks/1/test\"")
+                        : "enabled: false\n", StandardCharsets.UTF_8);
                 Files.writeString(folder.resolve("immune.yml"), immuneFile != null ? immuneFile : "players:\n" + immunePlayers,
                         StandardCharsets.UTF_8);
             } catch (IOException e) {

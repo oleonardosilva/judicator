@@ -19,14 +19,25 @@ public class UnwarnHandler {
     }
 
     /**
-     * @param tellPlayer whether the player, if online here, is told the warn was removed
+     * {@code /unwarn} and the API: the player, if online here, is told, and the removal is posted to Discord
+     * ({@code events.unwarn}), the only record left of a deleted warn.
      */
-    public void remove(Warn warn, String author, boolean tellPlayer) {
+    public void remove(Warn warn, String author) {
+        delete(warn, author);
+        judicator.getPlatform().getPlayer(warn.getNickname())
+                .ifPresent(player -> player.sendMessage(WarnUtils.getMessage(judicator.messagesFor(player), "success", "got-unwarn")));
+        judicator.getDiscordWebhookService().sendUnwarn(warn, author);
+    }
+
+    /**
+     * {@code /staffrollback}: neither the player nor Discord hears of each one (the rollback is posted once).
+     */
+    public void removeInBulk(Warn warn, String author) {
+        delete(warn, author);
+    }
+
+    private void delete(Warn warn, String author) {
         judicator.getWarnService().deleteById(warn.getId());
-        if (tellPlayer) {
-            judicator.getPlatform().getPlayer(warn.getNickname())
-                    .ifPresent(player -> player.sendMessage(WarnUtils.getMessage(judicator.messagesFor(player), "success", "got-unwarn")));
-        }
         judicator.getEventBus().post(() -> new WarnRevokedEvent(ApiViews.warn(warn), author));
     }
 

@@ -27,6 +27,13 @@ public class Punishment {
     private LocalDateTime startedAt, finishAt;
     private boolean revoked;
     private String revokedReason;
+    /**
+     * Who revoked it and when; null while it is in force and for a record revoked before they were stored (or
+     * imported). The UUID only when a player revoked it.
+     */
+    private String revokedBy;
+    private UUID revokedByUuid;
+    private LocalDateTime revokedAt;
     private List<String> evidences;
     private PunishType type;
     private boolean permanent;
@@ -173,6 +180,18 @@ public class Punishment {
 
     public Optional<UUID> getPunisherUuid() {
         return Optional.ofNullable(punisherUuid);
+    }
+
+    public Optional<String> getRevokedBy() {
+        return Optional.ofNullable(revokedBy);
+    }
+
+    public Optional<UUID> getRevokedByUuid() {
+        return Optional.ofNullable(revokedByUuid);
+    }
+
+    public Optional<LocalDateTime> getRevokedAt() {
+        return Optional.ofNullable(revokedAt);
     }
 
 }

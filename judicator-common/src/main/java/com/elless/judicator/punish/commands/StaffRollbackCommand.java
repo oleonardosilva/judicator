@@ -10,7 +10,9 @@ import com.elless.judicator.players.PlayerRef;
 import com.elless.judicator.punish.PunishService;
 import com.elless.judicator.punish.PunishUtils;
 import com.elless.judicator.punish.Punishment;
+import com.elless.judicator.punish.Revocation;
 import com.elless.judicator.punish.handlers.RevokeHandler;
+import com.elless.judicator.punish.rules.StaffRateLimit;
 import com.elless.judicator.punish.types.PunishPermissions;
 import com.elless.judicator.punish.types.PunishStatus;
 import com.elless.judicator.warns.Warn;
@@ -94,16 +96,22 @@ public class StaffRollbackCommand extends CoreCommand {
             return;
         }
 
+        // a whole rollback counts as one revocation: it is what undoes a locked staff member's punishments
+        if (!judicator.getStaffRateLimit().acquire(source, StaffRateLimit.REVOKE)) return;
         final String author = source.asPlayer().map(JudicatorPlayer::getName).orElse("Console");
         final String reason = PunishUtils.format(judicator.getMessagesConfig(), Map.of("staff", staff.get(), "author", author),
                 "rollback", "revoke-reason").content();
-        final List<Punishment> revoked = new RevokeHandler(judicator).revoke(punishments, reason, author, false);
+        final List<Punishment> revoked = new RevokeHandler(judicator).revokeInBulk(punishments, Revocation.now(reason, source));
         final UnwarnHandler unwarnHandler = new UnwarnHandler(judicator);
         for (Warn warn : warns) {
             judicator.getLogger().info("Rollback by {}: deleting warn #{} of {} applied by {} at {}: {}",
                     author, warn.getId(), warn.getNickname(), warn.getPunisher(), warn.getStartedAt(), warn.getReason());
-            unwarnHandler.remove(warn, author, false);
+            unwarnHandler.removeInBulk(warn, author);
         }
+        judicator.getLogger().info("Rollback by {} of {} (last {}): {} punishment(s) revoked, {} warn(s) deleted",
+                author, staff.get(), period.get(), revoked.size(), warns.size());
+        judicator.getDiscordWebhookService().sendRollback(author, staff.get(),
+                DateTimeOffsetParser.format(judicator.getMessagesConfig(), millis.getAsLong()), revoked.size(), warns.size());
 
         source.sendMessage(PunishUtils.format(messages, Map.of(
                 "staff", staff.get(),

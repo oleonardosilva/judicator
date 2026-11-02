@@ -5,6 +5,7 @@ import com.elless.judicator.api.event.PunishmentRevokedEvent;
 import com.elless.judicator.integration.ApiViews;
 import com.elless.judicator.punish.PunishService;
 import com.elless.judicator.punish.Punishment;
+import com.elless.judicator.punish.Revocation;
 import com.elless.judicator.punish.rules.PunishCooldown;
 import com.elless.judicator.punish.types.PunishType;
 
@@ -26,15 +27,30 @@ public class RevokeHandler {
     }
 
     /**
-     * @param releaseCooldown whether the target may get the same kind of punishment again right away (a mistaken
-     *                        punishment undone)
+     * Revokes each one and posts each to Discord ({@code events.revoke}); the cooldown on the target is released, so a
+     * mistaken punishment can be applied again right away.
+     *
      * @return those that were revoked; one revoked meanwhile, or that could not be stored, is left out
      */
-    public List<Punishment> revoke(Collection<Punishment> punishments, String reason, String author, boolean releaseCooldown) {
+    public List<Punishment> revoke(Collection<Punishment> punishments, Revocation revocation) {
+        final List<Punishment> revoked = revoke(punishments, revocation, true);
+        revoked.forEach(punishment -> judicator.getDiscordWebhookService().sendRevoked(punishment, revocation));
+        return revoked;
+    }
+
+    /**
+     * {@code /staffrollback}: revokes them all without releasing the cooldowns nor posting each to Discord (the
+     * rollback is posted once).
+     */
+    public List<Punishment> revokeInBulk(Collection<Punishment> punishments, Revocation revocation) {
+        return revoke(punishments, revocation, false);
+    }
+
+    private List<Punishment> revoke(Collection<Punishment> punishments, Revocation revocation, boolean releaseCooldown) {
         final PunishService punishService = judicator.getPunishService();
         final List<Punishment> revoked = new ArrayList<>();
         for (Punishment punishment : punishments) {
-            if (!punishService.revokeNow(punishment.getId(), reason)) continue;
+            if (!punishService.revokeNow(punishment.getId(), revocation)) continue;
             revoked.add(punishment);
             judicator.getPunishCache().forgetMute(punishment.getId());
             if (releaseCooldown) {
@@ -44,7 +60,7 @@ public class RevokeHandler {
         if (revoked.isEmpty()) return revoked;
         judicator.getPunishmentEffects().pardoned(revoked);
         revoked.forEach(punishment -> judicator.getEventBus().post(() ->
-                new PunishmentRevokedEvent(ApiViews.revoked(punishment, reason), author)));
+                new PunishmentRevokedEvent(ApiViews.revoked(punishment, revocation.reason()), revocation.by())));
         return revoked;
     }
 
@@ -67,13 +83,13 @@ public class RevokeHandler {
      * {@code /unban}, {@code /unmute} or {@code /unjail}: revokes every ban (mute, jail) in force of a player and tells
      * the staff.
      */
-    public ActiveRevocation revokeActive(String target, Kind kind, String reason, String author, boolean silent) {
+    public ActiveRevocation revokeActive(String target, Kind kind, Revocation revocation, boolean silent) {
         final PunishType[] types = kind.types;
         final List<Punishment> active = judicator.getPunishService().findAllActiveOf(judicator.getPlayerDirectory().resolve(target), types);
         if (active.isEmpty()) return new ActiveRevocation(false, List.of());
-        final List<Punishment> revoked = revoke(active, reason, author, true);
+        final List<Punishment> revoked = revoke(active, revocation);
         if (!revoked.isEmpty()) {
-            judicator.getStaffNotifier().notifyUnpunish(author, revoked.get(0).getNickname(), kind.name(), revoked.size(), silent);
+            judicator.getStaffNotifier().notifyUnpunish(revocation.by(), revoked.get(0).getNickname(), kind.name(), revoked.size(), silent);
         }
         return new ActiveRevocation(true, revoked);
     }

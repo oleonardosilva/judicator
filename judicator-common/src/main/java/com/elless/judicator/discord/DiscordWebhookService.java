@@ -2,6 +2,7 @@ package com.elless.judicator.discord;
 
 import com.elless.judicator.Judicator;
 import com.elless.judicator.punish.Punishment;
+import com.elless.judicator.punish.Revocation;
 import com.elless.judicator.punish.scopes.ScopeService;
 import com.elless.judicator.punish.types.PunishType;
 import com.elless.judicator.reports.Report;
@@ -23,10 +24,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 
 /**
- * Posts an embed per punishment and warn to the webhook of {@code discord.yml}: the event's own {@code webhook-url},
- * or the top-level one.
+ * Posts an embed per punishment and warn, and for what changes them (revocations, edits, warns removed, rollbacks,
+ * staff locked by the rate limit), to the webhook of {@code discord.yml}: the event's own {@code webhook-url}, or the
+ * top-level one.
  */
 public class DiscordWebhookService {
 
@@ -34,6 +38,7 @@ public class DiscordWebhookService {
     private final DateTimeFormatter FORMATTER;
 
     private final Judicator plugin;
+    private volatile BiConsumer<String, String> poster;
 
     public DiscordWebhookService(Judicator plugin) {
         this.plugin = plugin;
@@ -69,6 +74,69 @@ public class DiscordWebhookService {
     }
 
     /**
+     * {@code events.revoke}: a ban, mute or jail revoked ({@code /unban}, {@code /unmute}, {@code /unjail},
+     * {@code /revoke}, the API); a {@code /staffrollback} is posted once with {@link #sendRollback}.
+     */
+    public void sendRevoked(Punishment punishment, Revocation revocation) {
+        final ConfigurationNode labels = plugin.getDiscordConfig().node("labels");
+        final String reason = punishment.getReason().orElse(label(labels, "no-reason", "No reason provided"));
+        final String revokeReason = revocation.reason() == null || revocation.reason().isBlank()
+                ? label(labels, "no-reason", "No reason provided") : revocation.reason();
+        final Map<String, String> values = Map.of("{player}", punishment.getNickname(), "{punisher}", punishment.getPunisher(),
+                "{type}", punishment.getDisplayType(), "{reason}", reason, "{id}", String.valueOf(punishment.getId()),
+                "{revoker}", revocation.by(), "{revoke-reason}", revokeReason);
+        notice("revoke", values, punishment.getPlayerUUID(), punishment.getId(), List.of(
+                field(label(labels, "player", "Player"), punishment.getNickname(), true),
+                field(label(labels, "type", "Type"), punishment.getDisplayType(), true),
+                field(label(labels, "punisher", "Punisher"), punishment.getPunisher(), true),
+                field(label(labels, "reason", "Reason"), reason, false),
+                field(label(labels, "revoked-by", "Revoked by"), revocation.by(), true),
+                field(label(labels, "revoke-reason", "Revocation reason"), revokeReason, false)));
+    }
+
+    /**
+     * {@code events.edit}: {@code /extend} or {@code /changereason}.
+     *
+     * @param change what changed, as text
+     */
+    public void sendEdited(Punishment punishment, String author, String change) {
+        final ConfigurationNode labels = plugin.getDiscordConfig().node("labels");
+        final Map<String, String> values = Map.of("{player}", punishment.getNickname(), "{type}", punishment.getDisplayType(),
+                "{id}", String.valueOf(punishment.getId()), "{author}", author, "{change}", change);
+        notice("edit", values, punishment.getPlayerUUID(), punishment.getId(), List.of(
+                field(label(labels, "player", "Player"), punishment.getNickname(), true),
+                field(label(labels, "type", "Type"), punishment.getDisplayType(), true),
+                field(label(labels, "edited-by", "Changed by"), author, true),
+                field(label(labels, "change", "Change"), change, false)));
+    }
+
+    /**
+     * {@code events.unwarn}: {@code /unwarn} or the API deleted a warn (the only record left of it).
+     */
+    public void sendUnwarn(Warn warn, String author) {
+        final ConfigurationNode labels = plugin.getDiscordConfig().node("labels");
+        final String reason = warn.getReason() == null ? label(labels, "no-reason", "No reason provided") : warn.getReason();
+        final Map<String, String> values = Map.of("{player}", warn.getNickname(), "{punisher}", warn.getPunisher(),
+                "{reason}", reason, "{id}", String.valueOf(warn.getId()), "{revoker}", author);
+        notice("unwarn", values, warn.getPlayerUUID(), warn.getId(), List.of(
+                field(label(labels, "player", "Player"), warn.getNickname(), true),
+                field(label(labels, "punisher", "Punisher"), warn.getPunisher(), true),
+                field(label(labels, "reason", "Reason"), reason, false),
+                field(label(labels, "started-at", "Started At"), warn.getStartedAt().format(FORMATTER), true),
+                field(label(labels, "removed-by", "Removed by"), author, true)));
+    }
+
+    /**
+     * {@code events.rollback}: {@code /staffrollback} undid what a staff member applied.
+     *
+     * @param period the period, as text
+     */
+    public void sendRollback(String author, String staff, String period, int punishments, int warns) {
+        notice("rollback", Map.of("{author}", author, "{staff}", staff, "{period}", period,
+                "{punishments}", String.valueOf(punishments), "{warns}", String.valueOf(warns)), Optional.empty(), null, List.of());
+    }
+
+    /**
      * {@code events.staff-locked}: a staff member went past {@code staff-rate-limit.max} and was locked out of
      * punishing.
      *
@@ -76,21 +144,36 @@ public class DiscordWebhookService {
      * @param period the same window as {@code /staffrollback} takes it
      */
     public void sendStaffLocked(String staff, UUID uuid, String type, int count, String window, String period) {
+        notice("staff-locked", Map.of("{staff}", staff, "{type}", type, "{count}", String.valueOf(count), "{window}", window,
+                "{period}", period), Optional.of(uuid), null, List.of());
+    }
+
+    /**
+     * An embed for an event that is not a punishment applied: title and description from the event with the
+     * placeholders replaced, the given fields, the player's picture when there is one and the footer when there is an
+     * id.
+     */
+    private void notice(String eventKey, Map<String, String> values, Optional<UUID> uuid, Long id, List<String> fields) {
         final ConfigurationNode discordConfig = plugin.getDiscordConfig();
         if (!discordConfig.node("enabled").getBoolean(false)) return;
-        final ConfigurationNode eventNode = discordConfig.node("events", "staff-locked");
+        final ConfigurationNode eventNode = discordConfig.node("events", eventKey);
         if (!eventNode.node("enabled").getBoolean(false)) return;
         final String webhookUrl = webhookUrl(discordConfig, eventNode);
         if (!isConfigured(webhookUrl)) return;
 
-        final Map<String, String> values = Map.of("{staff}", staff, "{type}", type, "{count}", String.valueOf(count), "{window}", window,
-                "{period}", period);
         final Map<String, String> embed = new LinkedHashMap<>();
-        embed.put("title", jsonString(replace(eventNode.node("title").getString("Staff Member Locked"), values)));
+        embed.put("title", jsonString(replace(eventNode.node("title").getString(eventKey), values)));
         embed.put("description", jsonString(replace(eventNode.node("description").getString(""), values)));
-        embed.put("color", String.valueOf(hexToInt(eventNode.node("color").getString("#8E44AD"))));
-        final String thumbnail = discordConfig.node("thumbnail-url").getString(DEFAULT_THUMBNAIL).replace("{uuid}", uuid.toString());
-        if (!thumbnail.isBlank()) embed.put("thumbnail", "{ \"url\": " + jsonString(thumbnail) + " }");
+        embed.put("color", String.valueOf(hexToInt(eventNode.node("color").getString("#95A5A6"))));
+        if (uuid.isPresent()) {
+            final String thumbnail = discordConfig.node("thumbnail-url").getString(DEFAULT_THUMBNAIL).replace("{uuid}", uuid.get().toString());
+            if (!thumbnail.isBlank()) embed.put("thumbnail", "{ \"url\": " + jsonString(thumbnail) + " }");
+        }
+        if (!fields.isEmpty()) embed.put("fields", "[" + String.join(", ", fields) + "]");
+        if (id != null) {
+            final String footer = discordConfig.node("footer").getString("Judicator • ID #{id}").replace("{id}", String.valueOf(id));
+            if (!footer.isBlank()) embed.put("footer", "{ \"text\": " + jsonString(footer) + " }");
+        }
         embed.put("timestamp", jsonString(LocalDateTime.now().toString()));
 
         final Map<String, String> payload = new LinkedHashMap<>();
@@ -99,13 +182,7 @@ public class DiscordWebhookService {
         if (!username.isBlank()) payload.put("username", jsonString(username));
         if (!avatar.isBlank()) payload.put("avatar_url", jsonString(avatar));
         payload.put("embeds", "[" + object(embed) + "]");
-        CompletableFuture.runAsync(() -> {
-            try {
-                post(webhookUrl, object(payload));
-            } catch (Exception e) {
-                plugin.getLogger().error("[Discord] Failed to send the staff-locked webhook: {}", e.getMessage(), e);
-            }
-        });
+        deliver(eventKey, webhookUrl, () -> object(payload));
     }
 
     private static String replace(String template, Map<String, String> values) {
@@ -136,9 +213,24 @@ public class DiscordWebhookService {
         final String webhookUrl = webhookUrl(discordConfig, eventNode);
         if (!isConfigured(webhookUrl)) return;
 
+        deliver(eventKey, webhookUrl, () -> buildPayload(discordConfig, eventNode, entry));
+    }
+
+    /**
+     * For tests: each payload goes to {@code poster} (webhook URL, JSON) on the calling thread instead of over HTTP.
+     */
+    public void postWith(BiConsumer<String, String> poster) {
+        this.poster = poster;
+    }
+
+    private void deliver(String eventKey, String webhookUrl, Supplier<String> payload) {
+        if (poster != null) {
+            poster.accept(webhookUrl, payload.get());
+            return;
+        }
         CompletableFuture.runAsync(() -> {
             try {
-                post(webhookUrl, buildPayload(discordConfig, eventNode, entry));
+                post(webhookUrl, payload.get());
             } catch (Exception e) {
                 plugin.getLogger().error("[Discord] Failed to send the {} webhook: {}", eventKey, e.getMessage(), e);
             }

@@ -31,6 +31,11 @@ import java.util.UUID;
  */
 public class StaffRateLimit {
 
+    /**
+     * The category of revocations ({@code /unban}, {@code /unmute}, {@code /unjail}, {@code /revoke}, {@code /unwarn},
+     * {@code /staffrollback}), beside those of {@link PunishCooldown}.
+     */
+    public static final String REVOKE = "revoke";
     public static final String BYPASS = PunishPermissions.RATELIMIT_BYPASS.getPermission();
     public static final String NOTIFY = PunishPermissions.RATELIMIT_NOTIFY.getPermission();
 

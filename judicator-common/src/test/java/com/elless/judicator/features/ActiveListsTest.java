@@ -1,6 +1,7 @@
 package com.elless.judicator.features;
 
 import com.elless.judicator.punish.Punishment;
+import com.elless.judicator.punish.Revocation;
 import com.elless.judicator.punish.types.PunishType;
 import com.elless.judicator.testing.FakePlayer;
 import com.elless.judicator.testing.TestServer;
@@ -48,7 +49,7 @@ class ActiveListsTest {
         save("Temporary", null, PunishType.TEMPBAN, now.minusHours(1), now.plusDays(1));
         save("Expired", null, PunishType.TEMPBAN, now.minusDays(3), now.minusDays(1));
         final Punishment revoked = save("Revoked", null, PunishType.BAN, now.minusHours(2), null);
-        server.punishments.revoke(revoked.getId(), "appeal");
+        server.punishments.revoke(revoked.getId(), Revocation.now("appeal", "Mod", null));
         save("Muted", null, PunishType.MUTE, now.minusHours(1), null);
         save("10.0.0.9", "10.0.0.9", PunishType.BAN, now.minusHours(3), null);
 

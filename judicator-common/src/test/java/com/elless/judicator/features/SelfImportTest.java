@@ -4,6 +4,7 @@ import com.elless.judicator.commons.db.RelationalDBManager;
 import com.elless.judicator.notes.Note;
 import com.elless.judicator.notes.repository.dao.NoteRelationalDAO;
 import com.elless.judicator.punish.Punishment;
+import com.elless.judicator.punish.Revocation;
 import com.elless.judicator.punish.data.repository.dao.PunishmentRelationalDAO;
 import com.elless.judicator.punish.types.PunishType;
 import com.elless.judicator.testing.FakePlayer;
@@ -60,7 +61,7 @@ class SelfImportTest {
             final Punishment ban = Punishment.create(steve, "x-ray", "Mod", "Steve", null, start, null,
                     new ArrayList<>(List.of("https://img.example/1", "https://img.example/2")), PunishType.BAN);
             punishments.save(ban);
-            punishments.revoke(ban.getId(), "appeal accepted");
+            punishments.revoke(ban.getId(), Revocation.now("appeal accepted", "Mod", null));
             punishments.save(Punishment.create(steve, "spam", "Helper", "Steve", null, start.plusDays(1), start.plusDays(40),
                     List.of(), PunishType.TEMPMUTE));
             punishments.save(Punishment.create(null, "proxy abuse", "Console", "10.9.9.9", "10.9.9.9", start.plusDays(2), null,

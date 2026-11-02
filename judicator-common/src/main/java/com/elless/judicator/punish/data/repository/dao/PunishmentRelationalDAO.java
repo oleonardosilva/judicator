@@ -7,6 +7,7 @@ import com.elless.judicator.commons.db.RelationalDBManager;
 import com.elless.judicator.commons.db.SqlTime;
 import com.elless.judicator.players.PlayerRef;
 import com.elless.judicator.punish.Punishment;
+import com.elless.judicator.punish.Revocation;
 import com.elless.judicator.punish.data.repository.PunishmentRepository;
 import com.elless.judicator.punish.types.PunishType;
 import org.slf4j.Logger;
@@ -38,7 +39,8 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                             player_uuid = ?, reason = ?, punisher = ?, nickname = ?, ip_address = ?,
                             lower_nickname = ?, started_at = ?, finish_at = ?, revoked = ?, evidences = ?,
                             type = ?, permanent = ?, revoked_reason = ?, soft = ?, online_only = ?, paused_remaining = ?,
-                            punisher_uuid = ?, scope = ?, jail = ?, escaped_at = ?, jail_left = ?
+                            punisher_uuid = ?, scope = ?, jail = ?, escaped_at = ?, jail_left = ?,
+                            revoked_by = ?, revoked_by_uuid = ?, revoked_at = ?
                         WHERE id = ?
                     """;
         } else {
@@ -46,8 +48,9 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                         INSERT INTO {punishments} (
                             player_uuid, reason, punisher, nickname, ip_address, lower_nickname,
                             started_at, finish_at, revoked, evidences, type, permanent, revoked_reason,
-                            soft, online_only, paused_remaining, punisher_uuid, scope, jail, escaped_at, jail_left
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            soft, online_only, paused_remaining, punisher_uuid, scope, jail, escaped_at, jail_left,
+                            revoked_by, revoked_by_uuid, revoked_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """;
         }
         return sql;
@@ -83,7 +86,10 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                                     scope VARCHAR(64),
                                     jail VARCHAR(32),
                                     escaped_at TIMESTAMP,
-                                    jail_left BIGINT
+                                    jail_left BIGINT,
+                                    revoked_by VARCHAR(20),
+                                    revoked_by_uuid VARCHAR(36),
+                                    revoked_at TIMESTAMP
                                 );
                                 """)
                 );
@@ -111,7 +117,10 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                             scope VARCHAR(64),
                             jail VARCHAR(32),
                             escaped_at TIMESTAMP,
-                            jail_left BIGINT
+                            jail_left BIGINT,
+                            revoked_by VARCHAR(20),
+                            revoked_by_uuid VARCHAR(36),
+                            revoked_at TIMESTAMP
                         );
                         """));
             } else {
@@ -138,7 +147,10 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
                             scope VARCHAR(64),
                             jail VARCHAR(32),
                             escaped_at DATETIME,
-                            jail_left BIGINT
+                            jail_left BIGINT,
+                            revoked_by VARCHAR(20),
+                            revoked_by_uuid VARCHAR(36),
+                            revoked_at DATETIME
                         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                         """));
             }
@@ -153,6 +165,10 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
             manager.ensureColumn(connection, "punishments", "jail", "VARCHAR(32)");
             manager.ensureColumn(connection, "punishments", "escaped_at", dialect == Dialect.MYSQL ? "DATETIME" : "TIMESTAMP");
             manager.ensureColumn(connection, "punishments", "jail_left", "BIGINT");
+            // Tables created before who revoked and when were stored.
+            manager.ensureColumn(connection, "punishments", "revoked_by", "VARCHAR(20)");
+            manager.ensureColumn(connection, "punishments", "revoked_by_uuid", "VARCHAR(36)");
+            manager.ensureColumn(connection, "punishments", "revoked_at", dialect == Dialect.MYSQL ? "DATETIME" : "TIMESTAMP");
 
             manager.ensureIndex(connection, "punishments", "player_uuid");
             manager.ensureIndex(connection, "punishments", "ip_address");
@@ -344,7 +360,7 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
 
             try (PreparedStatement stmt = connection.prepareStatement(manager.sql(sql), Statement.RETURN_GENERATED_KEYS)) {
                 bind(stmt, punishment);
-                if (isUpdate) stmt.setLong(22, punishment.getId());
+                if (isUpdate) stmt.setLong(25, punishment.getId());
                 stmt.executeUpdate();
 
                 if (!isUpdate) {
@@ -362,16 +378,19 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
     }
 
     @Override
-    public boolean revoke(Long id, String reason) {
+    public boolean revoke(Long id, Revocation revocation) {
         try (Connection connection = manager.getDataSource().getConnection()) {
             final PreparedStatement st = connection.prepareStatement(manager.sql("""
                     UPDATE {punishments}
-                    SET revoked = true, revoked_reason = ?
+                    SET revoked = true, revoked_reason = ?, revoked_by = ?, revoked_by_uuid = ?, revoked_at = ?
                     WHERE id = ?
                     AND revoked = false
                     """));
-            st.setString(1, reason);
-            st.setLong(2, id);
+            st.setString(1, revocation.reason());
+            st.setString(2, revocation.by());
+            st.setString(3, revocation.byUuid() == null ? null : revocation.byUuid().toString());
+            st.setTimestamp(4, SqlTime.of(revocation.at()));
+            st.setLong(5, id);
             return st.executeUpdate() > 0;
         } catch (SQLException e) {
             logger.error(e.getMessage(), e);
@@ -523,6 +542,9 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
         stmt.setTimestamp(20, SqlTime.of(punishment.getEscapedAt().orElse(null)));
         if (punishment.getJailLeft() == null) stmt.setNull(21, Types.BIGINT);
         else stmt.setLong(21, punishment.getJailLeft());
+        stmt.setString(22, punishment.getRevokedBy().orElse(null));
+        stmt.setString(23, punishment.getRevokedByUuid().map(UUID::toString).orElse(null));
+        stmt.setTimestamp(24, SqlTime.of(punishment.getRevokedAt().orElse(null)));
     }
 
     @Override
@@ -734,6 +756,9 @@ public class PunishmentRelationalDAO implements PunishmentRepository {
         punishment.setEscapedAt(SqlTime.read(rs, "escaped_at"));
         final long jailLeft = rs.getLong("jail_left");
         punishment.setJailLeft(rs.wasNull() ? null : jailLeft);
+        punishment.setRevokedBy(rs.getString("revoked_by"));
+        punishment.setRevokedByUuid(uuid(rs.getString("revoked_by_uuid")));
+        punishment.setRevokedAt(SqlTime.read(rs, "revoked_at"));
         return punishment;
     }
 

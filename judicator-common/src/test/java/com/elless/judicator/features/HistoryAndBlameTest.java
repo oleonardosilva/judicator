@@ -71,7 +71,7 @@ class HistoryAndBlameTest {
         server.console.clearMessages();
         server.command(server.console, "pview " + all.get(1).getId());
         assertTrue(server.console.received("Status: Revoked"));
-        assertTrue(server.console.received("Revoked: Yes\n"));
+        assertTrue(server.console.received("Revoked: Yes (by Console, "), server.console.messages().toString());
         assertTrue(server.console.received("Revocation Reason: mistake"));
     }
 

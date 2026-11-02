@@ -4,6 +4,7 @@ import com.elless.judicator.commons.db.Repository;
 import com.elless.judicator.players.PlayerRef;
 import com.elless.judicator.commons.ListQuery;
 import com.elless.judicator.punish.Punishment;
+import com.elless.judicator.punish.Revocation;
 import com.elless.judicator.punish.types.PunishType;
 
 import java.sql.SQLException;
@@ -69,7 +70,12 @@ public interface PunishmentRepository extends Repository<Punishment, Long> {
      */
     int fillUuid(PlayerRef account);
 
-    boolean revoke(Long id, String reason);
+    /**
+     * Marks a punishment in force as revoked, with why, who and when.
+     *
+     * @return false when there is no such punishment or it was already revoked
+     */
+    boolean revoke(Long id, Revocation revocation);
 
     /**
      * Changes only the end of a punishment that was not revoked (a revocation at the same moment wins).

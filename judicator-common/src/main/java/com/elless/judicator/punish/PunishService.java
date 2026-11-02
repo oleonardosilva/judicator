@@ -125,8 +125,8 @@ public class PunishService {
         return "clean";
     }
 
-    public boolean revokeNow(Long id, String reason) {
-        if (!repository.revoke(id, storedRevokeReason(reason))) return false;
+    public boolean revokeNow(Long id, Revocation revocation) {
+        if (!repository.revoke(id, revocation)) return false;
         judicator.getSyncService().publish(SyncKind.REVOKED, id);
         return true;
     }

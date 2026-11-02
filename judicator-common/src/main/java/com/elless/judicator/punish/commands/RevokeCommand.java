@@ -3,12 +3,13 @@ package com.elless.judicator.punish.commands;
 import com.elless.judicator.Judicator;
 import com.elless.judicator.commons.command.CommandArgs;
 import com.elless.judicator.commons.command.CoreCommand;
-import com.elless.judicator.platform.JudicatorPlayer;
 import com.elless.judicator.platform.JudicatorSender;
 import com.elless.judicator.punish.PunishService;
 import com.elless.judicator.punish.PunishUtils;
 import com.elless.judicator.punish.Punishment;
+import com.elless.judicator.punish.Revocation;
 import com.elless.judicator.punish.handlers.RevokeHandler;
+import com.elless.judicator.punish.rules.StaffRateLimit;
 import com.elless.judicator.punish.types.PunishPermissions;
 import org.spongepowered.configurate.ConfigurationNode;
 
@@ -45,8 +46,9 @@ public class RevokeCommand extends CoreCommand {
             return;
         }
 
-        final String author = source.asPlayer().map(JudicatorPlayer::getName).orElse("Console");
-        final boolean revoked = !new RevokeHandler(judicator).revoke(List.of(punishment), reason, author, true).isEmpty();
+        if (!judicator.getStaffRateLimit().acquire(source, StaffRateLimit.REVOKE)) return;
+        final boolean revoked = !new RevokeHandler(judicator).revoke(List.of(punishment), Revocation.now(reason, source)).isEmpty();
+        if (!revoked) judicator.getStaffRateLimit().release(source, StaffRateLimit.REVOKE);
         source.sendMessage(revoked
                 ? PunishUtils.getMessage(messages, "success", "pardon")
                 : PunishUtils.getMessage(messages, "error", "unknown"));

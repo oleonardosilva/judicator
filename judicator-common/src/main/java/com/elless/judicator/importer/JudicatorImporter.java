@@ -158,6 +158,11 @@ final class JudicatorImporter implements ImportSource {
             final long left = rs.getLong("jail_left");
             punishment.setJailLeft(rs.wasNull() ? null : left);
         }
+        if (columns.contains("revoked_by")) {
+            punishment.setRevokedBy(rs.getString("revoked_by"));
+            punishment.setRevokedByUuid(uuid(rs.getString("revoked_by_uuid")));
+            punishment.setRevokedAt(SqlTime.read(rs, "revoked_at"));
+        }
         if (punishment.isJailType() && punishment.getJail().isEmpty()) {
             result.skip("jail without its jail");
             return;

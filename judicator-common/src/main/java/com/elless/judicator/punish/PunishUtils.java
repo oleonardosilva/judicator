@@ -73,6 +73,12 @@ public class PunishUtils {
                 ? messagesNode.node("paused").getString("&e{remaining} of online time left").replace("&", "§")
                 .replace("{remaining}", DateTimeOffsetParser.format(messagesNode, punishment.getPausedRemaining()))
                 : punishment.getFinishAt().map(timeFormatter::format).orElse(permanent);
+        // who revoked it and when; nothing while in force or for a record revoked before they were stored
+        final String revokedBy = punishment.getRevokedBy()
+                .map(by -> messagesNode.node("revoked-by").getString(" (by {author}, {date})").replace("&", "§")
+                        .replace("{author}", by)
+                        .replace("{date}", punishment.getRevokedAt().map(timeFormatter::format).orElse("?")))
+                .orElse("");
         final String scope = punishment.getScope().map(ScopeService::displayName)
                 .orElseGet(() -> messagesNode.node("scope", "global").getString("every server").replace("&", "§"));
         return messages.stream().map(s -> s
@@ -87,6 +93,7 @@ public class PunishUtils {
                         .replace("{startedAt}", timeFormatter.format(punishment.getStartedAt()))
                         .replace("{revoked}", punishment.isRevoked() ? yes : no)
                         .replace("{revokedReason}", punishment.getRevokedReason().orElse("None"))
+                        .replace("{revokedBy}", revokedBy)
                         .replace("{reason}", punishment.getReason().orElse("None"))
                         .replace("{addressIP}", punishment.getIpAddress().orElse("None"))
                         .replace("{scope}", scope)

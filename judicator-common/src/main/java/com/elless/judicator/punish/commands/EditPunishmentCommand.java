@@ -84,6 +84,8 @@ public class EditPunishmentCommand extends CoreCommand {
         source.sendMessage(PunishUtils.getMessageList(messages, punishment, "edit", extend ? "extended" : "reason-changed"));
         final String author = source.asPlayer().map(JudicatorPlayer::getName).orElse("Console");
         judicator.getStaffNotifier().notifyEdit(author, punishment, extend ? "change-duration" : "change-reason");
+        judicator.getDiscordWebhookService().sendEdited(punishment, author, PunishUtils.getMessageList(judicator.getMessagesConfig(),
+                punishment, "edit", extend ? "change-duration" : "change-reason").content().replaceAll("§.", ""));
         judicator.getEventBus().post(() -> previous
                 .map(before -> new PunishmentEditedEvent(before, ApiViews.punishment(punishment), author))
                 .orElse(null));
