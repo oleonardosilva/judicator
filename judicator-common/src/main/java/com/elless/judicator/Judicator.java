@@ -44,6 +44,7 @@ import com.elless.judicator.punish.hierarchy.HierarchyService;
 import com.elless.judicator.punish.hierarchy.PlayerLevelRelationalDAO;
 import com.elless.judicator.punish.hierarchy.PlayerLevelRepository;
 import com.elless.judicator.punish.rules.PunishCooldown;
+import com.elless.judicator.punish.rules.StaffRateLimit;
 import com.elless.judicator.punish.rules.TimeLimitService;
 import com.elless.judicator.punish.data.cache.PunishCache;
 import com.elless.judicator.punish.data.cache.ReasonCache;
@@ -125,6 +126,7 @@ public class Judicator {
     private HierarchyService hierarchyService;
     private TimeLimitService timeLimitService;
     private PunishCooldown punishCooldown;
+    private StaffRateLimit staffRateLimit;
     private StaffNotifier staffNotifier;
     private ImportService importService;
     private DataRetentionService dataRetentionService;
@@ -312,6 +314,7 @@ public class Judicator {
         this.hierarchyService = new HierarchyService(this, repositories.levels());
         this.timeLimitService = new TimeLimitService(this);
         this.punishCooldown = new PunishCooldown(this);
+        this.staffRateLimit = new StaffRateLimit(this);
         this.staffNotifier = new StaffNotifier(this);
         this.importService = new ImportService(this, repositories.punishments(), repositories.warns(), repositories.addresses(),
                 repositories.notes());
@@ -376,6 +379,7 @@ public class Judicator {
         list.add(new AltsCommand(this));
         list.add(new BlameCommand(this));
         list.add(new StaffRollbackCommand(this));
+        list.add(new StaffUnlockCommand(this));
         list.addAll(EditPunishmentCommand.all(this));
         list.addAll(ActiveListCommand.all(this));
         list.add(new ActivityCommand(this));

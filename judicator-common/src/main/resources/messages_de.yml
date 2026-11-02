@@ -300,6 +300,7 @@ usages:
   mutelist: "&cFalscher Befehl. Nutze: /mutelist [Seite]."
   activity: "&cFalscher Befehl. Nutze: /activity (Zeitraum, z. B. 24:h oder 7:d) [Seite]."
   staffrollback: "&cFalscher Befehl. Nutze: /staffrollback (Teammitglied) (Zeitraum, z. B. 24:h oder 7:d) [confirm]."
+  staffunlock: "&cFalscher Befehl. Nutze: /staffunlock [Teammitglied]."
   extend: "&cFalscher Befehl. Nutze: /extend (id) \"(Zahl:Tage,Zahl:Stunden...)\"."
   changereason: "&cFalscher Befehl. Nutze: /changereason (id) (Grund)."
   note: "&cFalscher Befehl. Nutze: /note (Spieler) (Text)."
@@ -599,6 +600,9 @@ help:
     staffrollback:
       usage: "/staffrollback (Teammitglied) (Zeitraum, z. B. 24:h) [confirm]"
       description: "Macht rückgängig, was ein Teammitglied vergeben hat."
+    staffunlock:
+      usage: "/staffunlock [Teammitglied]"
+      description: "Lässt ein durch das Limit gesperrtes Teammitglied wieder bestrafen."
     judicator-reload:
       usage: "/judicator reload"
       description: "Lädt die Konfigurationsdateien neu."
@@ -642,6 +646,20 @@ rollback:
   none: "&a{staff} hat im Zeitraum {period} nichts vergeben, das noch aktiv ist."
   done: "&aRollback von {staff}: {punishments} Strafe(n) aufgehoben und {warns} Warn(s) gelöscht."
   revoke-reason: "Rollback von {staff} durch {author}"
+
+rate-limit:
+  delay: "&cWarte {remaining}s, bevor du die nächste Strafe ({type}) verhängst."
+  too-many: "&cDu hast in den letzten {window} {count} Strafe(n) ({type}) verhängt. Warte {remaining}s bis zur nächsten."
+  locked-now: "&4Du hast in den letzten {window} {count} Strafe(n) ({type}) verhängt und kannst nicht mehr bestrafen. Das Team wurde benachrichtigt."
+  locked: "&4Du kannst nicht mehr bestrafen, weil du zu viele Strafen in kurzer Zeit verhängt hast. Wende dich an einen Administrator."
+  alert: "&4[Alarm] &f{staff} &chat in {window} {count} Strafe(n) ({type}) verhängt und kann nicht mehr bestrafen. &7Klicke, um zu sehen, was rückgängig zu machen ist; freigeben mit /staffunlock {staff}."
+  unlocked: "&a{staff} kann wieder bestrafen."
+  unlocked-notice: "&7[Team] &f{author} &7hat &f{staff} &7freigegeben"
+  you-unlocked: "&aDu kannst wieder bestrafen."
+  not-locked: "&c{staff} ist nicht gesperrt."
+  list: "&eGesperrte Teammitglieder: &f{staff}"
+  none: "&aKein Teammitglied ist gesperrt."
+  self: "&cDu kannst dich nicht selbst freigeben."
 
 notes:
   added: "&aNotiz #{id} zu {nickname} hinzugefügt."

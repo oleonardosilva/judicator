@@ -106,6 +106,9 @@ commands:
   staffrollback:
     description: Revokes the punishments and deletes the warns a staff member applied in a period.
     permission: judicator.command.staffrollback
+  staffunlock:
+    description: Lets a staff member locked by the staff rate limit punish again.
+    permission: judicator.command.staffunlock
   extend:
     description: Adds time to a temporary punishment in force.
     permission: judicator.command.extend
@@ -186,6 +189,7 @@ permissions:
       judicator.command.mutelist: true
       judicator.command.activity: true
       judicator.command.staffrollback: true
+      judicator.command.staffunlock: true
       judicator.command.extend: true
       judicator.command.changereason: true
       judicator.command.note: true
@@ -358,6 +362,16 @@ permissions:
     default: op
     children:
       judicator.command.staffrollback: true
+  judicator.staffunlock:
+    default: op
+    children:
+      judicator.command.staffunlock: true
+  judicator.ratelimit.notify:
+    description: Warned when a staff member is locked out of punishing by staff-rate-limit.
+    default: op
+  judicator.ratelimit.bypass:
+    description: Not held to staff-rate-limit. Only counts when granted explicitly (never from op or a wildcard).
+    default: false
   judicator.extend:
     default: op
     children:
@@ -394,6 +408,8 @@ permissions:
   judicator.command.activity:
     default: false
   judicator.command.staffrollback:
+    default: false
+  judicator.command.staffunlock:
     default: false
   judicator.command.extend:
     default: false

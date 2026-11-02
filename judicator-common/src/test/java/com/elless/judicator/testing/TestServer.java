@@ -273,6 +273,8 @@ public final class TestServer implements AutoCloseable {
 
         private Builder(Path folder) {
             this.folder = folder;
+            // most tests punish several players in a row; StaffRateLimitTest turns it back on
+            configValues.put("staff-rate-limit.enabled", false);
         }
 
         public Builder offlineMode() {

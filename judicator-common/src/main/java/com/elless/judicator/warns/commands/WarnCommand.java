@@ -76,9 +76,14 @@ public class WarnCommand extends CoreCommand {
 
         source.asPlayer().ifPresent(builder::punisher);
         if (!judicator.getPunishCooldown().acquire(source, PunishCooldown.WARN, targetName)) return;
+        if (!judicator.getStaffRateLimit().acquire(source, PunishCooldown.WARN)) {
+            judicator.getPunishCooldown().release(PunishCooldown.WARN, targetName);
+            return;
+        }
 
         if (new WarnHandler(judicator, builder).handle().isEmpty()) {
             judicator.getPunishCooldown().release(PunishCooldown.WARN, targetName);
+            judicator.getStaffRateLimit().release(source, PunishCooldown.WARN);
         }
     }
 

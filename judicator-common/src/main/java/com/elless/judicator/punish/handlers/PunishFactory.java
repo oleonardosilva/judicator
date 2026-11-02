@@ -30,6 +30,10 @@ public class PunishFactory {
             if (!judicator.getPunishCooldown().acquire(staff.get(), category, punishmentBuilder.getNickname())) {
                 return Optional.empty();
             }
+            if (!judicator.getStaffRateLimit().acquire(staff.get(), category)) {
+                judicator.getPunishCooldown().release(category, punishmentBuilder.getNickname());
+                return Optional.empty();
+            }
         } else {
             judicator.getPunishCooldown().record(category, punishmentBuilder.getNickname());
         }
@@ -48,6 +52,7 @@ public class PunishFactory {
             return Optional.of(punishment);
         } catch (JailHandler.Refused refused) {
             judicator.getPunishCooldown().release(category, punishmentBuilder.getNickname());
+            staff.ifPresent(player -> judicator.getStaffRateLimit().release(player, category));
             final java.util.Map<String, String> values = java.util.Map.of("nickname", punishmentBuilder.getNickname(),
                     "jail", String.valueOf(punishmentBuilder.getJail()));
             judicator.getPlatform().getPlayer(punishmentBuilder.getPunisher()).ifPresent(player ->
@@ -55,6 +60,7 @@ public class PunishFactory {
             return Optional.empty();
         } catch (Exception e) {
             judicator.getPunishCooldown().release(category, punishmentBuilder.getNickname());
+            staff.ifPresent(player -> judicator.getStaffRateLimit().release(player, category));
             judicator.getLogger().error("Failed to handle ban punishment", e);
             judicator.getPlatform().getPlayer(punishmentBuilder.getPunisher()).ifPresent(
                     player -> player

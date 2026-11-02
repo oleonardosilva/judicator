@@ -102,8 +102,11 @@ There is no lint task.
    commands, so a chat word as a click never arrives as chat; a prompt takes the commands typed meanwhile, and treats
    `/jprompt (word)` and the bare word as that word.
 4. **Command** → staff rules (`ImmuneCache.canPunish(source, target, type)`: self, `immune.yml` `players` (the 1.0.0 `users` list is still honoured), hierarchy; `punish/rules/`:
-   `TimeLimitService` and `PunishCooldown`; `AddressPolicy.isExempt` for IP punishments) → `PunishFactory` (checks the
-   cooldown again at confirmation) → `BanHandler`/`MuteHandler` → `PunishService.save()` → DB → Discord webhook.
+   `TimeLimitService`, `PunishCooldown` (per target) and `StaffRateLimit` (per staff member, `staff-rate-limit`: a
+   delay between two of a kind, a max per window, past it a lock until `/staffunlock`, with an alert to
+   `judicator.ratelimit.notify`, the console and Discord `events.staff-locked`; in memory; `TestServer` turns it off,
+   `features/StaffRateLimitTest` back on); `AddressPolicy.isExempt` for IP punishments) → `PunishFactory` (checks the
+   cooldown and the rate limit again at confirmation, and gives both back when the punishment is not stored) → `BanHandler`/`MuteHandler` → `PunishService.save()` → DB → Discord webhook.
    `ReasonShortcuts` expands `#key` reasons; list commands page with `commons/Pagination` (clickable footer).
    Changes to a stored punishment go through `PunishService.changeEnd`/`changeReason` (an `UPDATE` that leaves revoked
    rows alone and refreshes the mute cache), never a full `save` that could undo a revocation.

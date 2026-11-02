@@ -29,8 +29,9 @@ final class PunishmentCommandSupport {
     }
 
     /**
-     * Rules that depend on who punishes: the sender's time limit and the cooldown on the target. Checked before the
-     * target is resolved; the cooldown is checked again when the punishment is confirmed.
+     * Rules that depend on who punishes: the sender's time limit, the cooldown on the target and the sender's rate
+     * limit. Checked before the target is resolved; the cooldown and the rate limit are checked again when the
+     * punishment is confirmed.
      *
      * @return false when the punishment must not go on (the reason was already sent to the source)
      */
@@ -38,7 +39,9 @@ final class PunishmentCommandSupport {
         if (!judicator.getTimeLimitService().allows(source, builder.getType(), builder.getStartedAt(), builder.getFinishAt())) {
             return false;
         }
-        return judicator.getPunishCooldown().allows(source, PunishCooldown.categoryOf(builder.getType()), targetName);
+        final String category = PunishCooldown.categoryOf(builder.getType());
+        return judicator.getPunishCooldown().allows(source, category, targetName)
+                && judicator.getStaffRateLimit().allows(source, category);
     }
 
     /**

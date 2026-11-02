@@ -45,6 +45,10 @@ public class KickCommand extends CoreCommand {
         }
 
         if (!judicator.getPunishCooldown().acquire(source, PunishCooldown.KICK, targetName)) return;
+        if (!judicator.getStaffRateLimit().acquire(source, PunishCooldown.KICK)) {
+            judicator.getPunishCooldown().release(PunishCooldown.KICK, targetName);
+            return;
+        }
         final String punisher = source.asPlayer().map(JudicatorPlayer::getName).orElse("Console");
         new KickHandler(judicator).handle(optPlayer.get(), punisher, reason, silent);
     }

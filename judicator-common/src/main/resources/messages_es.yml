@@ -300,6 +300,7 @@ usages:
   mutelist: "&cComando incorrecto. Usa: /mutelist [página]."
   activity: "&cComando incorrecto. Usa: /activity (período, ej. 24:h o 7:d) [página]."
   staffrollback: "&cComando incorrecto. Usa: /staffrollback (staff) (periodo, ej. 24:h o 7:d) [confirm]."
+  staffunlock: "&cComando incorrecto. Usa: /staffunlock [staff]."
   extend: "&cComando incorrecto. Usa: /extend (id) \"(número:días,número:horas...)\"."
   changereason: "&cComando incorrecto. Usa: /changereason (id) (motivo)."
   note: "&cComando incorrecto. Usa: /note (jugador) (texto)."
@@ -599,6 +600,9 @@ help:
     staffrollback:
       usage: "/staffrollback (staff) (periodo, p. ej. 24:h) [confirm]"
       description: "Deshace lo que aplicó un staff."
+    staffunlock:
+      usage: "/staffunlock [staff]"
+      description: "Permite castigar de nuevo a un staff bloqueado por el límite."
     judicator-reload:
       usage: "/judicator reload"
       description: "Recarga los archivos de configuración."
@@ -642,6 +646,20 @@ rollback:
   none: "&a{staff} no aplicó nada que siga vigente en los últimos {period}."
   done: "&aDeshecho lo aplicado por {staff}: {punishments} castigo(s) revocado(s) y {warns} advertencia(s) eliminada(s)."
   revoke-reason: "Rollback de {staff} por {author}"
+
+rate-limit:
+  delay: "&cEspera {remaining}s antes de aplicar otro {type}."
+  too-many: "&cAplicaste {count} {type}(s) en los últimos {window}. Espera {remaining}s antes de aplicar otro."
+  locked-now: "&4Aplicaste {count} {type}(s) en los últimos {window} y ya no puedes castigar. Se avisó al staff."
+  locked: "&4No puedes castigar por haber aplicado demasiados castigos en poco tiempo. Habla con un administrador."
+  alert: "&4[Alerta] &f{staff} &caplicó {count} {type}(s) en {window} y ya no puede castigar. &7Haz clic para ver qué deshacer; desbloquea con /staffunlock {staff}."
+  unlocked: "&a{staff} puede castigar de nuevo."
+  unlocked-notice: "&7[Staff] &f{author} &7desbloqueó a &f{staff}"
+  you-unlocked: "&aPuedes castigar de nuevo."
+  not-locked: "&c{staff} no está bloqueado."
+  list: "&eStaff bloqueado: &f{staff}"
+  none: "&aNingún miembro del staff está bloqueado."
+  self: "&cNo puedes desbloquearte a ti mismo."
 
 notes:
   added: "&aNota #{id} añadida a {nickname}."

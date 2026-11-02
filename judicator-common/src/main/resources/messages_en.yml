@@ -300,6 +300,7 @@ usages:
   mutelist: "&cIncorrect command. Use: /mutelist [page]."
   activity: "&cIncorrect command. Use: /activity (period, e.g. 24:h or 7:d) [page]."
   staffrollback: "&cIncorrect command. Use: /staffrollback (staff) (period, e.g. 24:h or 7:d) [confirm]."
+  staffunlock: "&cIncorrect command. Use: /staffunlock [staff]."
   extend: "&cIncorrect command. Use: /extend (id) \"(number:days,number:hours...)\"."
   changereason: "&cIncorrect command. Use: /changereason (id) (reason)."
   note: "&cIncorrect command. Use: /note (player) (text)."
@@ -599,6 +600,9 @@ help:
     staffrollback:
       usage: "/staffrollback (staff) (period, e.g. 24:h) [confirm]"
       description: "Undoes what a staff member applied."
+    staffunlock:
+      usage: "/staffunlock [staff]"
+      description: "Lets a staff member locked by the rate limit punish again."
     judicator-reload:
       usage: "/judicator reload"
       description: "Reloads the configuration files."
@@ -642,6 +646,20 @@ rollback:
   none: "&a{staff} applied nothing that is still in force in the last {period}."
   done: "&aRollback of {staff}: {punishments} punishment(s) revoked and {warns} warn(s) deleted."
   revoke-reason: "Rollback of {staff} by {author}"
+
+rate-limit:
+  delay: "&cWait {remaining}s before applying another {type}."
+  too-many: "&cYou applied {count} {type}(s) in the last {window}. Wait {remaining}s before applying another."
+  locked-now: "&4You applied {count} {type}(s) in the last {window} and can no longer punish. The staff was warned."
+  locked: "&4You are locked out of punishing for applying too many punishments in a short time. Ask an administrator."
+  alert: "&4[Alert] &f{staff} &capplied {count} {type}(s) in {window} and was locked out of punishing. &7Click to see what to undo; release with /staffunlock {staff}."
+  unlocked: "&a{staff} can punish again."
+  unlocked-notice: "&7[Staff] &f{author} &7unlocked &f{staff}"
+  you-unlocked: "&aYou can punish again."
+  not-locked: "&c{staff} is not locked."
+  list: "&eLocked staff: &f{staff}"
+  none: "&aNo staff member is locked."
+  self: "&cYou cannot unlock yourself."
 
 notes:
   added: "&aNote #{id} added to {nickname}."

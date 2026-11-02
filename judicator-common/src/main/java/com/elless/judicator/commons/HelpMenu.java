@@ -51,7 +51,7 @@ public final class HelpMenu {
         categories.put("jail", List.of("jail", "tempjail", "unjail", "jaillist", "jails"));
         categories.put("notes", List.of("note", "notes", "delnote"));
         categories.put("reports", List.of("report", "reports"));
-        categories.put("staff", List.of("blame", "activity", "staffrollback"));
+        categories.put("staff", List.of("blame", "activity", "staffrollback", "staffunlock"));
         categories.put("admin", List.of("judicator-reload", "judicator-version", "judicator-import", "judicator-clear"));
         return categories;
     }

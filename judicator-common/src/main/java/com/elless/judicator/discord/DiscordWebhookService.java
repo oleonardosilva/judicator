@@ -69,6 +69,52 @@ public class DiscordWebhookService {
     }
 
     /**
+     * {@code events.staff-locked}: a staff member went past {@code staff-rate-limit.max} and was locked out of
+     * punishing.
+     *
+     * @param window the window of the limit, as text
+     * @param period the same window as {@code /staffrollback} takes it
+     */
+    public void sendStaffLocked(String staff, UUID uuid, String type, int count, String window, String period) {
+        final ConfigurationNode discordConfig = plugin.getDiscordConfig();
+        if (!discordConfig.node("enabled").getBoolean(false)) return;
+        final ConfigurationNode eventNode = discordConfig.node("events", "staff-locked");
+        if (!eventNode.node("enabled").getBoolean(false)) return;
+        final String webhookUrl = webhookUrl(discordConfig, eventNode);
+        if (!isConfigured(webhookUrl)) return;
+
+        final Map<String, String> values = Map.of("{staff}", staff, "{type}", type, "{count}", String.valueOf(count), "{window}", window,
+                "{period}", period);
+        final Map<String, String> embed = new LinkedHashMap<>();
+        embed.put("title", jsonString(replace(eventNode.node("title").getString("Staff Member Locked"), values)));
+        embed.put("description", jsonString(replace(eventNode.node("description").getString(""), values)));
+        embed.put("color", String.valueOf(hexToInt(eventNode.node("color").getString("#8E44AD"))));
+        final String thumbnail = discordConfig.node("thumbnail-url").getString(DEFAULT_THUMBNAIL).replace("{uuid}", uuid.toString());
+        if (!thumbnail.isBlank()) embed.put("thumbnail", "{ \"url\": " + jsonString(thumbnail) + " }");
+        embed.put("timestamp", jsonString(LocalDateTime.now().toString()));
+
+        final Map<String, String> payload = new LinkedHashMap<>();
+        final String username = discordConfig.node("username").getString("");
+        final String avatar = discordConfig.node("avatar-url").getString("");
+        if (!username.isBlank()) payload.put("username", jsonString(username));
+        if (!avatar.isBlank()) payload.put("avatar_url", jsonString(avatar));
+        payload.put("embeds", "[" + object(embed) + "]");
+        CompletableFuture.runAsync(() -> {
+            try {
+                post(webhookUrl, object(payload));
+            } catch (Exception e) {
+                plugin.getLogger().error("[Discord] Failed to send the staff-locked webhook: {}", e.getMessage(), e);
+            }
+        });
+    }
+
+    private static String replace(String template, Map<String, String> values) {
+        String result = template;
+        for (Map.Entry<String, String> value : values.entrySet()) result = result.replace(value.getKey(), value.getValue());
+        return result;
+    }
+
+    /**
      * What one embed shows, from a punishment or a warn.
      *
      * @param expires null when the end means nothing (a kick)

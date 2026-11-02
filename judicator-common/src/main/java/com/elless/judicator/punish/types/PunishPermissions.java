@@ -29,6 +29,11 @@ public enum PunishPermissions {
     MUTELIST("judicator.mutelist"),
     ACTIVITY("judicator.activity"),
     STAFFROLLBACK("judicator.staffrollback"),
+    STAFFUNLOCK("judicator.staffunlock"),
+    /** not held to {@code staff-rate-limit}; only an explicit grant counts */
+    RATELIMIT_BYPASS("judicator.ratelimit.bypass"),
+    /** hears of a staff member locked by {@code staff-rate-limit} */
+    RATELIMIT_NOTIFY("judicator.ratelimit.notify"),
     EXTEND("judicator.extend"),
     CHANGEREASON("judicator.changereason"),
     NOTE("judicator.note"),

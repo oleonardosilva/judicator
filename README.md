@@ -440,6 +440,11 @@ time and a `TEMPJAIL` in the solitary cell the second.
   first). Punishments the console applied (e.g. the warn tree) are not included. You must be above the staff member in
   the hierarchy. **Permission:** `judicator.staffrollback`
 
+* **`/staffunlock {staff}`**
+  Lets a staff member locked by the [staff rate limit](#%EF%B8%8F-time-limits-and-cooldowns) punish again, with a clean
+  count. Without a name, lists who is locked. Nobody unlocks themselves, and you must be above the staff member in the
+  hierarchy. **Permission:** `judicator.staffunlock`
+
 ---
 
 ### 👥 Alt Accounts
@@ -492,7 +497,8 @@ time and a `TEMPJAIL` in the solitary cell the second.
 Set `enabled: true` and `webhook-url` in `discord.yml` and every ban, mute, kick and warn is posted to that channel as
 an embed (once, by the server that applied it). An event can post to another channel with its own `webhook-url`, or
 be turned off with `enabled: false`. Title, description and colour are set per event; the author's name and picture,
-the player picture, the footer and the field names (to translate them) are shared by all.
+the player picture, the footer and the field names (to translate them) are shared by all. `events.staff-locked` warns
+when the [staff rate limit](#%EF%B8%8F-time-limits-and-cooldowns) locks a staff member out of punishing.
 
 ---
 
@@ -541,6 +547,35 @@ the player picture, the footer and the field names (to translate them) are share
   `warn`, `kick`; `0` = off), so two staff members do not punish the same player twice for the same thing. Checked
   again when a staff member confirms in chat. Console and `judicator.admin` are not blocked, but what they apply
   starts the cooldown.
+* **`staff-rate-limit`**: a guard against a stolen or abusive staff account punishing everyone. It limits what *one*
+  staff member applies, whoever the targets are:
+
+  ```yaml
+  staff-rate-limit:
+    enabled: true
+    delay:          # seconds between two punishments of the same kind by the same staff member
+      ban: 10
+      mute: 5
+      warn: 5
+      kick: 3
+      jail: 5
+    window: 600     # seconds that max counts
+    max:            # most punishments of a kind per staff member within the window (0 = no limit)
+      ban: 10
+      mute: 20
+      warn: 20
+      kick: 20
+      jail: 10
+    lock: true
+  ```
+
+  Going past a `max` locks the staff member out of punishing (every kind) until `/staffunlock` or a restart, and warns
+  the staff with **`judicator.ratelimit.notify`** (click the alert to preview `/staffrollback` of the window), the
+  console log and Discord (`events.staff-locked` in `discord.yml`). With `lock: false` they only wait for the window.
+  The console and the API are never limited, and neither is the permission **`judicator.ratelimit.bypass`**, which
+  only counts when granted explicitly (not from op nor a `*` wildcard on Spigot/Paper and the mods; on the proxies any
+  grant counts). `judicator.admin` **is** limited: it is the account most worth stealing. Kept in memory on the server
+  where the staff member types. A `config.yml` from an older version without this section limits nothing: copy it in.
 
 ---
 

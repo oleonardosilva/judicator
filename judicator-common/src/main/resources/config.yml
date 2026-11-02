@@ -90,6 +90,28 @@ cooldowns:
   kick: 0
   jail: 30
 
+# Guard against a stolen or abusive staff account punishing everyone: limits what ONE staff member applies, whoever
+# the targets are. Going past a max (with lock: true) locks them out of punishing until /staffunlock (or a restart)
+# and warns the staff with judicator.ratelimit.notify, the console and Discord (events.staff-locked in discord.yml);
+# /staffrollback undoes what they applied. The console and the API are never limited, and neither is the explicit
+# permission judicator.ratelimit.bypass; judicator.admin IS limited (the account most worth stealing).
+staff-rate-limit:
+  enabled: true
+  delay: # seconds a staff member waits between two punishments of the same kind (0 = no wait)
+    ban: 10
+    mute: 5
+    warn: 5
+    kick: 3
+    jail: 5
+  window: 600 # seconds that max counts
+  max: # most punishments of a kind one staff member may apply within the window (0 = no limit)
+    ban: 10
+    mute: 20
+    warn: 20
+    kick: 20
+    jail: 10
+  lock: true # false: past a max the staff member only waits for the window, nobody is warned
+
 # ------------------------------------------------------------
 #  Muted players
 # ------------------------------------------------------------
