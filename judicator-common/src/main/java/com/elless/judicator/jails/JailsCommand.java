@@ -60,7 +60,7 @@ public class JailsCommand extends CoreCommand {
         }
         final Optional<String> name = args.word().map(word -> word.toLowerCase(Locale.ROOT));
         if (name.isEmpty()) {
-            sendUsage(source, getName());
+            usage(source, sub);
             return;
         }
         if (sub.equals("create")) {
@@ -162,7 +162,7 @@ public class JailsCommand extends CoreCommand {
             try {
                 radius = Math.max(1, Math.min(64, Integer.parseInt(radiusText.get())));
             } catch (NumberFormatException e) {
-                sendUsage(source, getName());
+                usage(source, "create");
                 return;
             }
         }
@@ -227,13 +227,17 @@ public class JailsCommand extends CoreCommand {
     }
 
     private void shared(JudicatorSender source, Jail jail, Optional<String> value) {
+        if (value.isEmpty()) {
+            send(source, "jails", "shared-now", Map.of("jail", jail.name(), "room", room(messages(source), jail)));
+            return;
+        }
         final Optional<Boolean> shared = value.map(text -> text.toLowerCase(Locale.ROOT)).flatMap(text -> switch (text) {
             case "true", "yes", "on" -> Optional.of(true);
             case "false", "no", "off" -> Optional.of(false);
             default -> Optional.empty();
         });
         if (shared.isEmpty()) {
-            sendUsage(source, getName());
+            usage(source, "shared");
             return;
         }
         final Jail changed = jail.withShared(shared.get());
@@ -241,15 +245,19 @@ public class JailsCommand extends CoreCommand {
     }
 
     private void capacity(JudicatorSender source, Jail jail, Optional<String> value) {
+        if (value.isEmpty()) {
+            send(source, "jails", "capacity-now", Map.of("jail", jail.name(), "room", room(messages(source), jail)));
+            return;
+        }
         final int capacity;
         try {
-            capacity = Integer.parseInt(value.orElse(""));
+            capacity = Integer.parseInt(value.get());
         } catch (NumberFormatException e) {
-            sendUsage(source, getName());
+            usage(source, "capacity");
             return;
         }
         if (capacity < 0) {
-            sendUsage(source, getName());
+            usage(source, "capacity");
             return;
         }
         final Jail changed = jail.withCapacity(capacity).withShared(capacity != 1 || jail.shared());
@@ -258,12 +266,12 @@ public class JailsCommand extends CoreCommand {
 
     private void server(JudicatorSender source, Jail jail, Optional<String> value) {
         if (value.isEmpty()) {
-            sendUsage(source, getName());
+            send(source, "jails", "server-now", Map.of("jail", jail.name(), "server", serverName(messages(source), jail)));
             return;
         }
         final String server = value.get().equalsIgnoreCase("none") ? "" : value.get().toLowerCase(Locale.ROOT);
         if (!server.isEmpty() && !Jail.VALID_NAME.matcher(server).matches()) {
-            sendUsage(source, getName());
+            usage(source, "server");
             return;
         }
         final Jail changed = jail.withServer(server);
@@ -295,11 +303,11 @@ public class JailsCommand extends CoreCommand {
                     chance = args.word().map(Integer::parseInt).orElse(100);
                     radius = args.word().map(Double::parseDouble).orElse(EscapeRoute.DEFAULT_RADIUS);
                 } catch (NumberFormatException e) {
-                    sendUsage(source, getName());
+                    usage(source, "escape");
                     return;
                 }
                 if (chance < 0 || chance > 100 || radius <= 0 || radius > EscapeRoute.MAX_RADIUS) {
-                    sendUsage(source, getName());
+                    usage(source, "escape");
                     return;
                 }
                 if (jail.escapes().size() >= Jail.MAX_ESCAPES) {
@@ -325,17 +333,17 @@ public class JailsCommand extends CoreCommand {
                 try {
                     index = Integer.parseInt(args.word().orElse(""));
                 } catch (NumberFormatException e) {
-                    sendUsage(source, getName());
+                    usage(source, "escape");
                     return;
                 }
                 if (index < 1 || index > jail.escapes().size()) {
-                    sendUsage(source, getName());
+                    usage(source, "escape");
                     return;
                 }
                 save(source, jail.withoutEscape(index), "escape-removed", Map.of("jail", jail.name(), "index", String.valueOf(index)));
             }
             case "clear" -> save(source, jail.withoutEscapes(), "escapes-cleared", Map.of("jail", jail.name()));
-            default -> sendUsage(source, getName());
+            default -> usage(source, "escape");
         }
     }
 
@@ -410,6 +418,16 @@ public class JailsCommand extends CoreCommand {
     }
 
     private record Position(JudicatorPlayer player, Location at) {
+    }
+
+    /**
+     * The usage of one subcommand ({@code jails.usage.<sub>}; {@code jails.usage.jail} for those that only take the
+     * jail), instead of the whole {@code /jails} usage.
+     */
+    private void usage(JudicatorSender source, String sub) {
+        final ConfigurationNode usages = messages(source).node("jails", "usage");
+        final String key = usages.node(sub).virtual() ? "jail" : sub;
+        source.sendMessage(PunishUtils.format(messages(source), Map.of("sub", sub), "jails", "usage", key));
     }
 
     private void send(JudicatorSender source, String section, String key, Map<String, String> values) {

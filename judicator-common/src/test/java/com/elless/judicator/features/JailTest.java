@@ -229,6 +229,39 @@ class JailTest {
     }
 
     @Test
+    void aSettingWithoutAValue_showsWhatItIsNow() {
+        start(TestServer.in(folder));
+        makeJail("yard", CELL);
+        server.command(admin, "jails capacity yard 4");
+        admin.clearMessages();
+
+        server.command(admin, "jails capacity yard");
+        server.command(admin, "jails shared yard");
+        server.command(admin, "jails server yard");
+
+        assertTrue(admin.received("Jail yard holds 4 prisoner(s). Change it with /jails capacity yard (number), 0 for no limit."),
+                admin.messages().toString());
+        assertTrue(admin.received("Change it with /jails shared yard (true|false)."), admin.messages().toString());
+        assertTrue(admin.received("Jail yard is on this server. Change it with /jails server yard (server|none)."),
+                admin.messages().toString());
+        assertFalse(admin.received("Incorrect command"), "not the whole /jails usage");
+    }
+
+    @Test
+    void aWrongSubcommand_showsOnlyItsUsage() {
+        start(TestServer.in(folder));
+        makeJail("yard", CELL);
+        admin.clearMessages();
+
+        server.command(admin, "jails capacity yard many");
+        server.command(admin, "jails tp");
+        server.command(admin, "jails escape yard add 200");
+
+        assertEquals(List.of("Use: /jails capacity (jail) (number), 0 for no limit.", "Use: /jails tp (jail).",
+                "Use: /jails escape (jail) add [chance 0-100] [radius]|list|remove (n)|clear."), admin.messages());
+    }
+
+    @Test
     void withoutJails_jailIsRefused() {
         start(TestServer.in(folder));
         server.online(new FakePlayer("Steve", "10.0.0.1"));

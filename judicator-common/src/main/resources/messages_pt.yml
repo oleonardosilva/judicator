@@ -435,6 +435,17 @@ jails: # /jails
   escape-removed: "&aRota de fuga {index} de &e{jail} &aremovida."
   escapes-cleared: "&aA cadeia &e{jail} &anão tem mais rotas de fuga."
   teleported: "&aVocê está na cadeia &e{jail}&a."
+  shared-now: "&eA cadeia &f{jail} &ecomporta {room} preso(s). &7Para mudar: /jails shared {jail} (true|false)."
+  capacity-now: "&eA cadeia &f{jail} &ecomporta {room} preso(s). &7Para mudar: /jails capacity {jail} (número), 0 para sem limite."
+  server-now: "&eA cadeia &f{jail} &efica em {server}. &7Para mudar: /jails server {jail} (servidor|none)."
+  usage: # what a subcommand takes, when it was typed wrong (jail: those that only take the jail)
+    jail: "&cUse: /jails {sub} (cadeia)."
+    create: "&cUse: /jails create (cadeia) [raio]: aqui, com uma área desse tanto de blocos ao seu redor (3 por padrão)."
+    release: "&cUse: /jails release (cadeia) [clear]: onde você está, ou o spawn do mundo com clear."
+    shared: "&cUse: /jails shared (cadeia) (true|false)."
+    capacity: "&cUse: /jails capacity (cadeia) (número), 0 para sem limite."
+    server: "&cUse: /jails server (cadeia) (servidor|none)."
+    escape: "&cUse: /jails escape (cadeia) add [chance 0-100] [raio]|list|remove (n)|clear."
 
 activity:
   title: "&eAtividade da staff nos últimos &f{period} &7({count} membros, página {page}/{pages})\n\n"

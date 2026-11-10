@@ -435,6 +435,17 @@ jails: # /jails
   escape-removed: "&aFluchtweg {index} von &e{jail} &aentfernt."
   escapes-cleared: "&aDas Gefängnis &e{jail} &ahat jetzt keinen Fluchtweg mehr."
   teleported: "&aDu bist im Gefängnis &e{jail}&a."
+  shared-now: "&eDas Gefängnis &f{jail} &efasst {room} Gefangene(n). &7Ändern mit /jails shared {jail} (true|false)."
+  capacity-now: "&eDas Gefängnis &f{jail} &efasst {room} Gefangene(n). &7Ändern mit /jails capacity {jail} (Zahl), 0 für ohne Limit."
+  server-now: "&eDas Gefängnis &f{jail} &eist auf {server}. &7Ändern mit /jails server {jail} (Server|none)."
+  usage: # what a subcommand takes, when it was typed wrong (jail: those that only take the jail)
+    jail: "&cNutze: /jails {sub} (Gefängnis)."
+    create: "&cNutze: /jails create (Gefängnis) [Radius]: hier, mit einem Bereich von so vielen Blöcken um dich (Standard 3)."
+    release: "&cNutze: /jails release (Gefängnis) [clear]: wo du stehst, oder der Welt-Spawn mit clear."
+    shared: "&cNutze: /jails shared (Gefängnis) (true|false)."
+    capacity: "&cNutze: /jails capacity (Gefängnis) (Zahl), 0 für ohne Limit."
+    server: "&cNutze: /jails server (Gefängnis) (Server|none)."
+    escape: "&cNutze: /jails escape (Gefängnis) add [Chance 0-100] [Radius]|list|remove (n)|clear."
 
 activity:
   title: "&eTeam-Aktivität im Zeitraum &f{period} &7({count} Teammitglieder, Seite {page}/{pages})\n\n"

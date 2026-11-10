@@ -435,6 +435,17 @@ jails: # /jails
   escape-removed: "&aVoie d'évasion {index} de &e{jail} &asupprimée."
   escapes-cleared: "&aLa prison &e{jail} &an'a plus de voie d'évasion."
   teleported: "&aVous êtes à la prison &e{jail}&a."
+  shared-now: "&eLa prison &f{jail} &eaccueille {room} prisonnier(s). &7Pour la changer : /jails shared {jail} (true|false)."
+  capacity-now: "&eLa prison &f{jail} &eaccueille {room} prisonnier(s). &7Pour la changer : /jails capacity {jail} (nombre), 0 pour sans limite."
+  server-now: "&eLa prison &f{jail} &eest sur {server}. &7Pour la changer : /jails server {jail} (serveur|none)."
+  usage: # what a subcommand takes, when it was typed wrong (jail: those that only take the jail)
+    jail: "&cUtilisez : /jails {sub} (prison)."
+    create: "&cUtilisez : /jails create (prison) [rayon] : ici, avec une zone de ce nombre de blocs autour de vous (3 par défaut)."
+    release: "&cUtilisez : /jails release (prison) [clear] : là où vous êtes, ou le spawn du monde avec clear."
+    shared: "&cUtilisez : /jails shared (prison) (true|false)."
+    capacity: "&cUtilisez : /jails capacity (prison) (nombre), 0 pour sans limite."
+    server: "&cUtilisez : /jails server (prison) (serveur|none)."
+    escape: "&cUtilisez : /jails escape (prison) add [chance 0-100] [rayon]|list|remove (n)|clear."
 
 activity:
   title: "&eActivité du staff depuis &f{period} &7({count} membres, page {page}/{pages})\n\n"

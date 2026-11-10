@@ -435,6 +435,17 @@ jails: # /jails
   escape-removed: "&aRuta de fuga {index} de &e{jail} &aeliminada."
   escapes-cleared: "&aLa cárcel &e{jail} &aya no tiene rutas de fuga."
   teleported: "&aEstás en la cárcel &e{jail}&a."
+  shared-now: "&eLa cárcel &f{jail} &ecabe {room} preso(s). &7Para cambiarlo: /jails shared {jail} (true|false)."
+  capacity-now: "&eLa cárcel &f{jail} &ecabe {room} preso(s). &7Para cambiarlo: /jails capacity {jail} (número), 0 para sin límite."
+  server-now: "&eLa cárcel &f{jail} &eestá en {server}. &7Para cambiarlo: /jails server {jail} (servidor|none)."
+  usage: # what a subcommand takes, when it was typed wrong (jail: those that only take the jail)
+    jail: "&cUsa: /jails {sub} (cárcel)."
+    create: "&cUsa: /jails create (cárcel) [radio]: aquí, con un área de esa cantidad de bloques a tu alrededor (3 por defecto)."
+    release: "&cUsa: /jails release (cárcel) [clear]: donde estás, o el spawn del mundo con clear."
+    shared: "&cUsa: /jails shared (cárcel) (true|false)."
+    capacity: "&cUsa: /jails capacity (cárcel) (número), 0 para sin límite."
+    server: "&cUsa: /jails server (cárcel) (servidor|none)."
+    escape: "&cUsa: /jails escape (cárcel) add [probabilidad 0-100] [radio]|list|remove (n)|clear."
 
 activity:
   title: "&eActividad del staff en los últimos &f{period} &7({count} miembros, página {page}/{pages})\n\n"

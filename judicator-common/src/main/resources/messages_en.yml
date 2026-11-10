@@ -435,6 +435,17 @@ jails: # /jails
   escape-removed: "&aEscape route {index} of &e{jail} &aremoved."
   escapes-cleared: "&aThe jail &e{jail} &ahas no escape route now."
   teleported: "&aYou are at the jail &e{jail}&a."
+  shared-now: "&eJail &f{jail} &eholds {room} prisoner(s). &7Change it with /jails shared {jail} (true|false)."
+  capacity-now: "&eJail &f{jail} &eholds {room} prisoner(s). &7Change it with /jails capacity {jail} (number), 0 for no limit."
+  server-now: "&eJail &f{jail} &eis on {server}. &7Change it with /jails server {jail} (server|none)."
+  usage: # what a subcommand takes, when it was typed wrong (jail: those that only take the jail)
+    jail: "&cUse: /jails {sub} (jail)."
+    create: "&cUse: /jails create (jail) [radius]: here, with an area of that many blocks around you (3 by default)."
+    release: "&cUse: /jails release (jail) [clear]: where you stand, or the world spawn with clear."
+    shared: "&cUse: /jails shared (jail) (true|false)."
+    capacity: "&cUse: /jails capacity (jail) (number), 0 for no limit."
+    server: "&cUse: /jails server (jail) (server|none)."
+    escape: "&cUse: /jails escape (jail) add [chance 0-100] [radius]|list|remove (n)|clear."
 
 activity:
   title: "&eStaff activity in the last &f{period} &7({count} staff, page {page}/{pages})\n\n"
