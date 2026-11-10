@@ -103,3 +103,5 @@ gradle-app.setting
 
 # run-task (runVelocity / runServer)
 **/run/
+
+.vscode/

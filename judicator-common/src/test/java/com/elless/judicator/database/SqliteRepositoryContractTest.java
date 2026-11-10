@@ -2,17 +2,13 @@ package com.elless.judicator.database;
 
 import com.elless.judicator.players.PlayerRef;
 import com.elless.judicator.players.repository.dao.PlayerRelationalDAO;
-import com.elless.judicator.punish.data.repository.dao.PlayerAddressRelationalDAO;
 import com.elless.judicator.commons.db.Dialect;
 import com.elless.judicator.commons.db.LegacyTables;
 import com.elless.judicator.commons.db.RelationalDBManager;
-import com.elless.judicator.notes.repository.dao.NoteRelationalDAO;
 import com.elless.judicator.punish.Punishment;
 import com.elless.judicator.punish.data.repository.dao.PunishmentRelationalDAO;
 import com.elless.judicator.punish.hierarchy.PlayerLevelRelationalDAO;
 import com.elless.judicator.punish.types.PunishType;
-import com.elless.judicator.reports.repository.dao.ReportRelationalDAO;
-import com.elless.judicator.sync.repository.dao.SyncRelationalDAO;
 import com.elless.judicator.warns.Warn;
 import com.elless.judicator.warns.repository.dao.WarnRelationalDAO;
 import org.junit.jupiter.api.Test;
@@ -46,25 +42,7 @@ class SqliteRepositoryContractTest extends RepositoryContract {
     protected Store open(Path folder) {
         manager = new RelationalDBManager();
         manager.initialize(of(map("database", map("type", "sqlite", "file", "test.db"))), folder, LOGGER);
-        final PunishmentRelationalDAO punishments = new PunishmentRelationalDAO(manager, LOGGER);
-        final WarnRelationalDAO warns = new WarnRelationalDAO(manager, LOGGER);
-        final PlayerAddressRelationalDAO addresses = new PlayerAddressRelationalDAO(manager, LOGGER);
-        final PlayerLevelRelationalDAO levels = new PlayerLevelRelationalDAO(manager, LOGGER);
-        final NoteRelationalDAO notes = new NoteRelationalDAO(manager, LOGGER);
-        punishments.initialize();
-        warns.initialize();
-        addresses.initialize();
-        levels.initialize();
-        notes.initialize();
-        final SyncRelationalDAO sync = new SyncRelationalDAO(manager, LOGGER);
-        sync.initialize();
-        final PlayerRelationalDAO players = new PlayerRelationalDAO(manager, LOGGER);
-        players.initialize();
-        final ReportRelationalDAO reports = new ReportRelationalDAO(manager, LOGGER);
-        reports.initialize();
-        final com.elless.judicator.jails.repository.dao.JailRelationalDAO jails = new com.elless.judicator.jails.repository.dao.JailRelationalDAO(manager, LOGGER);
-        jails.initialize();
-        return new Store(punishments, warns, addresses, levels, notes, sync, players, reports, jails, manager::shutdown);
+        return RelationalStores.open(manager, LOGGER);
     }
 
     @Test

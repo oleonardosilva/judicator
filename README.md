@@ -681,6 +681,34 @@ the server language.
 
 ---
 
+### ⬆️ Upgrading to 2.1.0
+
+Replace the jar and restart. Servers sharing a database should all be updated together: a 2.0 server does not know
+the jail punishments a 2.1 server stores.
+
+* **Database**: on the first start the plugin creates the `judicator_jails` table and adds the columns `jail`,
+  `escaped_at`, `jail_left`, `revoked_by`, `revoked_by_uuid` and `revoked_at` to `judicator_punishments` (SQLite,
+  MySQL/MariaDB and PostgreSQL), keeping every row. Punishments revoked before have only their reason.
+* **New features stay off until you copy their sections**: your files keep working as they are, and the new sections
+  are only read when they are there. Copy them from the bundled files (rename yours, restart, copy your values back,
+  or paste the sections in):
+  * `config.yml` → `staff-rate-limit` (the limit on what one staff member applies), `jail` (prisoners' commands,
+    rules, escapes) and `cooldowns.jail`. Without `jail`, prisoners can run no command at all.
+  * `discord.yml` → the events `jail`, `tempjail`, `revoke`, `edit`, `unwarn`, `rollback` and `staff-locked`, and
+    the labels `revoked-by`, `revoke-reason`, `edited-by`, `change`, `removed-by`.
+  * Messages: new keys are read from the bundled files. To show who revoked a punishment in your own
+    `messages_*.yml`, add `{revokedBy}` after `{revoked}` in `runners.punishment-view` and `menu.punishment.info.lore`
+    (and copy `revoked-by`).
+* **`staff-rate-limit` holds `judicator.admin` too**: once the section is in, give `judicator.ratelimit.bypass`
+  explicitly to the accounts that must not be limited (an owner's), and `judicator.ratelimit.notify` to whoever must
+  hear of a locked staff member.
+* **New permissions**: `judicator.jail`, `judicator.tempjail`, `judicator.unjail`, `judicator.jaillist`,
+  `judicator.jails`, `judicator.jail.guard`, `judicator.jail.notify`, `judicator.staffunlock`,
+  `judicator.ratelimit.notify`, `judicator.ratelimit.bypass`.
+* **API**: `PunishmentType` has `JAIL` and `TEMPJAIL` (a `switch` over it needs them), `PunishmentView` has the new
+  components `jail` and `escapedAt` (its constructor changed), and `ActionStatus` has new values. New: reports, staff
+  notes, accounts, staff activity and jails from code, with their events.
+
 ### ⬆️ Upgrading to 2.0.0
 
 2.0.0 changes the database: **stop every server sharing the database, update them all, then start them.** A 1.x server

@@ -41,7 +41,10 @@ Tests live in `judicator-common/src/test/java`:
   if the setting is not in the bundled `config.yml`); exemptions with `.immunePlayers(...)`.
 - `database/RepositoryContract` runs the same tests on the in-memory repositories and on the SQLite DAOs, so the
   test doubles cannot drift from the SQL. The in-memory repositories reject what the tables reject (NOT NULL,
-  VARCHAR lengths) with an exception, where the DAOs would only log it and lose the row.
+  VARCHAR lengths) with an exception, where the DAOs would only log it and lose the row. `Mysql`/
+  `PostgresRepositoryContractTest` run it on a real server only when `JUDICATOR_TEST_MYSQL` / `JUDICATOR_TEST_POSTGRES`
+  is set (`host:port`; database, user and password `judicator`; the `docker run` lines are in
+  `ExternalRepositoryContract`), with a table prefix of their own per test. Run them when the SQL changes.
 - Unit tests for parsers, `ConfiguredReason`, importer helpers, etc.
 
 Add a test with every bug fix and every new command, parser, DAO query or importer; see it fail before the fix.

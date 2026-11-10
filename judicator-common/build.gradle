@@ -25,6 +25,9 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation 'org.xerial:sqlite-jdbc:3.46.1.2'
+    // ExternalRepositoryContract (opt-in, JUDICATOR_TEST_MYSQL / JUDICATOR_TEST_POSTGRES): the drivers the platforms load
+    testRuntimeOnly 'com.mysql:mysql-connector-j:9.3.0'
+    testRuntimeOnly 'org.postgresql:postgresql:42.7.7'
     testRuntimeOnly 'org.slf4j:slf4j-nop:2.0.16'
 }
 
